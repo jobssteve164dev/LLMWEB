@@ -1,55 +1,51 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://llmweb.local/contracts/training-job.schema.json",
-  "title": "LLMWEB Training Job",
+  "title": "LLMWEB Model Pipeline Job",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
-    "job_id",
     "workspace_id",
     "project_id",
+    "experiment_id",
+    "dataset_id",
     "task",
     "model",
-    "dataset",
     "training",
     "runtime",
     "output"
   ],
   "properties": {
     "schema_version": { "const": "1.0" },
-    "job_id": { "type": "string", "minLength": 1 },
     "workspace_id": { "type": "string", "minLength": 1 },
     "project_id": { "type": "string", "minLength": 1 },
-    "task": { "const": "sft" },
+    "experiment_id": { "type": "string", "minLength": 1 },
+    "dataset_id": { "type": "string", "minLength": 1 },
+    "task": { "enum": ["baseline", "train", "evaluate", "export"] },
+    "selected_checkpoint": { "type": "string", "minLength": 1 },
     "model": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "id", "revision"],
+      "required": ["source", "id", "revision", "template"],
       "properties": {
-        "source": { "enum": ["huggingface", "modelscope", "local"] },
+        "source": { "const": "huggingface" },
         "id": { "type": "string", "minLength": 1 },
-        "revision": { "type": "string", "minLength": 1 }
-      }
-    },
-    "dataset": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["version_id", "location"],
-      "properties": {
-        "version_id": { "type": "string", "minLength": 1 },
-        "location": { "type": "string", "minLength": 1 }
+        "revision": { "type": "string", "minLength": 1 },
+        "template": { "enum": ["qwen", "llama3", "mistral", "gemma", "default"] }
       }
     },
     "training": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["method", "epochs", "learning_rate", "max_length"],
+      "required": ["method", "epochs", "learning_rate", "max_length", "batch_size", "gradient_accumulation"],
       "properties": {
         "method": { "enum": ["lora", "qlora"] },
         "epochs": { "type": "number", "exclusiveMinimum": 0 },
         "learning_rate": { "type": "number", "exclusiveMinimum": 0 },
-        "max_length": { "type": "integer", "minimum": 128 }
+        "max_length": { "type": "integer", "minimum": 128 },
+        "batch_size": { "type": "integer", "minimum": 1 },
+        "gradient_accumulation": { "type": "integer", "minimum": 1 }
       }
     },
     "runtime": {
@@ -58,22 +54,31 @@
       "required": ["engine", "image"],
       "properties": {
         "engine": { "const": "llamafactory" },
-        "image": { "type": "string", "minLength": 1 }
+        "image": { "const": "llmweb/runtime:0.1.0" }
       }
     },
     "output": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["destination", "formats"],
+      "required": ["formats"],
       "properties": {
+        "preview_allowed": { "type": "boolean" },
         "destination": { "enum": ["local", "user_s3"] },
+        "s3_uri": { "type": ["string", "null"] },
+        "s3_endpoint": { "type": ["string", "null"] },
         "formats": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "enum": ["adapter", "merged", "huggingface", "gguf"] }
+          "items": { "enum": ["adapter", "huggingface", "gguf"] }
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "task": { "enum": ["evaluate", "export"] } } },
+      "then": { "required": ["selected_checkpoint"] }
+    }
+  ]
 }
