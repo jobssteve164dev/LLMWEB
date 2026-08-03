@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: services/control-plane/pyproject.toml
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: runner/go.mod
+          cache-dependency-path: runner/go.mod
+      - name: Install frontend
+        run: pnpm install --frozen-lockfile
+      - name: Install control plane
+        run: python -m pip install -e 'services/control-plane[dev]'
+      - name: Verify frontend
+        run: pnpm check
+      - name: Test control plane
+        run: python -m pytest services/control-plane
+      - name: Test runner
+        working-directory: runner
+        run: go test ./...
