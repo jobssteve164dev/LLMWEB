@@ -88,3 +88,7 @@ cd runner && go test ./...
 ```
 
 当前仓库已覆盖项目创建、一次性配对、数据检查、基础模型评测、LoRA/QLoRA 训练、训练版本选择、固定测试集复测、暂停/继续/取消、断线事件补传及产物导出。没有 NVIDIA GPU 和 Docker 的开发机可以验证网页与控制流程，但不能替代真实 GPU 训练验收。
+
+## 许可证
+
+LLMWEB 使用 [MIT License](LICENSE) 开源。

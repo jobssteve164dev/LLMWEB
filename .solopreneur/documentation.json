@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T09:15:27.016Z",
+  "updatedAt": "2026-08-03T10:04:36.365Z",
   "documents": [
     {
       "path": "README.md",
@@ -8,7 +8,7 @@
       "status": "active",
       "solves": "说明项目是什么、服务谁、成功标准和对外表达。",
       "lastReviewedAt": "",
-      "lastTouchedAt": "2026-08-03T08:08:15.144Z"
+      "lastTouchedAt": "2026-08-03T09:20:28.719Z"
     },
     {
       "path": ".solopreneur/README.md",
@@ -24,7 +24,7 @@
       "status": "active",
       "solves": "保存项目长期解释性背景。",
       "lastReviewedAt": "",
-      "lastTouchedAt": "2026-08-03T08:20:19.857Z"
+      "lastTouchedAt": "2026-08-03T09:20:28.722Z"
     },
     {
       "path": "docs/product/product-design.md",
@@ -32,7 +32,7 @@
       "status": "active",
       "solves": "保存项目长期解释性背景。",
       "lastReviewedAt": "",
-      "lastTouchedAt": "2026-08-03T08:20:19.857Z"
+      "lastTouchedAt": "2026-08-03T09:20:28.720Z"
     }
   ],
   "pendingReview": []
