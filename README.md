@@ -37,6 +37,8 @@ make web-service
 
 打开 `http://localhost:3000`，首次登录密码由 `.env` 中的 `LLMWEB_ACCESS_PASSWORD` 决定。该命令会启动网页、控制面和 PostgreSQL；它不会接触训练数据。
 
+生产部署使用根目录 `compose.yaml`，只运行网页和控制面，并通过 `LLMWEB_DATABASE_URL` 连接部署平台治理的 PostgreSQL。用于本地开发的一体化 PostgreSQL 单独定义在 `compose.local.yaml`，不会作为生产业务服务发布。
+
 ## 连接 GPU 主机
 
 GPU 主机需要 Linux x86_64、NVIDIA 驱动和可用的 Docker。先构建受控训练环境和连接程序：

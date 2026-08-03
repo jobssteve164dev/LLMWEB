@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:17.7-bookworm
+    environment:
+      POSTGRES_DB: llmweb
+      POSTGRES_USER: llmweb
+      POSTGRES_PASSWORD: ${LLMWEB_POSTGRES_PASSWORD:-local-llmweb-password}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U llmweb -d llmweb"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    volumes:
+      - control-data:/var/lib/postgresql/data
+
+  control-plane:
+    environment:
+      LLMWEB_DATABASE_URL: postgresql+psycopg://llmweb:${LLMWEB_POSTGRES_PASSWORD:-local-llmweb-password}@postgres:5432/llmweb
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  control-data:

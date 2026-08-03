@@ -149,6 +149,8 @@ Runner 不包含 PyTorch 或训练框架。Python、CUDA 用户态依赖和训�
 
 保存用户、工作区、项目、Runner、数据版本元数据、任务、实验、指标摘要和模型记录。
 
+生产环境中的 PostgreSQL 必须作为部署平台治理的数据库资源独立接入，不作为网页业务的 Compose 服务运行；本地开发可通过独立的 Compose 覆盖文件启动本地 PostgreSQL。
+
 ### Runner 本地状态
 
 保存已接受任务、事件缓冲、容器引用、checkpoint 引用和恢复信息。该状态必须能在 Runner 进程或主机重启后重新读取。
