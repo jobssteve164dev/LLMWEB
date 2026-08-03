@@ -1,7 +1,7 @@
 .PHONY: web-service gpu-runtime verify
 
 web-service:
-	docker compose up --build
+	docker compose -f compose.yaml -f compose.local.yaml up --build
 
 gpu-runtime:
 	cd runner && mkdir -p bin && go build -o bin/llmweb-runner ./cmd/runner

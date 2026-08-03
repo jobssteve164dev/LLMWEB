@@ -19,6 +19,7 @@ This file stores stable project facts future agents should reuse. Do not paste r
 - 没有同一测试集上的基础模型与微调模型对比，不得宣称效果已经提升。
 - 首版基础模型固定为 Qwen2.5 0.5B、1.5B、3B 指令模型的精确 revision；不接受用户输入任意镜像或命令。
 - 首版为单工作区部署，通过网页访问密码保护；完整多用户身份系统不在首个切片内。
+- 生产 PostgreSQL 由 GitOps 数据库池治理并注入控制面，根 `compose.yaml` 只定义 Web 与控制面；本地 PostgreSQL 只存在于 `compose.local.yaml`。
 
 ## Architecture Boundaries
 
