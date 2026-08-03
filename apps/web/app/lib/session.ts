@@ -6,6 +6,10 @@ function password() {
   return process.env.LLMWEB_ACCESS_PASSWORD ?? "local-llmweb";
 }
 
+function account() {
+  return process.env.LLMWEB_ACCESS_ACCOUNT ?? "admin";
+}
+
 export function sessionValue() {
   return createHmac("sha256", password()).update("llmweb-single-workspace").digest("hex");
 }
@@ -19,6 +23,12 @@ export function validSession(value: string | undefined) {
 
 export function validPassword(value: string) {
   const expected = Buffer.from(password());
+  const actual = Buffer.from(value);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+
+export function validAccount(value: string) {
+  const expected = Buffer.from(account());
   const actual = Buffer.from(value);
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }

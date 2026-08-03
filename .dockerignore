@@ -1,0 +1,16 @@
+.git
+.github
+.solopreneur
+.env
+.env.*
+!.env.example
+.artifacts
+.runner
+.venv
+node_modules
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+**/.playwright-cli
+*.tsbuildinfo

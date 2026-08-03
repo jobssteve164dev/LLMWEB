@@ -34,6 +34,7 @@ services:
     environment:
       LLMWEB_CONTROL_URL: http://control-plane:8000
       LLMWEB_WEB_TOKEN: ${LLMWEB_WEB_TOKEN:-local-dev-token}
+      LLMWEB_ACCESS_ACCOUNT: ${LLMWEB_ACCESS_ACCOUNT:-admin}
       LLMWEB_ACCESS_PASSWORD: ${LLMWEB_ACCESS_PASSWORD:-local-llmweb}
     depends_on:
       - control-plane
