@@ -95,14 +95,12 @@ input::placeholder, textarea::placeholder { color: #a5ada7; }
 .pairingHeader { align-items: center; background: var(--green-soft); display: flex; justify-content: space-between; padding: 22px 26px; }
 .pairingHeader span, .pairingHeader strong { display: block; }
 .pairingHeader span { color: var(--green-dark); font-size: 11px; font-weight: 700; }
-.pairingHeader strong { font-family: ui-monospace, monospace; font-size: 28px; letter-spacing: .18em; margin-top: 5px; }
+.pairingHeader strong { font-size: 20px; margin-top: 5px; }
 .pairingHeader small { color: var(--green-dark); }
-.connectionInstructions { list-style: none; margin: 0; padding: 26px; }
-.connectionInstructions li { display: grid; gap: 13px; grid-template-columns: 28px minmax(0, 1fr); margin-bottom: 24px; }
-.connectionInstructions li > span { align-items: center; background: var(--ink); border-radius: 50%; color: white; display: flex; font-size: 11px; height: 26px; justify-content: center; }
-.connectionInstructions strong { display: block; font-size: 13px; margin-bottom: 9px; }
 code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.connectionInstructions code, .connectionInstructions pre { background: #f2f3ef; border: 1px solid var(--line); border-radius: 9px; display: block; font-size: 11px; line-height: 1.6; margin: 0 0 9px; overflow: auto; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; }
+.connectionCommand { padding: 26px; }
+.connectionCommand p { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 0 0 14px; }
+.connectionCommand pre { background: #f2f3ef; border: 1px solid var(--line); border-radius: 9px; display: block; font-size: 11px; line-height: 1.6; margin: 0 0 14px; overflow: auto; padding: 14px; white-space: pre-wrap; word-break: break-word; }
 .waitingLine { align-items: center; border-top: 1px solid var(--line); color: var(--muted); display: flex; font-size: 12px; gap: 9px; margin: 0; padding: 17px 26px; }
 .pulseDot { animation: pulse 1.4s infinite; background: var(--green); border-radius: 50%; height: 8px; width: 8px; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(33,110,80,.1); opacity: .7; } }
@@ -291,7 +289,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .performance > div:last-child { grid-template-columns: repeat(2, 1fr); }
   .blindReview article > div { grid-template-columns: 1fr; }
   .pairingHeader { align-items: flex-start; flex-direction: column; gap: 10px; }
-  .connectionInstructions { padding: 20px; }
+  .connectionCommand { padding: 20px; }
   .computeCard { grid-template-columns: 48px 1fr; }
   .computeCard .statusBadge { grid-column: 2; justify-self: start; }
   .runSummary { align-items: flex-start; flex-direction: column; }
