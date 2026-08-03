@@ -1,0 +1,12 @@
+A scripts/install-runner.sh
+M .env.example
+M apps/web/app/components/workbench.tsx
+M apps/web/app/globals.css
+M apps/web/next-env.d.ts
+M compose.yaml
+M PROJECT_MEMORY.md
+M README.md
+M runner/cmd/runner/main.go
+M services/control-plane/src/llmweb_control/main.py
+M services/control-plane/src/llmweb_control/settings.py
+M services/control-plane/tests/test_workflow.py
