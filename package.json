@@ -1,0 +1,12 @@
+{
+  "name": "llmweb",
+  "private": true,
+  "packageManager": "pnpm@11.18.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @llmweb/web dev",
+    "build:web": "pnpm --filter @llmweb/web build",
+    "lint:web": "pnpm --filter @llmweb/web lint",
+    "typecheck:web": "pnpm --filter @llmweb/web typecheck",
+    "check": "pnpm lint:web && pnpm typecheck:web && pnpm build:web"
+  }
+}

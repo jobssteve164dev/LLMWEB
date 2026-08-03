@@ -1,0 +1,27 @@
+# JavaScript
+node_modules/
+.next/
+.playwright-cli/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Go
+bin/
+coverage.out
+
+# Local configuration and artifacts
+.env
+.env.*
+!.env.example
+.artifacts/
+.runner/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
