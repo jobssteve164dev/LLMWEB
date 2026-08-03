@@ -24,3 +24,29 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Dependency audit
         run: pnpm audit --audit-level high
+
+  python-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Audit Python dependencies
+        run: |
+          python -m pip install pip-audit==2.10.1
+          python -m pip_audit services/control-plane
+          python -m pip_audit -r runtime/requirements.txt
+
+  go-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: runner/go.mod
+      - name: Audit Go dependencies
+        working-directory: runner
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          govulncheck ./...

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-03T08:10:26.268Z",
+  "updatedAt": "2026-08-03T09:15:27.016Z",
   "documents": [
     {
       "path": "README.md",
@@ -24,7 +24,7 @@
       "status": "active",
       "solves": "保存项目长期解释性背景。",
       "lastReviewedAt": "",
-      "lastTouchedAt": "2026-08-03T08:06:34.056Z"
+      "lastTouchedAt": "2026-08-03T08:20:19.857Z"
     },
     {
       "path": "docs/product/product-design.md",
@@ -32,7 +32,7 @@
       "status": "active",
       "solves": "保存项目长期解释性背景。",
       "lastReviewedAt": "",
-      "lastTouchedAt": "2026-08-03T08:06:34.056Z"
+      "lastTouchedAt": "2026-08-03T08:20:19.857Z"
     }
   ],
   "pendingReview": []
