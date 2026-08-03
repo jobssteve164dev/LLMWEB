@@ -220,7 +220,7 @@ function ProjectStep({ project, busy, perform, moveTo }: { project: Project | nu
 }
 
 function ComputeStep({ runner, busy, perform }: { runner: Runner | null; busy: boolean; perform: Perform }) {
-  const [pairing, setPairing] = useState<{ code: string; command: string; expires_at: string } | null>(null);
+  const [pairing, setPairing] = useState<{ command: string; expires_at: string } | null>(null);
   const [copied, setCopied] = useState(false);
   if (runner && runner.status !== "offline") {
     const gpu = runner.capabilities.gpus?.[0];
@@ -229,9 +229,9 @@ function ComputeStep({ runner, busy, perform }: { runner: Runner | null; busy: b
       <div className="privacyCallout"><strong>数据边界保持不变</strong><p>网页只接收统计、进度和你主动授权的少量预览；原始文件、模型权重与 checkpoint 都留在这台机器。</p></div></>;
   }
   return <><SectionIntro eyebrow="第二步" title="连接一台你控制的 GPU。" description="连接程序只会主动访问网页服务，不需要开放公网端口或提供 SSH。" />
-    {!pairing ? <div className="connectionStart"><div className="computeIllustration" aria-hidden="true"><span>GPU</span><i /></div><h2>准备一台 Linux x86_64 NVIDIA 主机</h2><p>确认已经安装并启动 Docker，然后生成一次性连接码。</p><button className="primaryButton" disabled={busy} type="button" onClick={() => void perform(async () => setPairing(await api("runners/pairing", { method: "POST", body: "{}" })), "连接码已生成，在 GPU 主机执行下面的命令。")}>{busy ? "正在生成…" : "生成连接码"}</button></div> :
-      <div className="pairingCard"><div className="pairingHeader"><div><span>一次性连接码</span><strong>{pairing.code}</strong></div><small>{new Date(pairing.expires_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })} 前有效</small></div>
-        <ol className="connectionInstructions"><li><span>1</span><div><strong>准备连接程序和训练环境</strong><code>make gpu-runtime</code></div></li><li><span>2</span><div><strong>执行连接命令</strong><pre>{pairing.command}</pre><button className="textButton" type="button" onClick={async () => { await navigator.clipboard.writeText(pairing.command); setCopied(true); }}>{copied ? "已复制" : "复制命令"}</button></div></li></ol>
+    {!pairing ? <div className="connectionStart"><div className="computeIllustration" aria-hidden="true"><span>GPU</span><i /></div><h2>准备一台装有 NVIDIA 驱动的 Linux GPU 主机</h2><p>系统会自动识别机器并安装连接程序与训练环境。</p><button className="primaryButton" disabled={busy} type="button" onClick={() => void perform(async () => setPairing(await api("runners/pairing", { method: "POST", body: "{}" })), "安装命令已生成，复制到 GPU 主机运行即可。")}>{busy ? "正在生成…" : "生成安装命令"}</button></div> :
+      <div className="pairingCard"><div className="pairingHeader"><div><span>在 GPU 主机运行一次</span><strong>复制下面的命令</strong></div><small>{new Date(pairing.expires_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })} 前开始运行</small></div>
+        <div className="connectionCommand"><p>命令会自动安装环境、注册这台机器并保持连接，过程可能需要几分钟。</p><pre>{pairing.command}</pre><button className="primaryButton" type="button" onClick={async () => { await navigator.clipboard.writeText(pairing.command); setCopied(true); }}>{copied ? "命令已复制" : "复制安装命令"}</button></div>
         <p className="waitingLine"><span className="pulseDot" />正在等待算力连接，连接成功后本页会自动更新。</p></div>}
   </>;
 }

@@ -47,6 +47,8 @@ def test_complete_local_training_workflow() -> None:
         project_id = project_response.json()["id"]
 
         pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
+        assert pairing["command"].startswith("curl -fsSL https://raw.githubusercontent.com/jobssteve164dev/LLMWEB/main/scripts/install-runner.sh | sudo bash -s --")
+        assert f"--url http://localhost:8000 --code {pairing['code']}" in pairing["command"]
         pair_response = client.post(
             "/v1/runners/pair",
             json={

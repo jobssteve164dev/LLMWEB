@@ -41,14 +41,9 @@ make web-service
 
 ## 连接 GPU 主机
 
-GPU 主机需要 Linux x86_64、NVIDIA 驱动和可用的 Docker。先构建受控训练环境和连接程序：
+GPU 主机需要 Linux x86_64 和可用的 NVIDIA 驱动。在网页“连接算力”步骤生成一次性安装命令，并在 GPU 主机执行。命令会从 GitHub 下载安装脚本，自动识别主机架构、安装 Docker 与 NVIDIA 容器环境、构建受控训练环境、注册一次性身份并启动后台 Runner；无需先克隆仓库或手动替换目录。
 
-```bash
-make gpu-runtime
-./runner/bin/llmweb-runner doctor
-```
-
-在网页“连接算力”步骤生成一次性配对命令，并在 GPU 主机执行。用户需要把命令中的数据目录与结果目录替换为自己的路径。原始数据、模型权重、checkpoint 和存储凭证均不上传到网页服务。
+默认数据目录为当前登录用户主目录下的 `llmweb/data`，模型和中间结果保存在 `llmweb/output`。原始数据、模型权重、checkpoint 和存储凭证均不上传到网页服务。
 
 ## 开发模式
 

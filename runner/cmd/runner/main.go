@@ -29,8 +29,10 @@ func main() {
 	switch os.Args[1] {
 	case "doctor":
 		err = runDoctor()
+	case "register":
+		err = runConnect(os.Args[2:], true)
 	case "connect":
-		err = runConnect(os.Args[2:])
+		err = runConnect(os.Args[2:], false)
 	case "version":
 		fmt.Println(version)
 	default:
@@ -58,7 +60,7 @@ func runDoctor() error {
 	return nil
 }
 
-func runConnect(arguments []string) error {
+func runConnect(arguments []string, registerOnly bool) error {
 	flags := flag.NewFlagSet("connect", flag.ContinueOnError)
 	controlURL := flags.String("url", "", "LLMWEB 控制面地址")
 	code := flags.String("code", "", "网页生成的一次性配对码")
@@ -105,6 +107,10 @@ func runConnect(arguments []string) error {
 		}
 		fmt.Printf("算力已连接：%s\n", state.Name)
 	}
+	if registerOnly {
+		fmt.Printf("算力身份已注册：%s\n", state.Name)
+		return nil
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -145,5 +151,5 @@ func writableDirectory(path string) (string, error) {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "usage: llmweb-runner <doctor|connect|version>")
+	fmt.Fprintln(os.Stderr, "usage: llmweb-runner <doctor|register|connect|version>")
 }

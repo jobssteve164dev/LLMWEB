@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import timedelta, timezone
 import secrets
+import shlex
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
@@ -185,7 +186,10 @@ def create_pairing(db: Db) -> dict[str, Any]:
     return {
         "code": code,
         "expires_at": as_iso(pairing.expires_at),
-        "command": f"./runner/bin/llmweb-runner connect --url {settings.public_url} --code {code} --data-root /path/to/data --output-root /path/to/output",
+        "command": (
+            f"curl -fsSL {shlex.quote(settings.runner_installer_url)} | "
+            f"sudo bash -s -- --url {shlex.quote(settings.public_url)} --code {shlex.quote(code)}"
+        ),
     }
 
 
