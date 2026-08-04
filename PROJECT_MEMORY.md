@@ -23,6 +23,9 @@ This file stores stable project facts future agents should reuse. Do not paste r
 - 项目配额只约束新建；权益降级时不删除或隐藏已有项目。升级前的 `ws_default` 数据只有在明确配置旧工作区归属邮箱时才会被认领。
 - 生产 PostgreSQL 由 GitOps 数据库池治理并注入控制面，根 `compose.yaml` 只定义 Web 与控制面；本地 PostgreSQL 只存在于 `compose.local.yaml`。
 - “连接算力”只向用户提供一条带一次性注册码的安装命令；GitHub 安装脚本负责架构识别、Docker 与 NVIDIA 容器环境、受控训练环境、设备注册和后台 Runner，用户不再手动构建或填写数据/结果目录。
+- 根路径是面向公开访问的产品落地页；登录工作台的六个用户动作分别使用 `/workbench/project`、`/workbench/compute`、`/workbench/data`、`/workbench/train`、`/workbench/evaluation` 和 `/workbench/models`，Tab 切换必须保留可直接访问和浏览器前进后退的路径。
+- LLMWEB 以产品 ID `llmweb` 接入 SZLKlaws：共同法律正文只展示生态共同部分，LLMWEB 特有的数据、算力、评测与产物边界只在独立 `/legal-supplement` 页面展示；中英文产品补充版本已登记并发布。
+- 搜索索引只覆盖公开产品页和法律页；账号、工作台、认证回调与 API 不进入站点地图，并由 `robots.txt` 排除抓取。
 
 ## Architecture Boundaries
 

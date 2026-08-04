@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthScreen } from "./auth-screen";
 import type { Dataset, EvaluationSample, Experiment, Job, Metrics, Project, Runner, WorkspaceState } from "../lib/types";
@@ -26,6 +28,19 @@ const steps: Array<{ id: Step; label: string; short: string }> = [
   { id: "monitor", label: "查看结果", short: "评测" },
   { id: "model", label: "取得模型", short: "模型" },
 ];
+
+const stepPaths: Record<Step, string> = {
+  project: "/workbench/project",
+  compute: "/workbench/compute",
+  data: "/workbench/data",
+  train: "/workbench/train",
+  monitor: "/workbench/evaluation",
+  model: "/workbench/models",
+};
+
+function stepFromPath(pathname: string): Step {
+  return (Object.entries(stepPaths).find(([, path]) => path === pathname)?.[0] as Step | undefined) ?? "project";
+}
 
 const stageLabels: Record<string, string> = {
   baseline: "建立训练前基线",
@@ -75,9 +90,10 @@ function deriveStep(state: WorkspaceState): Step {
 }
 
 export function Workbench() {
+  const pathname = usePathname();
+  const router = useRouter();
   const [state, setState] = useState<WorkspaceState | null>(null);
-  const [activeStep, setActiveStep] = useState<Step>("project");
-  const [manualStep, setManualStep] = useState(false);
+  const [manualStep, setManualStep] = useState(true);
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -94,7 +110,10 @@ export function Workbench() {
       }
       setState(next);
       setLocked(false);
-      if (!manualStep) setActiveStep(deriveStep(next));
+      if (!manualStep) {
+        const nextStep = deriveStep(next);
+        router.replace(stepPaths[nextStep]);
+      }
       if (!quiet) setNotice(null);
     } catch (error) {
       if (error instanceof SessionRequiredError) {
@@ -111,13 +130,16 @@ export function Workbench() {
         }
         setState(next);
         setLocked(false);
-        if (!manualStep) setActiveStep(deriveStep(next));
+        if (!manualStep) {
+          const nextStep = deriveStep(next);
+          router.replace(stepPaths[nextStep]);
+        }
         if (!quiet) setNotice(null);
         return;
       }
       if (!quiet) setNotice({ kind: "error", text: error instanceof Error ? error.message : "训练服务暂时不可用。" });
     }
-  }, [manualStep]);
+  }, [manualStep, router]);
 
   useEffect(() => {
     if (locked) return;
@@ -134,11 +156,12 @@ export function Workbench() {
   const runner = state?.runners.find((item) => item.status !== "offline") ?? state?.runners[0] ?? null;
   const dataset = state?.datasets.find((item) => item.status === "ready") ?? state?.datasets[0] ?? null;
   const experiment = state?.experiments[0] ?? null;
+  const activeStep = stepFromPath(pathname);
 
   const moveTo = (step: Step) => {
-    setActiveStep(step);
     setManualStep(true);
     setNotice(null);
+    router.push(stepPaths[step]);
   };
 
   const selectProject = (projectId: string) => {
@@ -211,15 +234,18 @@ export function Workbench() {
               const complete = index < steps.findIndex((item) => item.id === deriveStep(state)) || deriveStep(state) === "model";
               return (
                 <li key={step.id}>
-                  <button
+                  <Link
                     className={step.id === activeStep ? "active" : ""}
-                    type="button"
-                    onClick={() => moveTo(step.id)}
+                    href={stepPaths[step.id]}
+                    onClick={() => {
+                      setManualStep(true);
+                      setNotice(null);
+                    }}
                     aria-current={step.id === activeStep ? "step" : undefined}
                   >
                     <span className={complete ? "stepNumber complete" : "stepNumber"}>{complete ? "✓" : index + 1}</span>
                     <span><strong>{step.label}</strong><small>{step.short}</small></span>
-                  </button>
+                  </Link>
                 </li>
               );
             })}
