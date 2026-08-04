@@ -14,6 +14,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@szlk/passport-client':
+        specifier: workspace:*
+        version: link:../../packages/passport-client
       next:
         specifier: 16.2.12
         version: 16.2.12(@babel/core@7.29.7(supports-color@7.2.0))(@types/node@26.1.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -42,6 +45,8 @@ importers:
       typescript:
         specifier: 5.9.3
         version: 5.9.3
+
+  packages/passport-client: {}
 
 packages:
 

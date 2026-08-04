@@ -97,6 +97,9 @@ export type Experiment = {
 
 export type WorkspaceState = {
   workspace: { id: string; name: string };
+  account: { email: string; name: string | null; tier: "free" | "paid" };
+  project_quota: { used: number; limit: 2 | 10; remaining: number };
+  current_project_id: string | null;
   projects: Project[];
   runners: Runner[];
   datasets: Dataset[];

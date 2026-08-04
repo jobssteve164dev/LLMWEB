@@ -1,13 +1,31 @@
+import base64
+import hashlib
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from llmweb_control.database import Base, engine
 from llmweb_control.main import DEFAULT_WORKSPACE_ID, app
-from llmweb_control.models import Job, Runner, Workspace
+from llmweb_control.models import Dataset, Job, Runner, Workspace
 from llmweb_control.security import digest_secret
+from llmweb_control.settings import get_settings
 
 
-WEB_HEADERS = {"Authorization": "Bearer local-dev-token"}
+def web_headers(user_id: str = "passport-user-1", email: str = "owner@example.com", project_limit: int = 2) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {get_settings().web_token}",
+        "X-LLMWEB-User-ID": user_id,
+        "X-LLMWEB-User-Email": base64.urlsafe_b64encode(email.encode()).decode().rstrip("="),
+        "X-LLMWEB-User-Name": "",
+        "X-LLMWEB-Project-Limit": str(project_limit),
+    }
+
+
+def workspace_id(user_id: str = "passport-user-1") -> str:
+    return f"ws_{hashlib.sha256(user_id.encode()).hexdigest()[:40]}"
+
+
+WEB_HEADERS = web_headers()
 
 
 def reset_database() -> None:
@@ -48,7 +66,7 @@ def test_complete_local_training_workflow() -> None:
 
         pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
         assert pairing["command"].startswith("curl -fsSL https://raw.githubusercontent.com/jobssteve164dev/LLMWEB/main/scripts/install-runner.sh | sudo bash -s --")
-        assert f"--url http://localhost:8000 --code {pairing['code']}" in pairing["command"]
+        assert f"--url {get_settings().public_url} --code {pairing['code']}" in pairing["command"]
         pair_response = client.post(
             "/v1/runners/pair",
             json={
@@ -137,6 +155,9 @@ def test_complete_local_training_workflow() -> None:
                 assert select_response.status_code == 200, select_response.text
 
         state = client.get("/v1/state", headers=WEB_HEADERS).json()
+        assert state["account"]["email"] == "owner@example.com"
+        assert state["project_quota"] == {"used": 1, "limit": 2, "remaining": 1}
+        assert state["current_project_id"] == project_id
         experiment = next(item for item in state["experiments"] if item["id"] == experiment_id)
         assert len(experiment["model"]["revision"]) == 40
         assert experiment["status"] == "completed"
@@ -154,7 +175,7 @@ def test_resume_control_reaches_paused_job() -> None:
     token = "runner-test-token"
     with Session(engine) as db:
         runner = Runner(
-            workspace_id=DEFAULT_WORKSPACE_ID,
+            workspace_id=workspace_id(),
             name="暂停测试算力",
             token_hash=digest_secret(token),
             capabilities={"ready": True},
@@ -163,7 +184,7 @@ def test_resume_control_reaches_paused_job() -> None:
         db.add(runner)
         db.flush()
         job = Job(
-            workspace_id=DEFAULT_WORKSPACE_ID,
+            workspace_id=workspace_id(),
             runner_id=runner.id,
             kind="train",
             payload={},
@@ -199,3 +220,101 @@ def test_resume_control_reaches_paused_job() -> None:
         assert progress.status_code == 202
         with Session(engine) as db:
             assert db.get(Job, job_id).status == "running"
+
+
+def test_project_limits_and_user_isolation() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        first_project = client.post(
+            "/v1/projects",
+            headers=WEB_HEADERS,
+            json={"name": "项目一", "goal": "目标一", "success_criteria": "标准一"},
+        )
+        second_project = client.post(
+            "/v1/projects",
+            headers=WEB_HEADERS,
+            json={"name": "项目二", "goal": "目标二", "success_criteria": "标准二"},
+        )
+        blocked = client.post(
+            "/v1/projects",
+            headers=WEB_HEADERS,
+            json={"name": "项目三", "goal": "目标三", "success_criteria": "标准三"},
+        )
+        assert first_project.status_code == 201
+        assert second_project.status_code == 201
+        assert blocked.status_code == 409
+
+        paid_headers = web_headers("passport-paid-user", "paid@example.com", 10)
+        for index in range(10):
+            response = client.post(
+                "/v1/projects",
+                headers=paid_headers,
+                json={"name": f"付费项目 {index + 1}", "goal": "目标", "success_criteria": "标准"},
+            )
+            assert response.status_code == 201, response.text
+        assert client.post(
+            "/v1/projects",
+            headers=paid_headers,
+            json={"name": "第十一个项目", "goal": "目标", "success_criteria": "标准"},
+        ).status_code == 409
+
+        other_headers = web_headers("passport-user-2", "other@example.com", 2)
+        isolated_state = client.get("/v1/state", headers=other_headers).json()
+        assert isolated_state["projects"] == []
+        assert isolated_state["project_quota"]["used"] == 0
+        assert client.get(
+            f"/v1/state?project_id={first_project.json()['id']}",
+            headers=other_headers,
+        ).status_code == 404
+
+
+def test_state_only_returns_selected_project_resources() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        project_ids = []
+        for name in ("项目甲", "项目乙"):
+            response = client.post(
+                "/v1/projects",
+                headers=WEB_HEADERS,
+                json={"name": name, "goal": "目标", "success_criteria": "标准"},
+            )
+            project_ids.append(response.json()["id"])
+
+        with Session(engine) as db:
+            runner = Runner(
+                workspace_id=workspace_id(),
+                name="共享算力",
+                token_hash=digest_secret("shared-runner-token"),
+                capabilities={"ready": True},
+            )
+            db.add(runner)
+            db.flush()
+            for index, project_id in enumerate(project_ids):
+                dataset = Dataset(
+                    workspace_id=workspace_id(),
+                    project_id=project_id,
+                    runner_id=runner.id,
+                    name=f"数据 {index}",
+                    source_ref=f"data/{index}.jsonl",
+                    format="jsonl",
+                    mapping={"instruction": "instruction", "input": "input", "output": "output"},
+                    split={"train": 80, "validation": 10, "test": 10},
+                )
+                db.add(dataset)
+                db.flush()
+                db.add(Job(
+                    workspace_id=workspace_id(),
+                    runner_id=runner.id,
+                    dataset_id=dataset.id,
+                    kind="inspect",
+                    payload={},
+                ))
+            db.commit()
+
+        first_state = client.get(f"/v1/state?project_id={project_ids[0]}", headers=WEB_HEADERS).json()
+        second_state = client.get(f"/v1/state?project_id={project_ids[1]}", headers=WEB_HEADERS).json()
+        assert {item["project_id"] for item in first_state["datasets"]} == {project_ids[0]}
+        assert {item["project_id"] for item in second_state["datasets"]} == {project_ids[1]}
+        assert len(first_state["jobs"]) == 1
+        assert len(second_state["jobs"]) == 1
+        assert first_state["jobs"][0]["dataset_id"] != second_state["jobs"][0]["dataset_id"]

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sessionCookie, validSession } from "../../../lib/session";
+import { projectLimitForUser } from "../../../lib/passport";
+import { readSession, sessionCookie } from "../../../lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,12 +8,12 @@ export const dynamic = "force-dynamic";
 type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function proxy(request: NextRequest, context: RouteContext) {
-  if (!validSession(request.cookies.get(sessionCookie)?.value)) {
-    return NextResponse.json({ detail: "请先输入工作台访问密码。" }, { status: 401 });
-  }
+  const user = readSession(request.cookies.get(sessionCookie)?.value);
+  if (!user) return NextResponse.json({ detail: "请先登录。" }, { status: 401 });
   const { path } = await context.params;
   const baseUrl = process.env.LLMWEB_CONTROL_URL ?? "http://localhost:8000";
   const token = process.env.LLMWEB_WEB_TOKEN ?? "local-dev-token";
+  const projectLimit = await projectLimitForUser(user);
   const target = `${baseUrl.replace(/\/$/, "")}/v1/${path.join("/")}${request.nextUrl.search}`;
 
   try {
@@ -21,6 +22,10 @@ async function proxy(request: NextRequest, context: RouteContext) {
       method: request.method,
       headers: {
         Authorization: `Bearer ${token}`,
+        "X-LLMWEB-User-ID": user.id,
+        "X-LLMWEB-User-Email": Buffer.from(user.email).toString("base64url"),
+        "X-LLMWEB-User-Name": Buffer.from(user.name || "").toString("base64url"),
+        "X-LLMWEB-Project-Limit": String(projectLimit),
         ...(body ? { "Content-Type": request.headers.get("content-type") ?? "application/json" } : {}),
       },
       body,
