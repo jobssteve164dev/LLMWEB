@@ -4,18 +4,19 @@ import secrets
 import shlex
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
+from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
 from .models import Dataset, Experiment, Job, JobEvent, PairingCode, Project, Runner, Workspace, new_id, utc_now
 from .schemas import CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate
-from .security import digest_secret, require_runner, require_web
+from .security import WebIdentity, digest_secret, require_runner, require_web
 from .settings import get_settings
 
 Db = Annotated[Session, Depends(get_db)]
-WebAuth = Annotated[None, Depends(require_web)]
+WebAuth = Annotated[WebIdentity, Depends(require_web)]
 DEFAULT_WORKSPACE_ID = "ws_default"
 APPROVED_MODELS = {
     "Qwen/Qwen2.5-0.5B-Instruct": "7ae557604adf67be50417f59c2c2f167def9a775",
@@ -97,20 +98,87 @@ def job_view(job: Job, events: list[JobEvent] | None = None) -> dict[str, Any]:
     return result
 
 
-@app.get("/v1/state", dependencies=[Depends(require_web)], tags=["web"])
-def state(db: Db) -> dict[str, Any]:
-    projects = list(db.scalars(select(Project).where(Project.workspace_id == DEFAULT_WORKSPACE_ID).order_by(Project.created_at)))
-    runners = list(db.scalars(select(Runner).where(Runner.workspace_id == DEFAULT_WORKSPACE_ID).order_by(Runner.created_at)))
-    datasets = list(db.scalars(select(Dataset).where(Dataset.workspace_id == DEFAULT_WORKSPACE_ID).order_by(Dataset.created_at.desc())))
-    experiments = list(db.scalars(select(Experiment).where(Experiment.workspace_id == DEFAULT_WORKSPACE_ID).order_by(Experiment.created_at.desc())))
-    jobs = list(db.scalars(select(Job).where(Job.workspace_id == DEFAULT_WORKSPACE_ID).order_by(Job.created_at.desc())))
-    recent_events = list(db.scalars(select(JobEvent).order_by(JobEvent.id.desc()).limit(200)))
+def ensure_workspace(db: Session, identity: WebIdentity) -> Workspace:
+    workspace = db.get(Workspace, identity.workspace_id)
+    if workspace is None:
+        label = identity.name or identity.email.split("@", 1)[0]
+        workspace = Workspace(id=identity.workspace_id, name=f"{label}的工作区")
+        db.add(workspace)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            workspace = db.get(Workspace, identity.workspace_id)
+            if workspace is None:
+                raise
+    return workspace
+
+
+@app.get("/v1/state", tags=["web"])
+def state(
+    db: Db,
+    identity: WebAuth,
+    project_id: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    workspace = ensure_workspace(db, identity)
+    projects = list(db.scalars(select(Project).where(Project.workspace_id == identity.workspace_id).order_by(Project.created_at.desc())))
+    selected_project = None
+    if project_id:
+        selected_project = db.get(Project, project_id)
+        if selected_project is None or selected_project.workspace_id != identity.workspace_id:
+            raise HTTPException(status_code=404, detail="项目不存在")
+    elif projects:
+        selected_project = projects[0]
+
+    runners = list(db.scalars(select(Runner).where(Runner.workspace_id == identity.workspace_id).order_by(Runner.created_at)))
+    if selected_project is None:
+        datasets: list[Dataset] = []
+        experiments: list[Experiment] = []
+        jobs: list[Job] = []
+    else:
+        datasets = list(db.scalars(select(Dataset).where(
+            Dataset.workspace_id == identity.workspace_id,
+            Dataset.project_id == selected_project.id,
+        ).order_by(Dataset.created_at.desc())))
+        experiments = list(db.scalars(select(Experiment).where(
+            Experiment.workspace_id == identity.workspace_id,
+            Experiment.project_id == selected_project.id,
+        ).order_by(Experiment.created_at.desc())))
+        dataset_ids = [item.id for item in datasets]
+        experiment_ids = [item.id for item in experiments]
+        if dataset_ids or experiment_ids:
+            job_scope = []
+            if dataset_ids:
+                job_scope.append(Job.dataset_id.in_(dataset_ids))
+            if experiment_ids:
+                job_scope.append(Job.experiment_id.in_(experiment_ids))
+            jobs = list(db.scalars(select(Job).where(
+                Job.workspace_id == identity.workspace_id,
+                or_(*job_scope),
+            ).order_by(Job.created_at.desc())))
+        else:
+            jobs = []
+    job_ids = [item.id for item in jobs]
+    recent_events = list(db.scalars(
+        select(JobEvent).where(JobEvent.job_id.in_(job_ids)).order_by(JobEvent.id.desc()).limit(200)
+    )) if job_ids else []
     events_by_job: dict[str, list[JobEvent]] = {}
     for event in reversed(recent_events):
         events_by_job.setdefault(event.job_id, []).append(event)
 
     return {
-        "workspace": {"id": DEFAULT_WORKSPACE_ID, "name": "我的工作区"},
+        "workspace": {"id": workspace.id, "name": workspace.name},
+        "account": {
+            "email": identity.email,
+            "name": identity.name,
+            "tier": "paid" if identity.project_limit == 10 else "free",
+        },
+        "project_quota": {
+            "used": len(projects),
+            "limit": identity.project_limit,
+            "remaining": max(0, identity.project_limit - len(projects)),
+        },
+        "current_project_id": selected_project.id if selected_project else None,
         "projects": [
             {"id": item.id, "name": item.name, "goal": item.goal, "success_criteria": item.success_criteria, "created_at": as_iso(item.created_at)}
             for item in projects
@@ -164,20 +232,29 @@ def state(db: Db) -> dict[str, Any]:
     }
 
 
-@app.post("/v1/projects", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_web)], tags=["web"])
-def create_project(body: ProjectCreate, db: Db) -> dict[str, str]:
-    project = Project(workspace_id=DEFAULT_WORKSPACE_ID, **body.model_dump())
+@app.post("/v1/projects", status_code=status.HTTP_201_CREATED, tags=["web"])
+def create_project(body: ProjectCreate, db: Db, identity: WebAuth) -> dict[str, str]:
+    ensure_workspace(db, identity)
+    db.execute(select(Workspace).where(Workspace.id == identity.workspace_id).with_for_update()).scalar_one()
+    project_count = db.scalar(select(func.count(Project.id)).where(Project.workspace_id == identity.workspace_id)) or 0
+    if project_count >= identity.project_limit:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"当前最多可以建立 {identity.project_limit} 个项目。已有项目会继续保留。",
+        )
+    project = Project(workspace_id=identity.workspace_id, **body.model_dump())
     db.add(project)
     db.commit()
     return {"id": project.id}
 
 
-@app.post("/v1/runners/pairing", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_web)], tags=["web"])
-def create_pairing(db: Db) -> dict[str, Any]:
+@app.post("/v1/runners/pairing", status_code=status.HTTP_201_CREATED, tags=["web"])
+def create_pairing(db: Db, identity: WebAuth) -> dict[str, Any]:
     settings = get_settings()
+    ensure_workspace(db, identity)
     code = secrets.token_urlsafe(6).upper().replace("-", "")[:8]
     pairing = PairingCode(
-        workspace_id=DEFAULT_WORKSPACE_ID,
+        workspace_id=identity.workspace_id,
         code_hash=digest_secret(code),
         expires_at=utc_now() + timedelta(minutes=settings.pairing_ttl_minutes),
     )
@@ -232,16 +309,16 @@ def heartbeat(body: HeartbeatRequest, db: Db, authorization: Annotated[str | Non
     return {"runner_id": runner.id, "controls": controls}
 
 
-@app.post("/v1/datasets", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_web)], tags=["web"])
-def create_dataset(body: DatasetCreate, db: Db) -> dict[str, str]:
+@app.post("/v1/datasets", status_code=status.HTTP_201_CREATED, tags=["web"])
+def create_dataset(body: DatasetCreate, db: Db, identity: WebAuth) -> dict[str, str]:
     project = db.get(Project, body.project_id)
     runner = db.get(Runner, body.runner_id)
-    if project is None or project.workspace_id != DEFAULT_WORKSPACE_ID:
+    if project is None or project.workspace_id != identity.workspace_id:
         raise HTTPException(status_code=404, detail="项目不存在")
-    if runner is None or runner.workspace_id != DEFAULT_WORKSPACE_ID or runner.revoked:
+    if runner is None or runner.workspace_id != identity.workspace_id or runner.revoked:
         raise HTTPException(status_code=404, detail="算力连接不存在")
     dataset = Dataset(
-        workspace_id=DEFAULT_WORKSPACE_ID,
+        workspace_id=identity.workspace_id,
         project_id=body.project_id,
         runner_id=body.runner_id,
         name=body.name,
@@ -255,7 +332,7 @@ def create_dataset(body: DatasetCreate, db: Db) -> dict[str, str]:
     db.add(dataset)
     db.flush()
     job = Job(
-        workspace_id=DEFAULT_WORKSPACE_ID,
+        workspace_id=identity.workspace_id,
         runner_id=body.runner_id,
         dataset_id=dataset.id,
         kind="inspect",
@@ -288,12 +365,14 @@ def infer_template(model_id: str) -> str:
     return "default"
 
 
-@app.post("/v1/experiments", status_code=status.HTTP_201_CREATED, dependencies=[Depends(require_web)], tags=["web"])
-def create_experiment(body: ExperimentCreate, db: Db) -> dict[str, Any]:
+@app.post("/v1/experiments", status_code=status.HTTP_201_CREATED, tags=["web"])
+def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict[str, Any]:
     project = db.get(Project, body.project_id)
     runner = db.get(Runner, body.runner_id)
     dataset = db.get(Dataset, body.dataset_id)
     if project is None or runner is None or dataset is None:
+        raise HTTPException(status_code=404, detail="项目、数据或算力连接不存在")
+    if any(item.workspace_id != identity.workspace_id for item in (project, runner, dataset)):
         raise HTTPException(status_code=404, detail="项目、数据或算力连接不存在")
     if dataset.status != "ready":
         raise HTTPException(status_code=409, detail="请等待数据检查完成后再开始训练")
@@ -313,7 +392,7 @@ def create_experiment(body: ExperimentCreate, db: Db) -> dict[str, Any]:
         "gradient_accumulation": body.gradient_accumulation,
     }
     experiment = Experiment(
-        workspace_id=DEFAULT_WORKSPACE_ID,
+        workspace_id=identity.workspace_id,
         project_id=project.id,
         runner_id=runner.id,
         dataset_id=dataset.id,
@@ -331,7 +410,7 @@ def create_experiment(body: ExperimentCreate, db: Db) -> dict[str, Any]:
     db.flush()
     common = {
         "schema_version": "1.0",
-        "workspace_id": DEFAULT_WORKSPACE_ID,
+        "workspace_id": identity.workspace_id,
         "project_id": project.id,
         "experiment_id": experiment.id,
         "dataset_id": dataset.id,
@@ -343,7 +422,7 @@ def create_experiment(body: ExperimentCreate, db: Db) -> dict[str, Any]:
     for sequence, kind in enumerate(("baseline", "train", "evaluate", "export")):
         payload = {**common, "task": kind, "output": {"formats": experiment.export_formats, "preview_allowed": experiment.evaluation_preview_allowed, "destination": experiment.output_destination, "s3_uri": experiment.output_s3_uri, "s3_endpoint": experiment.output_s3_endpoint}}
         job = Job(
-            workspace_id=DEFAULT_WORKSPACE_ID,
+            workspace_id=identity.workspace_id,
             runner_id=runner.id,
             dataset_id=dataset.id,
             experiment_id=experiment.id,
@@ -495,10 +574,10 @@ def ingest_events(job_id: str, body: EventBatch, db: Db, authorization: Annotate
     return {"accepted": accepted}
 
 
-@app.post("/v1/experiments/{experiment_id}/select-checkpoint", dependencies=[Depends(require_web)], tags=["web"])
-def select_checkpoint(experiment_id: str, body: CheckpointSelect, db: Db) -> dict[str, str]:
+@app.post("/v1/experiments/{experiment_id}/select-checkpoint", tags=["web"])
+def select_checkpoint(experiment_id: str, body: CheckpointSelect, db: Db, identity: WebAuth) -> dict[str, str]:
     experiment = db.get(Experiment, experiment_id)
-    if experiment is None or experiment.workspace_id != DEFAULT_WORKSPACE_ID:
+    if experiment is None or experiment.workspace_id != identity.workspace_id:
         raise HTTPException(status_code=404, detail="训练不存在")
     if experiment.status != "awaiting_selection":
         raise HTTPException(status_code=409, detail="当前训练还没有可选择的版本")
@@ -519,10 +598,10 @@ def select_checkpoint(experiment_id: str, body: CheckpointSelect, db: Db) -> dic
     return {"experiment_id": experiment.id, "selected_checkpoint": body.checkpoint_ref}
 
 
-@app.post("/v1/jobs/{job_id}/control", dependencies=[Depends(require_web)], tags=["web"])
-def control_job(job_id: str, body: JobControl, db: Db) -> dict[str, str]:
+@app.post("/v1/jobs/{job_id}/control", tags=["web"])
+def control_job(job_id: str, body: JobControl, db: Db, identity: WebAuth) -> dict[str, str]:
     job = db.get(Job, job_id)
-    if job is None or job.workspace_id != DEFAULT_WORKSPACE_ID:
+    if job is None or job.workspace_id != identity.workspace_id:
         raise HTTPException(status_code=404, detail="任务不存在")
     if job.status in {"completed", "failed", "cancelled"}:
         raise HTTPException(status_code=409, detail="任务已经结束")

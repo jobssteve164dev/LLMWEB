@@ -1,9 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AuthScreen } from "./auth-screen";
 import type { Dataset, EvaluationSample, Experiment, Job, Metrics, Project, Runner, WorkspaceState } from "../lib/types";
 
 type Step = "project" | "compute" | "data" | "train" | "monitor" | "model";
+const currentProjectStorageKey = "llmweb_current_project:v1";
+
+function loadCurrentProject() {
+  try { return window.localStorage.getItem(currentProjectStorageKey); } catch { return null; }
+}
+
+function saveCurrentProject(projectId: string | null) {
+  try {
+    if (projectId) window.localStorage.setItem(currentProjectStorageKey, projectId);
+    else window.localStorage.removeItem(currentProjectStorageKey);
+  } catch {}
+}
 
 const steps: Array<{ id: Step; label: string; short: string }> = [
   { id: "project", label: "定义目标", short: "项目" },
@@ -53,7 +66,7 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 class SessionRequiredError extends Error {}
 
 function deriveStep(state: WorkspaceState): Step {
-  if (state.projects.length === 0) return "project";
+  if (!state.current_project_id) return "project";
   if (state.experiments[0]?.status === "completed") return "model";
   if (state.experiments.length > 0) return "monitor";
   if (!state.runners.some((runner) => runner.status !== "offline")) return "compute";
@@ -68,10 +81,17 @@ export function Workbench() {
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const selectedProjectId = useRef<string | null>(null);
 
   const refresh = useCallback(async (quiet = false) => {
     try {
-      const next = await api<WorkspaceState>("state", { cache: "no-store" });
+      const selector = selectedProjectId.current ? `?project_id=${encodeURIComponent(selectedProjectId.current)}` : "";
+      const next = await api<WorkspaceState>(`state${selector}`, { cache: "no-store" });
+      if (next.current_project_id && selectedProjectId.current !== next.current_project_id) {
+        selectedProjectId.current = next.current_project_id;
+        saveCurrentProject(next.current_project_id);
+      }
       setState(next);
       setLocked(false);
       if (!manualStep) setActiveStep(deriveStep(next));
@@ -81,20 +101,36 @@ export function Workbench() {
         setLocked(true);
         return;
       }
+      if (selectedProjectId.current && error instanceof Error && error.message === "项目不存在") {
+        selectedProjectId.current = null;
+        saveCurrentProject(null);
+        const next = await api<WorkspaceState>("state", { cache: "no-store" });
+        if (next.current_project_id) {
+          selectedProjectId.current = next.current_project_id;
+          saveCurrentProject(next.current_project_id);
+        }
+        setState(next);
+        setLocked(false);
+        if (!manualStep) setActiveStep(deriveStep(next));
+        if (!quiet) setNotice(null);
+        return;
+      }
       if (!quiet) setNotice({ kind: "error", text: error instanceof Error ? error.message : "训练服务暂时不可用。" });
     }
   }, [manualStep]);
 
   useEffect(() => {
+    if (locked) return;
+    selectedProjectId.current = loadCurrentProject();
     const initial = window.setTimeout(() => void refresh(), 0);
     const timer = window.setInterval(() => void refresh(true), 3000);
     return () => {
       window.clearTimeout(initial);
       window.clearInterval(timer);
     };
-  }, [refresh]);
+  }, [locked, refresh]);
 
-  const project = state?.projects[0] ?? null;
+  const project = state?.projects.find((item) => item.id === state.current_project_id) ?? null;
   const runner = state?.runners.find((item) => item.status !== "offline") ?? state?.runners[0] ?? null;
   const dataset = state?.datasets.find((item) => item.status === "ready") ?? state?.datasets[0] ?? null;
   const experiment = state?.experiments[0] ?? null;
@@ -103,6 +139,23 @@ export function Workbench() {
     setActiveStep(step);
     setManualStep(true);
     setNotice(null);
+  };
+
+  const selectProject = (projectId: string) => {
+    selectedProjectId.current = projectId;
+    saveCurrentProject(projectId);
+    setCreatingProject(false);
+    setManualStep(false);
+    setNotice(null);
+    void refresh();
+  };
+
+  const signOut = async () => {
+    await fetch("/api/session", { method: "DELETE" });
+    saveCurrentProject(null);
+    selectedProjectId.current = null;
+    setState(null);
+    setLocked(true);
   };
 
   const perform = async (action: () => Promise<unknown>, success: string) => {
@@ -123,7 +176,7 @@ export function Workbench() {
 
   if (!state) {
     if (locked) {
-      return <LoginScreen onAuthenticated={() => { setLocked(false); void refresh(); }} />;
+      return <AuthScreen onAuthenticated={() => { setLocked(false); void refresh(); }} />;
     }
     return (
       <main className="loadingScreen">
@@ -142,9 +195,12 @@ export function Workbench() {
           <span>LLMWEB</span>
         </button>
         <div className="headerContext">
-          <span>{project?.name ?? "第一个项目"}</span>
+          {state.projects.length ? <select aria-label="切换项目" value={state.current_project_id ?? ""} onChange={(event) => selectProject(event.target.value)}>{state.projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : <span>建立第一个项目</span>}
+          <span className="quotaPill">{state.project_quota.used}/{state.project_quota.limit} 个项目</span>
+          <button className="headerAction" type="button" onClick={() => { setCreatingProject(true); moveTo("project"); }}>新建项目</button>
           <span className="privacyPill"><span aria-hidden="true">●</span> 原始数据留在你的环境</span>
         </div>
+        <div className="accountMenu"><span>{state.account.name || state.account.email}</span><small>{state.account.tier === "paid" ? "专业版" : "免费版"}</small><button type="button" onClick={() => void signOut()}>退出</button></div>
       </header>
 
       <div className="workspaceLayout">
@@ -176,7 +232,7 @@ export function Workbench() {
 
         <section className="workArea">
           {notice ? <div className={`notice ${notice.kind}`} role="status">{notice.text}<button type="button" onClick={() => setNotice(null)} aria-label="关闭提示">×</button></div> : null}
-          {activeStep === "project" ? <ProjectStep project={project} busy={busy} perform={perform} moveTo={moveTo} /> : null}
+          {activeStep === "project" ? <ProjectStep project={project} quota={state.project_quota} forceCreate={creatingProject} busy={busy} perform={perform} moveTo={moveTo} onCreated={selectProject} onStartCreate={() => setCreatingProject(true)} onCancel={() => setCreatingProject(false)} /> : null}
           {activeStep === "compute" ? <ComputeStep runner={runner} busy={busy} perform={perform} /> : null}
           {activeStep === "data" ? <DataStep project={project} runner={runner} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} /> : null}
           {activeStep === "train" ? <TrainStep project={project} runner={runner} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} /> : null}
@@ -188,34 +244,29 @@ export function Workbench() {
   );
 }
 
-function LoginScreen({ onAuthenticated }: { onAuthenticated: () => void }) {
-  const [error, setError] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  return <main className="loginScreen"><section><span className="brandMark" aria-hidden="true">L</span><p className="loginEyebrow">LLMWEB</p><h1>打开训练工作台</h1><p>使用部署账户登录。</p><form onSubmit={async (event) => { event.preventDefault(); setSubmitting(true); setError(""); const form = new FormData(event.currentTarget); const response = await fetch("/api/session", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ account: form.get("account"), password: form.get("password") }) }); if (!response.ok) { const payload = await response.json().catch(() => null) as { detail?: string } | null; setError(payload?.detail ?? "没有登录成功。"); setSubmitting(false); return; } onAuthenticated(); }}><label><span>账户</span><input type="text" name="account" autoComplete="username" required autoFocus /></label><label><span>密码</span><input type="password" name="password" autoComplete="current-password" required /></label>{error ? <p className="loginError" role="alert">{error}</p> : null}<button className="primaryButton" disabled={submitting} type="submit">{submitting ? "正在打开…" : "进入工作台"}</button></form></section></main>;
-}
-
 type Perform = (action: () => Promise<unknown>, success: string) => Promise<void>;
 
 function SectionIntro({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
   return <header className="sectionIntro"><p>{eyebrow}</p><h1>{title}</h1><span>{description}</span></header>;
 }
 
-function ProjectStep({ project, busy, perform, moveTo }: { project: Project | null; busy: boolean; perform: Perform; moveTo: (step: Step) => void }) {
-  if (project) {
+function ProjectStep({ project, quota, forceCreate, busy, perform, moveTo, onCreated, onStartCreate, onCancel }: { project: Project | null; quota: WorkspaceState["project_quota"]; forceCreate: boolean; busy: boolean; perform: Perform; moveTo: (step: Step) => void; onCreated: (projectId: string) => void; onStartCreate: () => void; onCancel: () => void }) {
+  if (project && !forceCreate) {
     return <><SectionIntro eyebrow="项目目标" title={project.name} description="这两个判断会贯穿数据准备、训练与效果比较。" />
       <div className="summaryGrid"><article><span>模型要完成什么</span><p>{project.goal}</p></article><article><span>怎样算成功</span><p>{project.success_criteria}</p></article></div>
-      <div className="formActions"><button className="primaryButton" type="button" onClick={() => moveTo("compute")}>继续连接算力</button></div></>;
+      <div className="formActions"><button className="secondaryButton" type="button" onClick={onStartCreate}>新建项目</button><button className="primaryButton" type="button" onClick={() => moveTo("compute")}>继续连接算力</button></div></>;
   }
-  return <><SectionIntro eyebrow="第一步" title="先说清模型要变成什么样。" description="用业务语言描述目标即可，训练参数稍后由系统承接。" />
+  if (quota.remaining <= 0) return <Prerequisite title="项目名额已用完" text={quota.limit === 2 ? "免费版最多同时保留 2 个项目，付费版可以保留 10 个；已有项目和训练结果不会受影响。" : "专业版最多同时保留 10 个项目；已有项目和训练结果不会受影响。"} action="返回当前项目" onClick={onCancel} />;
+  return <><SectionIntro eyebrow={project ? "新项目" : "第一步"} title="先说清模型要变成什么样。" description={`还可以建立 ${quota.remaining} 个项目。每个项目的数据、训练和模型结果独立保存。`} />
     <form className="formCard" onSubmit={(event) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
-      void perform(() => api("projects", { method: "POST", body: JSON.stringify({ name: form.get("name"), goal: form.get("goal"), success_criteria: form.get("success") }) }), "项目已建立，可以连接算力了。");
+      void perform(async () => { const created = await api<{ id: string }>("projects", { method: "POST", body: JSON.stringify({ name: form.get("name"), goal: form.get("goal"), success_criteria: form.get("success") }) }); onCreated(created.id); }, "项目已建立，可以连接算力了。");
     }}>
       <label><span>项目名称</span><input name="name" required maxLength={120} placeholder="例如：产品客服助手" /></label>
       <label><span>模型要完成什么</span><textarea name="goal" required maxLength={2000} rows={4} placeholder="例如：根据产品资料准确回答售前问题，并保持简洁。" /></label>
       <label><span>怎样算成功</span><textarea name="success" required maxLength={2000} rows={3} placeholder="例如：固定测试问题的格式通过率超过 90%，关键答案不遗漏。" /></label>
-      <div className="formActions"><button className="primaryButton" disabled={busy} type="submit">{busy ? "正在建立…" : "建立项目"}</button></div>
+      <div className="formActions">{project ? <button className="secondaryButton" type="button" onClick={onCancel}>取消</button> : null}<button className="primaryButton" disabled={busy} type="submit">{busy ? "正在建立…" : "建立项目"}</button></div>
     </form></>;
 }
 

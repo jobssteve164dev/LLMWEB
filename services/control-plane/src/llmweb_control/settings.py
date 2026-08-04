@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./.runner/control-plane.db"
     web_token: str = "local-dev-token"
+    legacy_owner_email: str | None = None
     public_url: str = "http://localhost:8000"
     runner_installer_url: str = "https://raw.githubusercontent.com/jobssteve164dev/LLMWEB/main/scripts/install-runner.sh"
     pairing_ttl_minutes: int = 120
