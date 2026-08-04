@@ -3,7 +3,9 @@ package capabilities
 import (
 	"context"
 	"encoding/csv"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -15,13 +17,16 @@ type GPU struct {
 	MemoryFreeMB       int    `json:"memory_free_mb"`
 	UtilizationPercent int    `json:"utilization_percent"`
 	TemperatureC       int    `json:"temperature_c"`
+	SharedMemory       bool   `json:"shared_memory,omitempty"`
 }
 
 type Report struct {
 	OperatingSystem string `json:"operating_system"`
 	Architecture    string `json:"architecture"`
+	Backend         string `json:"backend"`
 	DockerAvailable bool   `json:"docker_available"`
 	NvidiaAvailable bool   `json:"nvidia_available"`
+	MPSAvailable    bool   `json:"mps_available"`
 	GPUs            []GPU  `json:"gpus"`
 }
 
@@ -36,7 +41,36 @@ func Probe(ctx context.Context) Report {
 	if report.NvidiaAvailable {
 		report.GPUs = probeGPUs(ctx)
 	}
+	if report.OperatingSystem == "darwin" && report.Architecture == "arm64" {
+		report.MPSAvailable = probeMPS(ctx)
+		if report.MPSAvailable {
+			report.GPUs = probeAppleSilicon(ctx)
+		}
+	}
 	return report
+}
+
+func probeMPS(ctx context.Context) bool {
+	python := "python3"
+	if root := os.Getenv("LLMWEB_RUNTIME_ROOT"); root != "" {
+		python = filepath.Join(root, "bin", "python")
+	}
+	command := exec.CommandContext(ctx, python, "-c", "import torch; raise SystemExit(0 if torch.backends.mps.is_available() else 1)")
+	return command.Run() == nil
+}
+
+func probeAppleSilicon(ctx context.Context) []GPU {
+	name := "Apple Silicon"
+	if output, err := exec.CommandContext(ctx, "sysctl", "-n", "machdep.cpu.brand_string").Output(); err == nil && strings.TrimSpace(string(output)) != "" {
+		name = strings.TrimSpace(string(output))
+	}
+	memoryMB := 0
+	if output, err := exec.CommandContext(ctx, "sysctl", "-n", "hw.memsize").Output(); err == nil {
+		if bytes, parseErr := strconv.ParseInt(strings.TrimSpace(string(output)), 10, 64); parseErr == nil {
+			memoryMB = int(bytes / 1024 / 1024)
+		}
+	}
+	return []GPU{{Name: name + " GPU", MemoryTotalMB: memoryMB, MemoryFreeMB: memoryMB, SharedMemory: true}}
 }
 
 func probeGPUs(ctx context.Context) []GPU {
@@ -68,17 +102,32 @@ func probeGPUs(ctx context.Context) []GPU {
 }
 
 func probe(lookup commandLookup) Report {
+	return probeFor(runtime.GOOS, runtime.GOARCH, lookup)
+}
+
+func probeFor(operatingSystem, architecture string, lookup commandLookup) Report {
 	_, dockerErr := lookup("docker")
 	_, nvidiaErr := lookup("nvidia-smi")
 
 	return Report{
-		OperatingSystem: runtime.GOOS,
-		Architecture:    runtime.GOARCH,
+		OperatingSystem: operatingSystem,
+		Architecture:    architecture,
+		Backend:         backendFor(operatingSystem, architecture),
 		DockerAvailable: dockerErr == nil,
 		NvidiaAvailable: nvidiaErr == nil,
 	}
 }
 
+func backendFor(operatingSystem, architecture string) string {
+	if operatingSystem == "darwin" && architecture == "arm64" {
+		return "native_mps"
+	}
+	return "docker_cuda"
+}
+
 func (report Report) Ready() bool {
+	if report.Backend == "native_mps" {
+		return report.OperatingSystem == "darwin" && report.Architecture == "arm64" && report.MPSAvailable && len(report.GPUs) > 0
+	}
 	return report.OperatingSystem == "linux" && report.Architecture == "amd64" && report.DockerAvailable && report.NvidiaAvailable && len(report.GPUs) > 0
 }

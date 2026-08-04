@@ -381,6 +381,8 @@ def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict
     revision = APPROVED_MODELS.get(body.model_id)
     if revision is None:
         raise HTTPException(status_code=400, detail="首版只支持工作台中列出的 Qwen 2.5 指令模型")
+    if runner.capabilities.get("backend") == "native_mps" and body.method == "qlora":
+        raise HTTPException(status_code=400, detail="Apple Silicon 当前使用 Metal/MPS LoRA；4 位 QLoRA 需要 CUDA 量化后端")
 
     model = {"source": "huggingface", "id": body.model_id, "revision": revision, "template": infer_template(body.model_id)}
     training = {

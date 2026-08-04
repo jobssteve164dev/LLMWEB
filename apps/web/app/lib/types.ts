@@ -13,7 +13,9 @@ export type Runner = {
   last_seen_at: string | null;
   capabilities: {
     ready?: boolean;
-    gpus?: Array<{ name: string; memory_total_mb: number; memory_free_mb: number; utilization_percent?: number; temperature_c?: number }>;
+    backend?: "docker_cuda" | "native_mps";
+    mps_available?: boolean;
+    gpus?: Array<{ name: string; memory_total_mb: number; memory_free_mb: number; utilization_percent?: number; temperature_c?: number; shared_memory?: boolean }>;
   };
 };
 

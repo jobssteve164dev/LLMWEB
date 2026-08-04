@@ -102,6 +102,34 @@ func TestRuntimeConfigIsStructuredAndPinned(t *testing.T) {
 	}
 }
 
+func TestNativeMPSRuntimeConfigUsesHostPathsAndLoRA(t *testing.T) {
+	spec := runtimeSpec{
+		ModelID: "Qwen/Qwen2.5-0.5B-Instruct", Revision: "main", Template: "qwen",
+		Method: "lora", Epochs: 1, LearningRate: 0.0002, MaxLength: 1024,
+		BatchSize: 1, Accumulation: 4,
+	}
+	paths := runtimePaths{
+		data: "/Users/test/llmweb/data", output: "/Users/test/llmweb/output",
+		config: "/Users/test/Library/Application Support/LLMWEB/task.yaml",
+		cli:    "/Library/Application Support/LLMWEB/runtime-mps/bin/llamafactory-cli",
+	}
+	config, command, requiresGPU, err := buildRuntimeConfigForPaths("train", spec, paths, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !requiresGPU || command[0] != paths.cli || command[2] != paths.config {
+		t.Fatalf("unexpected MPS command: %#v", command)
+	}
+	for _, expected := range []string{"dataset_dir: \"/Users/test/llmweb/data\"", "preprocessing_num_workers: 1", "output_dir: \"/Users/test/llmweb/output/adapter\""} {
+		if !strings.Contains(config, expected) {
+			t.Fatalf("MPS config missing %q", expected)
+		}
+	}
+	if strings.Contains(config, "bitsandbytes") {
+		t.Fatal("MPS LoRA config must not include CUDA quantization")
+	}
+}
+
 func TestExecutorRejectsUnsupportedProtocol(t *testing.T) {
 	executor := New(t.TempDir(), t.TempDir(), t.TempDir())
 	_, err := executor.Run(context.Background(), controlplane.Lease{Kind: "inspect", Payload: map[string]any{"schema_version": "2.0"}}, func(string, string, map[string]any) {})

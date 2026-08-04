@@ -68,8 +68,10 @@ func capabilityPayload(report capabilities.Report) map[string]any {
 		"ready":            report.Ready(),
 		"operating_system": report.OperatingSystem,
 		"architecture":     report.Architecture,
+		"backend":          report.Backend,
 		"docker_available": report.DockerAvailable,
 		"nvidia_available": report.NvidiaAvailable,
+		"mps_available":    report.MPSAvailable,
 		"gpus":             report.GPUs,
 	}
 }

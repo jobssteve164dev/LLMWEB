@@ -13,7 +13,7 @@ This file stores stable project facts future agents should reuse. Do not paste r
 
 - 产品形态是网页控制面加用户环境中的 GPU Runner，不开发多端客户端。
 - 原始训练、验证和测试数据不离开用户环境；控制面默认只保存统计、元数据和授权预览。
-- 首版只支持能够运行 Docker 的 Linux NVIDIA GPU 主机。
+- 支持能够运行 Docker 的 Linux x86_64 NVIDIA GPU 主机，以及通过隔离原生环境使用 Metal/MPS 的 Apple Silicon Mac（包括 M1 Max）；Apple Silicon 使用 LoRA，不提供依赖 CUDA 量化后端的 4 位 QLoRA。
 - 首版训练范围是文本 SFT、LoRA、QLoRA，默认训练引擎为 LLaMA-Factory。
 - 首版以模型导出结束，不转售 GPU，也不承担生产推理托管。
 - 没有同一测试集上的基础模型与微调模型对比，不得宣称效果已经提升。
@@ -22,7 +22,7 @@ This file stores stable project facts future agents should reuse. Do not paste r
 - 每个 Passport 用户映射到独立工作区，项目数据按当前选中项目隔离；免费用户最多同时保留 2 个项目，Passport `project_limit_10` 权益允许时最多保留 10 个。
 - 项目配额只约束新建；权益降级时不删除或隐藏已有项目。升级前的 `ws_default` 数据只有在明确配置旧工作区归属邮箱时才会被认领。
 - 生产 PostgreSQL 由 GitOps 数据库池治理并注入控制面，根 `compose.yaml` 只定义 Web 与控制面；本地 PostgreSQL 只存在于 `compose.local.yaml`。
-- “连接算力”只向用户提供一条带一次性注册码的安装命令；GitHub 安装脚本负责架构识别、Docker 与 NVIDIA 容器环境、受控训练环境、设备注册和后台 Runner，用户不再手动构建或填写数据/结果目录。
+- “连接算力”只向用户提供一条带一次性注册码的安装命令；GitHub 安装脚本负责平台识别、Linux Docker/CUDA 或 Apple Silicon Metal/MPS 受控训练环境、设备注册和后台 Runner，用户不再手动构建或填写数据/结果目录。
 - 根路径是面向公开访问的产品落地页；登录工作台的六个用户动作分别使用 `/workbench/project`、`/workbench/compute`、`/workbench/data`、`/workbench/train`、`/workbench/evaluation` 和 `/workbench/models`，Tab 切换必须保留可直接访问和浏览器前进后退的路径。
 - LLMWEB 以产品 ID `llmweb` 接入 SZLKlaws：共同法律正文只展示生态共同部分，LLMWEB 特有的数据、算力、评测与产物边界只在独立 `/legal-supplement` 页面展示；中英文产品补充版本已登记并发布。
 - 搜索索引只覆盖公开产品页和法律页；账号、工作台、认证回调与 API 不进入站点地图，并由 `robots.txt` 排除抓取。
