@@ -1,38 +1,102 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-03T14:35:28.641Z",
-  "runCount": 1,
+  "updatedAt": "2026-08-04T02:05:45.840Z",
+  "runCount": 2,
   "indexes": {
     "byNode": {
       "__solo__": [
+        "__solo__-3",
         "__solo__-1"
       ]
     },
     "byAgent": {
       "/usr/local/bin/codex": [
+        "__solo__-3",
         "__solo__-1"
       ]
     },
     "byFile": {
-      "scripts/install-runner.sh": [
-        "__solo__-1"
+      "apps/web/app/api/auth/[action]/route.ts": [
+        "__solo__-3"
+      ],
+      "apps/web/app/components/auth-screen.tsx": [
+        "__solo__-3"
+      ],
+      "apps/web/app/icon.svg": [
+        "__solo__-3"
+      ],
+      "apps/web/app/lib/passport.ts": [
+        "__solo__-3"
+      ],
+      "apps/web/app/reset-password/page.tsx": [
+        "__solo__-3"
+      ],
+      "apps/web/app/verify-email/page.tsx": [
+        "__solo__-3"
+      ],
+      "packages/passport-client/index.d.ts": [
+        "__solo__-3"
+      ],
+      "packages/passport-client/index.js": [
+        "__solo__-3"
+      ],
+      "packages/passport-client/package.json": [
+        "__solo__-3"
       ],
       ".env.example": [
+        "__solo__-3",
         "__solo__-1"
       ],
+      "apps/web/app/api/control/[...path]/route.ts": [
+        "__solo__-3"
+      ],
+      "apps/web/app/api/session/route.ts": [
+        "__solo__-3"
+      ],
       "apps/web/app/components/workbench.tsx": [
+        "__solo__-3",
         "__solo__-1"
       ],
       "apps/web/app/globals.css": [
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "apps/web/app/lib/session.ts": [
+        "__solo__-3"
+      ],
+      "apps/web/app/lib/types.ts": [
+        "__solo__-3"
+      ],
+      "apps/web/Dockerfile": [
+        "__solo__-3"
+      ],
+      "apps/web/package.json": [
+        "__solo__-3"
+      ],
+      "compose.yaml": [
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "docs/architecture/system-boundaries.md": [
+        "__solo__-3"
+      ],
+      "docs/product/product-design.md": [
+        "__solo__-3"
+      ],
+      "pnpm-lock.yaml": [
+        "__solo__-3"
+      ],
+      "pnpm-workspace.yaml": [
+        "__solo__-3"
+      ],
+      "PROJECT_MEMORY.md": [
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "scripts/install-runner.sh": [
         "__solo__-1"
       ],
       "apps/web/next-env.d.ts": [
-        "__solo__-1"
-      ],
-      "compose.yaml": [
-        "__solo__-1"
-      ],
-      "PROJECT_MEMORY.md": [
         "__solo__-1"
       ],
       "README.md": [
@@ -53,16 +117,39 @@
     },
     "byStatus": {
       "Completed": [
+        "__solo__-3",
         "__solo__-1"
       ]
     },
     "byFailure": {},
     "byCommand": {
+      "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check ...": [
+        "__solo__-3"
+      ],
       "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/1/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check ...": [
         "__solo__-1"
       ]
     },
     "byExperience": {
+      "exp-verification-15081ed66d4e3c9f": [
+        "__solo__-3"
+      ],
+      "exp-reusable-signal-bbd83203f5340823": [
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "exp-reusable-signal-6e798c8c3c240851": [
+        "__solo__-3"
+      ],
+      "exp-handoff-action-cd06f39fcfaad747": [
+        "__solo__-3"
+      ],
+      "exp-handoff-action-496dc40e9a4e7af8": [
+        "__solo__-3"
+      ],
+      "exp-handoff-action-e8c3bf015810203e": [
+        "__solo__-3"
+      ],
       "exp-verification-0c03448d7fe8dab9": [
         "__solo__-1"
       ],
@@ -73,9 +160,6 @@
         "__solo__-1"
       ],
       "exp-verification-f3d7a32919cd7d5a": [
-        "__solo__-1"
-      ],
-      "exp-reusable-signal-bbd83203f5340823": [
         "__solo__-1"
       ],
       "exp-reusable-signal-7b3a4fe326a29d3d": [
@@ -90,6 +174,224 @@
     }
   },
   "experienceNodes": {
+    "exp-verification-15081ed66d4e3c9f": {
+      "id": "exp-verification-15081ed66d4e3c9f",
+      "type": "verification",
+      "centralMeaning": "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-3"
+      ],
+      "appliesWhen": [
+        "apps/web/app/api/auth/[action]/route.ts",
+        "apps/web/app/components/auth-screen.tsx",
+        "apps/web/app/icon.svg",
+        "apps/web/app/lib/passport.ts",
+        "apps/web/app/reset-password/page.tsx",
+        "同一路线图入口：__solo__"
+      ],
+      "doThis": "优先复用或改写这组验证动作，并验证最终产物。",
+      "avoidThis": "不要只凭实现描述或完成摘要宣称闭环。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 1,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 2,
+        "beta": 1,
+        "winRate": 0.6667,
+        "lastUsed": "2026-08-04T02:05:40.064Z"
+      }
+    },
+    "exp-reusable-signal-bbd83203f5340823": {
+      "id": "exp-reusable-signal-bbd83203f5340823",
+      "type": "reusable_signal",
+      "centralMeaning": "Completion: Solo 对话已完成，等待用户决定是否关联到路线图环节。",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "appliesWhen": [
+        "apps/web/app/api/auth/[action]/route.ts",
+        "apps/web/app/components/auth-screen.tsx",
+        "apps/web/app/icon.svg",
+        "apps/web/app/lib/passport.ts",
+        "apps/web/app/reset-password/page.tsx",
+        "同一路线图入口：__solo__",
+        "scripts/install-runner.sh",
+        ".env.example"
+      ],
+      "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
+      "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},",
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/1/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "diff --git a/services/control-plane/tests/test_workflow.py b/services/control-plane/tests/test_workflow.py",
+        "--- a/services/control-plane/tests/test_workflow.py",
+        "+++ b/services/control-plane/tests/test_workflow.py",
+        "- Runner：`go test`、`go vet` 通过"
+      ],
+      "stats": {
+        "uses": 2,
+        "wins": 2,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 3,
+        "beta": 1,
+        "winRate": 0.75,
+        "lastUsed": "2026-08-04T02:05:40.064Z"
+      }
+    },
+    "exp-reusable-signal-6e798c8c3c240851": {
+      "id": "exp-reusable-signal-6e798c8c3c240851",
+      "type": "reusable_signal",
+      "centralMeaning": "Changed files: apps/web/app/api/auth/[action]/route.ts, apps/web/app/components/auth-screen.tsx, apps/web/app/icon.svg, apps/web/app/lib/passport.ts, apps/web/app/reset-password/page.tsx, apps/web/app/verify-email/page.tsx",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-3"
+      ],
+      "appliesWhen": [
+        "apps/web/app/api/auth/[action]/route.ts",
+        "apps/web/app/components/auth-screen.tsx",
+        "apps/web/app/icon.svg",
+        "apps/web/app/lib/passport.ts",
+        "apps/web/app/reset-password/page.tsx",
+        "同一路线图入口：__solo__"
+      ],
+      "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
+      "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 1,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 2,
+        "beta": 1,
+        "winRate": 0.6667,
+        "lastUsed": "2026-08-04T02:05:40.064Z"
+      }
+    },
+    "exp-handoff-action-cd06f39fcfaad747": {
+      "id": "exp-handoff-action-cd06f39fcfaad747",
+      "type": "handoff_action",
+      "centralMeaning": "先阅读上一轮改动/触达文件：apps/web/app/api/auth/[action]/route.ts, apps/web/app/components/auth-screen.tsx, apps/web/app/icon.svg, apps/web/app/lib/passport.ts",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-3"
+      ],
+      "appliesWhen": [
+        "apps/web/app/api/auth/[action]/route.ts",
+        "apps/web/app/components/auth-screen.tsx",
+        "apps/web/app/icon.svg",
+        "apps/web/app/lib/passport.ts",
+        "apps/web/app/reset-password/page.tsx",
+        "接手同一路线图入口：__solo__"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-04T02:05:40.064Z"
+      }
+    },
+    "exp-handoff-action-496dc40e9a4e7af8": {
+      "id": "exp-handoff-action-496dc40e9a4e7af8",
+      "type": "handoff_action",
+      "centralMeaning": "本次采用的 Passport、Next.js、React、浏览器验收及 GitOps 技能，分别约束了身份/权益单一事实源、服务端配额校验、用户界面回归和受治理发布方式。",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-3"
+      ],
+      "appliesWhen": [
+        "apps/web/app/api/auth/[action]/route.ts",
+        "apps/web/app/components/auth-screen.tsx",
+        "apps/web/app/icon.svg",
+        "apps/web/app/lib/passport.ts",
+        "apps/web/app/reset-password/page.tsx",
+        "接手同一路线图入口：__solo__"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-04T02:05:40.064Z"
+      }
+    },
+    "exp-handoff-action-e8c3bf015810203e": {
+      "id": "exp-handoff-action-e8c3bf015810203e",
+      "type": "handoff_action",
+      "centralMeaning": "复用或复跑验证信号：+ split={\"train\": 80, \"validation\": 10, \"test\": 10},",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-3"
+      ],
+      "appliesWhen": [
+        "apps/web/app/api/auth/[action]/route.ts",
+        "apps/web/app/components/auth-screen.tsx",
+        "apps/web/app/icon.svg",
+        "apps/web/app/lib/passport.ts",
+        "apps/web/app/reset-password/page.tsx",
+        "接手同一路线图入口：__solo__"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-04T02:05:40.064Z"
+      }
+    },
     "exp-verification-0c03448d7fe8dab9": {
       "id": "exp-verification-0c03448d7fe8dab9",
       "type": "verification",
@@ -242,44 +544,6 @@
         "lastUsed": "2026-08-03T14:35:25.369Z"
       }
     },
-    "exp-reusable-signal-bbd83203f5340823": {
-      "id": "exp-reusable-signal-bbd83203f5340823",
-      "type": "reusable_signal",
-      "centralMeaning": "Completion: Solo 对话已完成，等待用户决定是否关联到路线图环节。",
-      "sourceKinds": [
-        "solo"
-      ],
-      "sourceRefs": [
-        "__solo__-1"
-      ],
-      "appliesWhen": [
-        "scripts/install-runner.sh",
-        ".env.example",
-        "apps/web/app/components/workbench.tsx",
-        "apps/web/app/globals.css",
-        "apps/web/next-env.d.ts",
-        "同一路线图入口：__solo__"
-      ],
-      "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
-      "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
-      "checks": [
-        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/1/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
-        "diff --git a/services/control-plane/tests/test_workflow.py b/services/control-plane/tests/test_workflow.py",
-        "--- a/services/control-plane/tests/test_workflow.py",
-        "+++ b/services/control-plane/tests/test_workflow.py",
-        "- Runner：`go test`、`go vet` 通过"
-      ],
-      "stats": {
-        "uses": 1,
-        "wins": 1,
-        "losses": 0,
-        "neutral": 0,
-        "alpha": 2,
-        "beta": 1,
-        "winRate": 0.6667,
-        "lastUsed": "2026-08-03T14:35:25.369Z"
-      }
-    },
     "exp-reusable-signal-7b3a4fe326a29d3d": {
       "id": "exp-reusable-signal-7b3a4fe326a29d3d",
       "type": "reusable_signal",
@@ -396,6 +660,84 @@
     }
   },
   "usageEdges": [
+    {
+      "runId": "__solo__-3",
+      "experienceId": "exp-verification-15081ed66d4e3c9f",
+      "phase": "verified",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-3.json",
+        "execution_logs:3",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "createdAt": "2026-08-04T02:05:40.064Z"
+    },
+    {
+      "runId": "__solo__-3",
+      "experienceId": "exp-reusable-signal-bbd83203f5340823",
+      "phase": "observed",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-3.json",
+        "execution_logs:3",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "createdAt": "2026-08-04T02:05:40.064Z"
+    },
+    {
+      "runId": "__solo__-3",
+      "experienceId": "exp-reusable-signal-6e798c8c3c240851",
+      "phase": "observed",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-3.json",
+        "execution_logs:3",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "createdAt": "2026-08-04T02:05:40.064Z"
+    },
+    {
+      "runId": "__solo__-3",
+      "experienceId": "exp-handoff-action-cd06f39fcfaad747",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-3.json",
+        "execution_logs:3",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "createdAt": "2026-08-04T02:05:40.064Z"
+    },
+    {
+      "runId": "__solo__-3",
+      "experienceId": "exp-handoff-action-496dc40e9a4e7af8",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-3.json",
+        "execution_logs:3",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "createdAt": "2026-08-04T02:05:40.064Z"
+    },
+    {
+      "runId": "__solo__-3",
+      "experienceId": "exp-handoff-action-e8c3bf015810203e",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-3.json",
+        "execution_logs:3",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ split={\"train\": 80, \"validation\": 10, \"test\": 10},"
+      ],
+      "createdAt": "2026-08-04T02:05:40.064Z"
+    },
     {
       "runId": "__solo__-1",
       "experienceId": "exp-verification-0c03448d7fe8dab9",
@@ -518,6 +860,69 @@
     }
   ],
   "runs": [
+    {
+      "runId": "__solo__-3",
+      "executionLogId": 3,
+      "nodeId": "__solo__",
+      "runKind": "solo",
+      "agentCli": "/usr/local/bin/codex",
+      "status": "Completed",
+      "finishedAt": "2026-08-04T02:05:40.064Z",
+      "changedFiles": [
+        "apps/web/app/api/auth/[action]/route.ts",
+        "apps/web/app/components/auth-screen.tsx",
+        "apps/web/app/icon.svg",
+        "apps/web/app/lib/passport.ts",
+        "apps/web/app/reset-password/page.tsx",
+        "apps/web/app/verify-email/page.tsx",
+        "packages/passport-client/index.d.ts",
+        "packages/passport-client/index.js",
+        "packages/passport-client/package.json",
+        ".env.example",
+        "apps/web/app/api/control/[...path]/route.ts",
+        "apps/web/app/api/session/route.ts",
+        "apps/web/app/components/workbench.tsx",
+        "apps/web/app/globals.css",
+        "apps/web/app/lib/session.ts",
+        "apps/web/app/lib/types.ts",
+        "apps/web/Dockerfile",
+        "apps/web/package.json",
+        "compose.yaml",
+        "docs/architecture/system-boundaries.md",
+        "docs/product/product-design.md",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "PROJECT_MEMORY.md"
+      ],
+      "touchedFiles": [
+        "apps/web/app/api/auth/[action]/route.ts",
+        "apps/web/app/components/auth-screen.tsx",
+        "apps/web/app/icon.svg",
+        "apps/web/app/lib/passport.ts",
+        "apps/web/app/reset-password/page.tsx",
+        "apps/web/app/verify-email/page.tsx",
+        "packages/passport-client/index.d.ts",
+        "packages/passport-client/index.js",
+        "packages/passport-client/package.json",
+        ".env.example",
+        "apps/web/app/api/control/[...path]/route.ts",
+        "apps/web/app/api/session/route.ts",
+        "apps/web/app/components/workbench.tsx",
+        "apps/web/app/globals.css",
+        "apps/web/app/lib/session.ts",
+        "apps/web/app/lib/types.ts",
+        "apps/web/Dockerfile",
+        "apps/web/package.json",
+        "compose.yaml",
+        "docs/architecture/system-boundaries.md",
+        "docs/product/product-design.md",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "PROJECT_MEMORY.md"
+      ],
+      "failures": [],
+      "handoffSummary": "Solo 对话已完成，等待用户决定是否关联到路线图环节。 优先查看 apps/web/app/api/auth/[action]/route.ts, apps/web/app/components/auth-screen.tsx, apps/web/app/icon.svg, apps/web/app/lib/passport.ts。 建议验证：cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -。"
+    },
     {
       "runId": "__solo__-1",
       "executionLogId": 1,

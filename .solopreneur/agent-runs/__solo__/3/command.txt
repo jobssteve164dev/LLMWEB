@@ -1,0 +1,1 @@
+cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -

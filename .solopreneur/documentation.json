@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-04T01:07:09.528Z",
+  "updatedAt": "2026-08-04T02:35:11.579Z",
   "documents": [
     {
       "path": "README.md",
@@ -8,7 +8,7 @@
       "status": "active",
       "solves": "说明项目是什么、服务谁、成功标准和对外表达。",
       "lastReviewedAt": "",
-      "lastTouchedAt": "2026-08-03T14:23:51.986Z"
+      "lastTouchedAt": "2026-08-04T01:26:46.062Z"
     },
     {
       "path": ".solopreneur/README.md",
@@ -24,7 +24,7 @@
       "status": "active",
       "solves": "保存项目长期解释性背景。",
       "lastReviewedAt": "",
-      "lastTouchedAt": "2026-08-03T11:33:39.048Z"
+      "lastTouchedAt": "2026-08-04T01:27:04.369Z"
     },
     {
       "path": "docs/product/product-design.md",
@@ -32,19 +32,29 @@
       "status": "active",
       "solves": "保存项目长期解释性背景。",
       "lastReviewedAt": "",
-      "lastTouchedAt": "2026-08-03T09:20:28.720Z"
+      "lastTouchedAt": "2026-08-04T01:27:04.369Z"
     }
   ],
-  "pendingReview": [],
+  "pendingReview": [
+    {
+      "path": "docs/product/product-design.md",
+      "reason": "文档缺少长期判断结构，建议确认它解决的项目判断和适用范围。",
+      "severity": "info",
+      "detectedAt": "2026-08-04T02:05:40.064Z",
+      "source": "documentation_audit"
+    }
+  ],
   "lastAudit": {
-    "auditedAt": "2026-08-03T14:35:25.369Z",
+    "auditedAt": "2026-08-04T02:05:40.064Z",
     "runKind": "solo",
     "nodeId": "__solo__",
     "status": "Completed",
-    "action": "updated",
+    "action": "needs_review",
     "touchedDocuments": [
+      "docs/architecture/system-boundaries.md",
+      "docs/product/product-design.md",
       "README.md"
     ],
-    "pendingReviewCount": 0
+    "pendingReviewCount": 1
   }
 }
