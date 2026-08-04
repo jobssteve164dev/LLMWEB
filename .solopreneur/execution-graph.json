@@ -1,25 +1,90 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-04T02:05:45.840Z",
-  "runCount": 2,
+  "updatedAt": "2026-08-04T03:09:01.177Z",
+  "runCount": 3,
   "indexes": {
     "byNode": {
       "__solo__": [
+        "__solo__-4",
         "__solo__-3",
         "__solo__-1"
       ]
     },
     "byAgent": {
       "/usr/local/bin/codex": [
+        "__solo__-4",
         "__solo__-3",
         "__solo__-1"
       ]
     },
     "byFile": {
-      "apps/web/app/api/auth/[action]/route.ts": [
-        "__solo__-3"
+      ".agents/product-marketing-context.md": [
+        "__solo__-4"
+      ],
+      "apps/web/app/[legalDocument]/page.tsx": [
+        "__solo__-4"
+      ],
+      "apps/web/app/components/legal-document.tsx": [
+        "__solo__-4"
+      ],
+      "apps/web/app/lib/legal-documents.ts": [
+        "__solo__-4"
+      ],
+      "apps/web/app/lib/site.ts": [
+        "__solo__-4"
+      ],
+      "apps/web/app/robots.ts": [
+        "__solo__-4"
+      ],
+      "apps/web/app/sitemap.ts": [
+        "__solo__-4"
+      ],
+      "apps/web/app/workbench/[step]/page.tsx": [
+        "__solo__-4"
+      ],
+      "apps/web/app/workbench/page.tsx": [
+        "__solo__-4"
+      ],
+      ".env.example": [
+        "__solo__-4",
+        "__solo__-3",
+        "__solo__-1"
       ],
       "apps/web/app/components/auth-screen.tsx": [
+        "__solo__-4",
+        "__solo__-3"
+      ],
+      "apps/web/app/components/workbench.tsx": [
+        "__solo__-4",
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "apps/web/app/globals.css": [
+        "__solo__-4",
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "apps/web/app/layout.tsx": [
+        "__solo__-4"
+      ],
+      "apps/web/app/page.tsx": [
+        "__solo__-4"
+      ],
+      "compose.yaml": [
+        "__solo__-4",
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "PROJECT_MEMORY.md": [
+        "__solo__-4",
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "README.md": [
+        "__solo__-4",
+        "__solo__-1"
+      ],
+      "apps/web/app/api/auth/[action]/route.ts": [
         "__solo__-3"
       ],
       "apps/web/app/icon.svg": [
@@ -43,23 +108,11 @@
       "packages/passport-client/package.json": [
         "__solo__-3"
       ],
-      ".env.example": [
-        "__solo__-3",
-        "__solo__-1"
-      ],
       "apps/web/app/api/control/[...path]/route.ts": [
         "__solo__-3"
       ],
       "apps/web/app/api/session/route.ts": [
         "__solo__-3"
-      ],
-      "apps/web/app/components/workbench.tsx": [
-        "__solo__-3",
-        "__solo__-1"
-      ],
-      "apps/web/app/globals.css": [
-        "__solo__-3",
-        "__solo__-1"
       ],
       "apps/web/app/lib/session.ts": [
         "__solo__-3"
@@ -73,10 +126,6 @@
       "apps/web/package.json": [
         "__solo__-3"
       ],
-      "compose.yaml": [
-        "__solo__-3",
-        "__solo__-1"
-      ],
       "docs/architecture/system-boundaries.md": [
         "__solo__-3"
       ],
@@ -89,17 +138,10 @@
       "pnpm-workspace.yaml": [
         "__solo__-3"
       ],
-      "PROJECT_MEMORY.md": [
-        "__solo__-3",
-        "__solo__-1"
-      ],
       "scripts/install-runner.sh": [
         "__solo__-1"
       ],
       "apps/web/next-env.d.ts": [
-        "__solo__-1"
-      ],
-      "README.md": [
         "__solo__-1"
       ],
       "runner/cmd/runner/main.go": [
@@ -117,12 +159,16 @@
     },
     "byStatus": {
       "Completed": [
+        "__solo__-4",
         "__solo__-3",
         "__solo__-1"
       ]
     },
     "byFailure": {},
     "byCommand": {
+      "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check ...": [
+        "__solo__-4"
+      ],
       "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check ...": [
         "__solo__-3"
       ],
@@ -131,12 +177,37 @@
       ]
     },
     "byExperience": {
-      "exp-verification-15081ed66d4e3c9f": [
-        "__solo__-3"
+      "exp-verification-442222783b415c17": [
+        "__solo__-4"
       ],
       "exp-reusable-signal-bbd83203f5340823": [
+        "__solo__-4",
         "__solo__-3",
         "__solo__-1"
+      ],
+      "exp-reusable-signal-da5cd7f3d4340464": [
+        "__solo__-4"
+      ],
+      "exp-handoff-action-a2168840b91c534d": [
+        "__solo__-4"
+      ],
+      "exp-handoff-action-fa5e36a448eebb39": [
+        "__solo__-4"
+      ],
+      "exp-handoff-action-b42cc7a5ff7c4b0b": [
+        "__solo__-4"
+      ],
+      "exp-handoff-action-83c6f23ae30bef44": [
+        "__solo__-4"
+      ],
+      "exp-handoff-action-0c83fa36282636f9": [
+        "__solo__-4"
+      ],
+      "exp-handoff-action-6bbc86c181ab194b": [
+        "__solo__-4"
+      ],
+      "exp-verification-15081ed66d4e3c9f": [
+        "__solo__-3"
       ],
       "exp-reusable-signal-6e798c8c3c240851": [
         "__solo__-3"
@@ -174,6 +245,331 @@
     }
   },
   "experienceNodes": {
+    "exp-verification-442222783b415c17": {
+      "id": "exp-verification-442222783b415c17",
+      "type": "verification",
+      "centralMeaning": "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-4"
+      ],
+      "appliesWhen": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "同一路线图入口：__solo__"
+      ],
+      "doThis": "优先复用或改写这组验证动作，并验证最终产物。",
+      "avoidThis": "不要只凭实现描述或完成摘要宣称闭环。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 1,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 2,
+        "beta": 1,
+        "winRate": 0.6667,
+        "lastUsed": "2026-08-04T03:08:55.737Z"
+      }
+    },
+    "exp-reusable-signal-bbd83203f5340823": {
+      "id": "exp-reusable-signal-bbd83203f5340823",
+      "type": "reusable_signal",
+      "centralMeaning": "Completion: Solo 对话已完成，等待用户决定是否关联到路线图环节。",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-4",
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "appliesWhen": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "同一路线图入口：__solo__",
+        "apps/web/app/api/auth/[action]/route.ts",
+        "apps/web/app/components/auth-screen.tsx"
+      ],
+      "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
+      "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },",
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},",
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/1/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "diff --git a/services/control-plane/tests/test_workflow.py b/services/control-plane/tests/test_workflow.py",
+        "--- a/services/control-plane/tests/test_workflow.py",
+        "+++ b/services/control-plane/tests/test_workflow.py"
+      ],
+      "stats": {
+        "uses": 3,
+        "wins": 3,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 4,
+        "beta": 1,
+        "winRate": 0.8,
+        "lastUsed": "2026-08-04T03:08:55.737Z"
+      }
+    },
+    "exp-reusable-signal-da5cd7f3d4340464": {
+      "id": "exp-reusable-signal-da5cd7f3d4340464",
+      "type": "reusable_signal",
+      "centralMeaning": "Changed files: .agents/product-marketing-context.md, apps/web/app/[legalDocument]/page.tsx, apps/web/app/components/legal-document.tsx, apps/web/app/lib/legal-documents.ts, apps/web/app/lib/site.ts, apps/web/app/robots.ts",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-4"
+      ],
+      "appliesWhen": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "同一路线图入口：__solo__"
+      ],
+      "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
+      "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 1,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 2,
+        "beta": 1,
+        "winRate": 0.6667,
+        "lastUsed": "2026-08-04T03:08:55.737Z"
+      }
+    },
+    "exp-handoff-action-a2168840b91c534d": {
+      "id": "exp-handoff-action-a2168840b91c534d",
+      "type": "handoff_action",
+      "centralMeaning": "先阅读上一轮改动/触达文件：.agents/product-marketing-context.md, apps/web/app/[legalDocument]/page.tsx, apps/web/app/components/legal-document.tsx, apps/web/app/lib/legal-documents.ts",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-4"
+      ],
+      "appliesWhen": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "接手同一路线图入口：__solo__"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-04T03:08:55.737Z"
+      }
+    },
+    "exp-handoff-action-fa5e36a448eebb39": {
+      "id": "exp-handoff-action-fa5e36a448eebb39",
+      "type": "handoff_action",
+      "centralMeaning": "+import type { MetadataRoute } from \"next\";",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-4"
+      ],
+      "appliesWhen": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "接手同一路线图入口：__solo__"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-04T03:08:55.737Z"
+      }
+    },
+    "exp-handoff-action-b42cc7a5ff7c4b0b": {
+      "id": "exp-handoff-action-b42cc7a5ff7c4b0b",
+      "type": "handoff_action",
+      "centralMeaning": "+import type { Metadata } from \"next\";",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-4"
+      ],
+      "appliesWhen": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "接手同一路线图入口：__solo__"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-04T03:08:55.737Z"
+      }
+    },
+    "exp-handoff-action-83c6f23ae30bef44": {
+      "id": "exp-handoff-action-83c6f23ae30bef44",
+      "type": "handoff_action",
+      "centralMeaning": "+import { notFound } from \"next/navigation\";",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-4"
+      ],
+      "appliesWhen": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "接手同一路线图入口：__solo__"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-04T03:08:55.737Z"
+      }
+    },
+    "exp-handoff-action-0c83fa36282636f9": {
+      "id": "exp-handoff-action-0c83fa36282636f9",
+      "type": "handoff_action",
+      "centralMeaning": "+import { redirect } from \"next/navigation\";",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-4"
+      ],
+      "appliesWhen": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "接手同一路线图入口：__solo__"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-04T03:08:55.737Z"
+      }
+    },
+    "exp-handoff-action-6bbc86c181ab194b": {
+      "id": "exp-handoff-action-6bbc86c181ab194b",
+      "type": "handoff_action",
+      "centralMeaning": "复用或复跑验证信号：+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-4"
+      ],
+      "appliesWhen": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "接手同一路线图入口：__solo__"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-04T03:08:55.737Z"
+      }
+    },
     "exp-verification-15081ed66d4e3c9f": {
       "id": "exp-verification-15081ed66d4e3c9f",
       "type": "verification",
@@ -206,49 +602,6 @@
         "alpha": 2,
         "beta": 1,
         "winRate": 0.6667,
-        "lastUsed": "2026-08-04T02:05:40.064Z"
-      }
-    },
-    "exp-reusable-signal-bbd83203f5340823": {
-      "id": "exp-reusable-signal-bbd83203f5340823",
-      "type": "reusable_signal",
-      "centralMeaning": "Completion: Solo 对话已完成，等待用户决定是否关联到路线图环节。",
-      "sourceKinds": [
-        "solo"
-      ],
-      "sourceRefs": [
-        "__solo__-3",
-        "__solo__-1"
-      ],
-      "appliesWhen": [
-        "apps/web/app/api/auth/[action]/route.ts",
-        "apps/web/app/components/auth-screen.tsx",
-        "apps/web/app/icon.svg",
-        "apps/web/app/lib/passport.ts",
-        "apps/web/app/reset-password/page.tsx",
-        "同一路线图入口：__solo__",
-        "scripts/install-runner.sh",
-        ".env.example"
-      ],
-      "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
-      "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
-      "checks": [
-        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
-        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},",
-        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/1/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
-        "diff --git a/services/control-plane/tests/test_workflow.py b/services/control-plane/tests/test_workflow.py",
-        "--- a/services/control-plane/tests/test_workflow.py",
-        "+++ b/services/control-plane/tests/test_workflow.py",
-        "- Runner：`go test`、`go vet` 通过"
-      ],
-      "stats": {
-        "uses": 2,
-        "wins": 2,
-        "losses": 0,
-        "neutral": 0,
-        "alpha": 3,
-        "beta": 1,
-        "winRate": 0.75,
         "lastUsed": "2026-08-04T02:05:40.064Z"
       }
     },
@@ -661,6 +1014,123 @@
   },
   "usageEdges": [
     {
+      "runId": "__solo__-4",
+      "experienceId": "exp-verification-442222783b415c17",
+      "phase": "verified",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-4.json",
+        "execution_logs:4",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "createdAt": "2026-08-04T03:08:55.737Z"
+    },
+    {
+      "runId": "__solo__-4",
+      "experienceId": "exp-reusable-signal-bbd83203f5340823",
+      "phase": "observed",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-4.json",
+        "execution_logs:4",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "createdAt": "2026-08-04T03:08:55.737Z"
+    },
+    {
+      "runId": "__solo__-4",
+      "experienceId": "exp-reusable-signal-da5cd7f3d4340464",
+      "phase": "observed",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-4.json",
+        "execution_logs:4",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "createdAt": "2026-08-04T03:08:55.737Z"
+    },
+    {
+      "runId": "__solo__-4",
+      "experienceId": "exp-handoff-action-a2168840b91c534d",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-4.json",
+        "execution_logs:4",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "createdAt": "2026-08-04T03:08:55.737Z"
+    },
+    {
+      "runId": "__solo__-4",
+      "experienceId": "exp-handoff-action-fa5e36a448eebb39",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-4.json",
+        "execution_logs:4",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "createdAt": "2026-08-04T03:08:55.737Z"
+    },
+    {
+      "runId": "__solo__-4",
+      "experienceId": "exp-handoff-action-b42cc7a5ff7c4b0b",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-4.json",
+        "execution_logs:4",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "createdAt": "2026-08-04T03:08:55.737Z"
+    },
+    {
+      "runId": "__solo__-4",
+      "experienceId": "exp-handoff-action-83c6f23ae30bef44",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-4.json",
+        "execution_logs:4",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "createdAt": "2026-08-04T03:08:55.737Z"
+    },
+    {
+      "runId": "__solo__-4",
+      "experienceId": "exp-handoff-action-0c83fa36282636f9",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-4.json",
+        "execution_logs:4",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "createdAt": "2026-08-04T03:08:55.737Z"
+    },
+    {
+      "runId": "__solo__-4",
+      "experienceId": "exp-handoff-action-6bbc86c181ab194b",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-4.json",
+        "execution_logs:4",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "createdAt": "2026-08-04T03:08:55.737Z"
+    },
+    {
       "runId": "__solo__-3",
       "experienceId": "exp-verification-15081ed66d4e3c9f",
       "phase": "verified",
@@ -860,6 +1330,57 @@
     }
   ],
   "runs": [
+    {
+      "runId": "__solo__-4",
+      "executionLogId": 4,
+      "nodeId": "__solo__",
+      "runKind": "solo",
+      "agentCli": "/usr/local/bin/codex",
+      "status": "Completed",
+      "finishedAt": "2026-08-04T03:08:55.737Z",
+      "changedFiles": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "apps/web/app/robots.ts",
+        "apps/web/app/sitemap.ts",
+        "apps/web/app/workbench/[step]/page.tsx",
+        "apps/web/app/workbench/page.tsx",
+        ".env.example",
+        "apps/web/app/components/auth-screen.tsx",
+        "apps/web/app/components/workbench.tsx",
+        "apps/web/app/globals.css",
+        "apps/web/app/layout.tsx",
+        "apps/web/app/page.tsx",
+        "compose.yaml",
+        "PROJECT_MEMORY.md",
+        "README.md"
+      ],
+      "touchedFiles": [
+        ".agents/product-marketing-context.md",
+        "apps/web/app/[legalDocument]/page.tsx",
+        "apps/web/app/components/legal-document.tsx",
+        "apps/web/app/lib/legal-documents.ts",
+        "apps/web/app/lib/site.ts",
+        "apps/web/app/robots.ts",
+        "apps/web/app/sitemap.ts",
+        "apps/web/app/workbench/[step]/page.tsx",
+        "apps/web/app/workbench/page.tsx",
+        ".env.example",
+        "apps/web/app/components/auth-screen.tsx",
+        "apps/web/app/components/workbench.tsx",
+        "apps/web/app/globals.css",
+        "apps/web/app/layout.tsx",
+        "apps/web/app/page.tsx",
+        "compose.yaml",
+        "PROJECT_MEMORY.md",
+        "README.md"
+      ],
+      "failures": [],
+      "handoffSummary": "Solo 对话已完成，等待用户决定是否关联到路线图环节。 优先查看 .agents/product-marketing-context.md, apps/web/app/[legalDocument]/page.tsx, apps/web/app/components/legal-document.tsx, apps/web/app/lib/legal-documents.ts。 建议验证：cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -。"
+    },
     {
       "runId": "__solo__-3",
       "executionLogId": 3,

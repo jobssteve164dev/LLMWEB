@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-04T02:35:11.579Z",
+  "updatedAt": "2026-08-04T10:26:11.542Z",
   "documents": [
     {
       "path": "README.md",
@@ -8,7 +8,7 @@
       "status": "active",
       "solves": "说明项目是什么、服务谁、成功标准和对外表达。",
       "lastReviewedAt": "",
-      "lastTouchedAt": "2026-08-04T01:26:46.062Z"
+      "lastTouchedAt": "2026-08-04T02:51:35.667Z"
     },
     {
       "path": ".solopreneur/README.md",
@@ -45,14 +45,12 @@
     }
   ],
   "lastAudit": {
-    "auditedAt": "2026-08-04T02:05:40.064Z",
+    "auditedAt": "2026-08-04T03:08:55.737Z",
     "runKind": "solo",
     "nodeId": "__solo__",
     "status": "Completed",
-    "action": "needs_review",
+    "action": "updated",
     "touchedDocuments": [
-      "docs/architecture/system-boundaries.md",
-      "docs/product/product-design.md",
       "README.md"
     ],
     "pendingReviewCount": 1
