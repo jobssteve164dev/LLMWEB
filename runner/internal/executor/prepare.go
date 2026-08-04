@@ -23,6 +23,26 @@ func (executor *Executor) prepareAndInspect(ctx context.Context, lease controlpl
 			return nil, fmt.Errorf("准备数据下载目录: %w", err)
 		}
 	}
+	if executor.backend == "native_mps" {
+		command := []string{
+			filepath.Join(executor.runtimeRoot, "bin", "python"),
+			filepath.Join(executor.runtimeRoot, "llmweb", "prepare_dataset.py"),
+			"--source-type", sourceType,
+			"--source", stringValue(lease.Payload, "source_ref"),
+			"--format", stringValue(lease.Payload, "format"),
+			"--output", filepath.Join(importDirectory, "source.jsonl"),
+		}
+		emit("progress", "正在从数据源下载到你的算力环境", map[string]any{"percent": 5})
+		if err := executor.runNative(ctx, command, emit); err != nil {
+			return nil, err
+		}
+		payload := make(map[string]any, len(lease.Payload))
+		for key, value := range lease.Payload {
+			payload[key] = value
+		}
+		payload["format"] = "jsonl"
+		return inspectDatasetFile(payload, filepath.Join(importDirectory, "source.jsonl"), executor.outputRoot)
+	}
 	container := containerName(lease.JobID)
 	executor.setContainer(container)
 	defer executor.setContainer("")

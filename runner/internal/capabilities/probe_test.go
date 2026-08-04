@@ -30,3 +30,25 @@ func TestProbeReportsMissingCommands(t *testing.T) {
 		t.Fatal("expected NVIDIA tooling to be unavailable")
 	}
 }
+
+func TestAppleSiliconReadinessUsesMPSWithoutDocker(t *testing.T) {
+	report := probeFor("darwin", "arm64", func(string) (string, error) {
+		return "", errors.New("not found")
+	})
+	report.MPSAvailable = true
+	report.GPUs = []GPU{{Name: "Apple M1 Max GPU", MemoryTotalMB: 32768, SharedMemory: true}}
+
+	if !report.Ready() {
+		t.Fatal("expected Apple Silicon with MPS to be ready")
+	}
+	if report.Backend != "native_mps" {
+		t.Fatalf("expected native MPS backend, got %q", report.Backend)
+	}
+}
+
+func TestAppleSiliconRequiresMPS(t *testing.T) {
+	report := Report{OperatingSystem: "darwin", Architecture: "arm64", Backend: "native_mps", GPUs: []GPU{{Name: "Apple M1 Max GPU"}}}
+	if report.Ready() {
+		t.Fatal("expected Apple Silicon without MPS to be unavailable")
+	}
+}

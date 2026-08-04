@@ -4,7 +4,7 @@ LLMWEB 是一个面向个人开发者和小团队的网页训练工作台。用�
 
 ## 首版范围
 
-- Linux x86_64 + NVIDIA GPU + Docker
+- Linux x86_64 + NVIDIA GPU + Docker，或 Apple Silicon Mac + Metal/MPS
 - 文本生成任务
 - SFT、LoRA、QLoRA
 - LLaMA-Factory 训练适配器
@@ -45,7 +45,9 @@ make web-service
 
 ## 连接 GPU 主机
 
-GPU 主机需要 Linux x86_64 和可用的 NVIDIA 驱动。在网页“连接算力”步骤生成一次性安装命令，并在 GPU 主机执行。命令会从 GitHub 下载安装脚本，自动识别主机架构、安装 Docker 与 NVIDIA 容器环境、构建受控训练环境、注册一次性身份并启动后台 Runner；无需先克隆仓库或手动替换目录。
+GPU 主机可以是带可用 NVIDIA 驱动的 Linux x86_64 主机，也可以是 Apple Silicon Mac（包括 M1 Max）。在网页“连接算力”步骤生成一次性安装命令并执行后，脚本会自动识别平台：Linux 使用 Docker/CUDA，Apple Silicon 使用原生 Metal/MPS；随后安装受控训练环境、注册一次性身份并启动后台 Runner，无需先克隆仓库或手动替换目录。
+
+Apple Silicon 当前使用 SFT/LoRA；4 位 QLoRA 依赖 CUDA 量化后端，仅在 Linux NVIDIA GPU 上提供。
 
 默认数据目录为当前登录用户主目录下的 `llmweb/data`，模型和中间结果保存在 `llmweb/output`。原始数据、模型权重、checkpoint 和存储凭证均不上传到网页服务。
 
@@ -88,7 +90,7 @@ pnpm check
 cd runner && go test ./...
 ```
 
-当前仓库已覆盖项目创建、一次性配对、数据检查、基础模型评测、LoRA/QLoRA 训练、训练版本选择、固定测试集复测、暂停/继续/取消、断线事件补传及产物导出。没有 NVIDIA GPU 和 Docker 的开发机可以验证网页与控制流程，但不能替代真实 GPU 训练验收。
+当前仓库已覆盖项目创建、一次性配对、数据检查、基础模型评测、LoRA/QLoRA 训练、训练版本选择、固定测试集复测、暂停/继续/取消、断线事件补传及产物导出。没有受支持 GPU 的开发机可以验证网页与控制流程，但不能替代 Linux NVIDIA 或 Apple Silicon 上的真实训练验收。
 
 ## 许可证
 

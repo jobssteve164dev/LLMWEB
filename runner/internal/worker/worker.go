@@ -32,7 +32,7 @@ func New(store *localstate.Store, state localstate.State, report capabilities.Re
 		store:    store,
 		state:    state,
 		client:   controlplane.New(state.ControlURL, state.DeviceToken),
-		executor: executor.New(state.DataRoot, state.OutputRoot, store.Directory()),
+		executor: executor.New(state.DataRoot, state.OutputRoot, store.Directory(), report.Backend),
 		report:   report,
 	}
 }

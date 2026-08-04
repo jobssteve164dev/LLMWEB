@@ -222,6 +222,49 @@ def test_resume_control_reaches_paused_job() -> None:
             assert db.get(Job, job_id).status == "running"
 
 
+def test_apple_silicon_uses_lora_instead_of_cuda_qlora() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        project_id = client.post(
+            "/v1/projects",
+            headers=WEB_HEADERS,
+            json={"name": "M1 Max 训练", "goal": "本地微调", "success_criteria": "完成同集复测"},
+        ).json()["id"]
+        with Session(engine) as db:
+            runner = Runner(
+                workspace_id=workspace_id(),
+                name="MacBook Pro M1 Max",
+                token_hash=digest_secret("mps-runner-token"),
+                capabilities={"ready": True, "backend": "native_mps", "mps_available": True},
+            )
+            db.add(runner)
+            db.flush()
+            dataset = Dataset(
+                workspace_id=workspace_id(), project_id=project_id, runner_id=runner.id,
+                name="本地数据", source_ref="data/train.jsonl", format="jsonl", status="ready",
+                mapping={"instruction": "instruction", "input": "input", "output": "output"},
+                split={"train": 80, "validation": 10, "test": 10},
+            )
+            db.add(dataset)
+            db.commit()
+            runner_id = runner.id
+            dataset_id = dataset.id
+
+        payload = {
+            "project_id": project_id,
+            "runner_id": runner_id,
+            "dataset_id": dataset_id,
+            "name": "MPS LoRA",
+            "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+            "license_confirmed": True,
+        }
+        rejected = client.post("/v1/experiments", headers=WEB_HEADERS, json={**payload, "method": "qlora"})
+        assert rejected.status_code == 400
+        assert "Apple Silicon" in rejected.json()["detail"]
+        accepted = client.post("/v1/experiments", headers=WEB_HEADERS, json={**payload, "method": "lora"})
+        assert accepted.status_code == 201, accepted.text
+
+
 def test_project_limits_and_user_isolation() -> None:
     reset_database()
     with TestClient(app) as client:

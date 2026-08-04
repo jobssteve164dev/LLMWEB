@@ -2,7 +2,7 @@
 
 状态：首版架构基线
 
-更新日期：2026-08-03
+更新日期：2026-08-04
 
 ## 1. 架构目标
 
@@ -31,7 +31,7 @@ Web 工作台 ── 控制面 API ── PostgreSQL
                     │
           ┌─────────┼─────────┐
           ▼         ▼         ▼
-       数据处理   训练容器   评测/导出
+       数据处理   训练执行   评测/导出
                     │
                     ▼
           用户本地目录或用户 S3
@@ -54,14 +54,14 @@ Runner 是安装在用户 GPU 主机上的受限执行代理。首版使用 Go �
 - 使用一次性配对码绑定一个工作区。
 - 主动建立出站连接并汇报能力。
 - 领取结构化且版本化的任务。
-- 启动平台批准的训练容器。
+- 启动平台批准的训练执行环境：Linux 使用 Docker/CUDA，Apple Silicon 使用隔离的原生 Metal/MPS 环境。
 - 本地持久化任务、日志和事件缓冲。
 - 采集 GPU 与进程指标。
 - 在恢复连接后补传状态。
 
-Runner 不包含 PyTorch 或训练框架。Python、CUDA 用户态依赖和训练逻辑位于版本固定的容器镜像中。
+Runner 二进制不内嵌 PyTorch 或训练框架。Linux 的 Python、CUDA 用户态依赖和训练逻辑位于版本固定的容器镜像中；Apple Silicon 的对应依赖位于安装脚本建立的隔离原生运行环境中。
 
-### 2.4 执行容器
+### 2.4 训练执行环境
 
 首版训练引擎为固定版本的 LLaMA-Factory，基础模型为固定 revision 的 Qwen2.5 0.5B、1.5B、3B 指令模型。数据处理、训练、评测和导出必须消费统一任务协议并产生统一事件格式。
 
@@ -73,12 +73,12 @@ Runner 不包含 PyTorch 或训练框架。Python、CUDA 用户态依赖和训�
 | 控制面 API | FastAPI、Pydantic |
 | 元数据 | PostgreSQL |
 | 平台文件接口 | S3 兼容对象存储 |
-| Runner | Go、Docker Engine API |
+| Runner | Go；Linux 使用 Docker Engine，Apple Silicon 使用原生进程监管 |
 | 数据处理 | Python、Polars、PyArrow、Hugging Face Datasets |
 | 训练 | LLaMA-Factory |
 | 评测 | EvalScope 与任务专用评测器 |
 | 通信 | HTTPS；日志和指标使用 WebSocket 或 SSE 推送至浏览器 |
-| GPU 观测 | NVML 与 `nvidia-smi` |
+| GPU 观测 | NVIDIA 使用 NVML 与 `nvidia-smi`；Apple Silicon 使用 Metal/MPS 与统一内存信息 |
 
 首版采用模块化单体控制面。Runner 通过 PostgreSQL 支撑的任务租约 API 主动领取任务，不以 Celery Worker 方式暴露在用户网络中。规模证明需要后，再引入独立消息系统。
 

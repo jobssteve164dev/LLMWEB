@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -14,15 +15,22 @@ import (
 type EmitFunc func(eventType, message string, payload map[string]any)
 
 type Executor struct {
-	dataRoot   string
-	outputRoot string
-	stateRoot  string
-	mu         sync.Mutex
-	container  string
+	dataRoot    string
+	outputRoot  string
+	stateRoot   string
+	backend     string
+	runtimeRoot string
+	mu          sync.Mutex
+	container   string
+	process     *os.Process
 }
 
-func New(dataRoot, outputRoot, stateRoot string) *Executor {
-	return &Executor{dataRoot: dataRoot, outputRoot: outputRoot, stateRoot: stateRoot}
+func New(dataRoot, outputRoot, stateRoot string, backend ...string) *Executor {
+	selectedBackend := "docker_cuda"
+	if len(backend) > 0 && backend[0] != "" {
+		selectedBackend = backend[0]
+	}
+	return &Executor{dataRoot: dataRoot, outputRoot: outputRoot, stateRoot: stateRoot, backend: selectedBackend, runtimeRoot: os.Getenv("LLMWEB_RUNTIME_ROOT")}
 }
 
 func (executor *Executor) Run(ctx context.Context, lease controlplane.Lease, emit EmitFunc) (map[string]any, error) {
@@ -53,9 +61,13 @@ func (executor *Executor) Run(ctx context.Context, lease controlplane.Lease, emi
 func (executor *Executor) Control(action string) error {
 	executor.mu.Lock()
 	container := executor.container
+	process := executor.process
 	executor.mu.Unlock()
-	if container == "" {
+	if container == "" && process == nil {
 		return nil
+	}
+	if process != nil {
+		return controlNativeProcess(process, action)
 	}
 	var command *exec.Cmd
 	switch action {
@@ -81,6 +93,12 @@ func (executor *Executor) Control(action string) error {
 func (executor *Executor) setContainer(name string) {
 	executor.mu.Lock()
 	executor.container = name
+	executor.mu.Unlock()
+}
+
+func (executor *Executor) setProcess(process *os.Process) {
+	executor.mu.Lock()
+	executor.process = process
 	executor.mu.Unlock()
 }
 

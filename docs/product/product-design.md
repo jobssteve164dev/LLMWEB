@@ -2,7 +2,7 @@
 
 状态：首版立项基线
 
-更新日期：2026-08-03
+更新日期：2026-08-04
 
 ## 1. 产品定义
 
@@ -18,7 +18,7 @@ LLMWEB 不是 GPU 租赁市场，不转售算力；不是单个训练框架的�
 
 首版服务两类用户：
 
-- 拥有本地或云端 Linux x86_64 NVIDIA GPU，但不希望通过命令行组织微调流程的个人开发者。
+- 拥有本地或云端 Linux x86_64 NVIDIA GPU，或 Apple Silicon Mac，但不希望通过命令行组织微调流程的个人开发者。
 - 需要让产品、数据和领域人员共同准备数据、查看结果的小型 AI 团队。
 
 用户应当理解自己的任务和数据，但不应被要求理解训练框架差异、容器编排方式或底层配置文件。
@@ -87,7 +87,7 @@ LLMWEB 不是 GPU 租赁市场，不转售算力；不是单个训练框架的�
 
 ## 6. 算力连接
 
-首版只支持能够运行 Docker 的 Linux x86_64 NVIDIA GPU 主机。用户通过一次性配对码启动 Runner，Runner 主动通过出站 HTTPS 连接控制面；用户不需要提供公网 IP、SSH 权限或开放入站端口。
+首版支持能够运行 Docker 的 Linux x86_64 NVIDIA GPU 主机，以及通过原生 Metal/MPS 执行的 Apple Silicon Mac（包括 M1 Max）。用户通过同一条一次性配对命令启动 Runner，Runner 自动选择对应执行后端并主动通过出站 HTTPS 连接控制面；用户不需要提供公网 IP、SSH 权限或开放入站端口。
 
 网页只展示用户做决策需要的信息：
 
@@ -100,7 +100,7 @@ LLMWEB 不是 GPU 租赁市场，不转售算力；不是单个训练框架的�
 
 ## 7. 训练体验
 
-首版支持文本 SFT、LoRA 和 QLoRA，基础模型限定为 Qwen2.5 0.5B、1.5B、3B 指令模型的固定版本。用户选择速度与质量偏好，系统生成推荐方案；专业参数位于高级设置。
+首版支持文本 SFT 和 LoRA；Linux NVIDIA GPU 额外支持 4 位 QLoRA。Apple Silicon 使用原生 Metal/MPS LoRA，基础模型同样限定为 Qwen2.5 0.5B、1.5B、3B 指令模型的固定版本。用户选择速度与质量偏好，系统根据已连接算力生成可执行方案；专业参数位于高级设置。
 
 训练页面重点展示：
 
@@ -145,7 +145,7 @@ LLMWEB 不是 GPU 租赁市场，不转售算力；不是单个训练框架的�
 ### 10.1 必须交付
 
 - 网页控制面与用户工作区。
-- Linux x86_64 NVIDIA Docker Runner 配对与状态上报。
+- Linux x86_64 NVIDIA Docker Runner 与 Apple Silicon Metal/MPS Runner 的统一配对和状态上报。
 - 本地数据检查、转换、切分和版本管理。
 - 基础模型基线评测。
 - 文本 SFT、LoRA、QLoRA。
@@ -155,7 +155,7 @@ LLMWEB 不是 GPU 租赁市场，不转售算力；不是单个训练框架的�
 
 ### 10.2 不进入首版
 
-- Windows、macOS、AMD、Intel GPU。
+- Windows、Intel Mac、AMD 与 Intel GPU。
 - 多机训练和 Kubernetes。
 - 多租户共享同一 Runner 或 GPU。
 - DPO、PPO、GRPO 和多模态训练。

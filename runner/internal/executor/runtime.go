@@ -48,6 +48,16 @@ type runtimeSpec struct {
 	S3Endpoint   string
 }
 
+type runtimePaths struct {
+	data         string
+	output       string
+	config       string
+	python       string
+	evaluator    string
+	llamaConvert string
+	cli          string
+}
+
 func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lease, emit EmitFunc) (map[string]any, error) {
 	spec, err := parseRuntimeSpec(lease.Payload)
 	if err != nil {
@@ -72,7 +82,14 @@ func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lea
 	}
 
 	configPath := filepath.Join(configDirectory, "task.yaml")
-	config, command, requiresGPU, err := buildRuntimeConfig(lease.Kind, spec)
+	paths := containerRuntimePaths()
+	if executor.backend == "native_mps" {
+		if spec.Method == "qlora" && lease.Kind != "export" {
+			return nil, errors.New("Apple Silicon 当前使用 LoRA 训练；4 位 QLoRA 依赖的 CUDA 量化后端不可用")
+		}
+		paths = executor.nativeRuntimePaths(datasetDirectory, experimentDirectory, configPath)
+	}
+	config, command, requiresGPU, err := buildRuntimeConfigForPaths(lease.Kind, spec, paths, executor.backend == "native_mps")
 	if err != nil {
 		return nil, err
 	}
@@ -80,30 +97,37 @@ func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lea
 		return nil, err
 	}
 	containerName := containerName(lease.JobID)
-	executor.setContainer(containerName)
-	defer executor.setContainer("")
-
-	args := []string{"run", "--name", containerName, "--ipc=host", "--security-opt=no-new-privileges", "--cap-drop=ALL"}
-	if requiresGPU {
-		args = append(args, "--gpus=all")
-	}
-	args = append(args,
-		"-v", datasetDirectory+":/workspace/data:ro",
-		"-v", experimentDirectory+":/workspace/output",
-		"-v", configDirectory+":/workspace/config:ro",
-		"-v", cacheDirectory+":/root/.cache/huggingface",
-		spec.Image,
-	)
-	args = append(args, command...)
-
-	emit("progress", stageMessage(lease.Kind), map[string]any{"percent": 8})
-	if err := runDocker(ctx, containerName, args, emit); err != nil {
-		if status, exists := dockerStatus(containerName); exists && status != "running" {
-			_ = exec.Command("docker", "rm", containerName).Run()
+	if executor.backend == "native_mps" {
+		emit("progress", stageMessage(lease.Kind), map[string]any{"percent": 8})
+		if err := executor.runNative(ctx, command, emit); err != nil {
+			return nil, err
 		}
-		return nil, err
+	} else {
+		executor.setContainer(containerName)
+		defer executor.setContainer("")
+
+		args := []string{"run", "--name", containerName, "--ipc=host", "--security-opt=no-new-privileges", "--cap-drop=ALL"}
+		if requiresGPU {
+			args = append(args, "--gpus=all")
+		}
+		args = append(args,
+			"-v", datasetDirectory+":/workspace/data:ro",
+			"-v", experimentDirectory+":/workspace/output",
+			"-v", configDirectory+":/workspace/config:ro",
+			"-v", cacheDirectory+":/root/.cache/huggingface",
+			spec.Image,
+		)
+		args = append(args, command...)
+
+		emit("progress", stageMessage(lease.Kind), map[string]any{"percent": 8})
+		if err := runDocker(ctx, containerName, args, emit); err != nil {
+			if status, exists := dockerStatus(containerName); exists && status != "running" {
+				_ = exec.Command("docker", "rm", containerName).Run()
+			}
+			return nil, err
+		}
+		_ = exec.Command("docker", "rm", containerName).Run()
 	}
-	_ = exec.Command("docker", "rm", containerName).Run()
 	emit("progress", "本地执行完成，正在整理结果", map[string]any{"percent": 94})
 
 	switch lease.Kind {
@@ -143,6 +167,27 @@ func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lea
 }
 
 func buildRuntimeConfig(kind string, spec runtimeSpec) (string, []string, bool, error) {
+	return buildRuntimeConfigForPaths(kind, spec, containerRuntimePaths(), false)
+}
+
+func containerRuntimePaths() runtimePaths {
+	return runtimePaths{
+		data: "/workspace/data", output: "/workspace/output", config: "/workspace/config/task.yaml",
+		python: "python", evaluator: "/opt/llmweb/evaluate.py", llamaConvert: "/opt/llama.cpp/convert_hf_to_gguf.py", cli: "llamafactory-cli",
+	}
+}
+
+func (executor *Executor) nativeRuntimePaths(datasetDirectory, experimentDirectory, configPath string) runtimePaths {
+	return runtimePaths{
+		data: datasetDirectory, output: experimentDirectory, config: configPath,
+		python:       filepath.Join(executor.runtimeRoot, "bin", "python"),
+		evaluator:    filepath.Join(executor.runtimeRoot, "llmweb", "evaluate.py"),
+		llamaConvert: filepath.Join(executor.runtimeRoot, "llama.cpp", "convert_hf_to_gguf.py"),
+		cli:          filepath.Join(executor.runtimeRoot, "bin", "llamafactory-cli"),
+	}
+}
+
+func buildRuntimeConfigForPaths(kind string, spec runtimeSpec, paths runtimePaths, mps bool) (string, []string, bool, error) {
 	quote := strconv.Quote
 	base := "model_name_or_path: " + quote(spec.ModelID) + "\n" +
 		"model_revision: " + quote(spec.Revision) + "\n" +
@@ -150,10 +195,10 @@ func buildRuntimeConfig(kind string, spec runtimeSpec) (string, []string, bool, 
 		"stage: sft\n" +
 		"finetuning_type: lora\n" +
 		"template: " + quote(spec.Template) + "\n" +
-		"dataset_dir: /workspace/data\n" +
+		"dataset_dir: " + quote(paths.data) + "\n" +
 		"cutoff_len: " + strconv.Itoa(spec.MaxLength) + "\n" +
 		"overwrite_cache: false\n" +
-		"preprocessing_num_workers: 4\n" +
+		"preprocessing_num_workers: " + map[bool]string{true: "1", false: "4"}[mps] + "\n" +
 		"report_to: none\n"
 	if spec.Method == "qlora" && kind != "export" {
 		base += "quantization_bit: 4\nquantization_method: bitsandbytes\n"
@@ -164,7 +209,7 @@ func buildRuntimeConfig(kind string, spec runtimeSpec) (string, []string, bool, 
 			"do_train: true\n" +
 			"dataset: llmweb_train\n" +
 			"eval_dataset: llmweb_validation\n" +
-			"output_dir: /workspace/output/adapter\n" +
+			"output_dir: " + quote(filepath.Join(paths.output, "adapter")) + "\n" +
 			"per_device_train_batch_size: " + strconv.Itoa(spec.BatchSize) + "\n" +
 			"per_device_eval_batch_size: 1\n" +
 			"gradient_accumulation_steps: " + strconv.Itoa(spec.Accumulation) + "\n" +
@@ -179,15 +224,15 @@ func buildRuntimeConfig(kind string, spec runtimeSpec) (string, []string, bool, 
 			"plot_loss: true\n" +
 			"fp16: true\n" +
 			"overwrite_output_dir: true\n"
-		return config, []string{"llamafactory-cli", "train", "/workspace/config/task.yaml"}, true, nil
+		return config, []string{paths.cli, "train", paths.config}, true, nil
 	case "baseline", "evaluate":
 		outputName := "baseline"
 		adapterArgs := []string{}
 		if kind == "evaluate" {
 			outputName = "evaluation"
-			adapterArgs = []string{"--adapter", "/workspace/output/" + spec.Checkpoint}
+			adapterArgs = []string{"--adapter", filepath.Join(paths.output, spec.Checkpoint)}
 		}
-		command := []string{"python", "/opt/llmweb/evaluate.py", "--model", spec.ModelID, "--revision", spec.Revision, "--data", "/workspace/data/test.json", "--output", "/workspace/output/" + outputName}
+		command := []string{paths.python, paths.evaluator, "--model", spec.ModelID, "--revision", spec.Revision, "--data", filepath.Join(paths.data, "test.json"), "--output", filepath.Join(paths.output, outputName)}
 		command = append(command, adapterArgs...)
 		if spec.Method == "qlora" {
 			command = append(command, "--quantization", "4")
@@ -196,22 +241,29 @@ func buildRuntimeConfig(kind string, spec runtimeSpec) (string, []string, bool, 
 	case "export":
 		needsMerged := contains(spec.Formats, "huggingface") || contains(spec.Formats, "gguf")
 		if !needsMerged {
-			return "# Adapter already produced by training.\n", []string{"/bin/sh", "-c", "test -d /workspace/output/adapter"}, false, nil
+			if !mps {
+				return "# Adapter already produced by training.\n", []string{"/bin/sh", "-c", "test -d /workspace/output/adapter"}, false, nil
+			}
+			return "# Adapter already produced by training.\n", []string{"/usr/bin/test", "-d", filepath.Join(paths.output, "adapter")}, false, nil
 		}
 		config := base +
-			"adapter_name_or_path: " + quote("/workspace/output/"+spec.Checkpoint) + "\n" +
-			"export_dir: /workspace/output/huggingface\n" +
+			"adapter_name_or_path: " + quote(filepath.Join(paths.output, spec.Checkpoint)) + "\n" +
+			"export_dir: " + quote(filepath.Join(paths.output, "huggingface")) + "\n" +
 			"export_size: 2\n" +
 			"export_device: cpu\n" +
 			"export_legacy_format: false\n"
 		if contains(spec.Formats, "gguf") {
-			command := "llamafactory-cli export /workspace/config/task.yaml && python /opt/llama.cpp/convert_hf_to_gguf.py /workspace/output/huggingface --outfile /workspace/output/gguf/model-f16.gguf --outtype f16"
+			command := shellQuote(paths.cli) + " export " + shellQuote(paths.config) + " && " + shellQuote(paths.python) + " " + shellQuote(paths.llamaConvert) + " " + shellQuote(filepath.Join(paths.output, "huggingface")) + " --outfile " + shellQuote(filepath.Join(paths.output, "gguf", "model-f16.gguf")) + " --outtype f16"
 			return config, []string{"/bin/sh", "-c", command}, false, nil
 		}
-		return config, []string{"llamafactory-cli", "export", "/workspace/config/task.yaml"}, false, nil
+		return config, []string{paths.cli, "export", paths.config}, false, nil
 	default:
 		return "", nil, false, fmt.Errorf("不支持的训练阶段 %q", kind)
 	}
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 func runDocker(ctx context.Context, containerName string, args []string, emit EmitFunc) error {
@@ -410,6 +462,21 @@ func parseRuntimeSpec(payload map[string]any) (runtimeSpec, error) {
 }
 
 func (executor *Executor) uploadArtifacts(ctx context.Context, jobID, experimentDirectory string, spec runtimeSpec, emit EmitFunc) error {
+	if executor.backend == "native_mps" {
+		command := []string{
+			filepath.Join(executor.runtimeRoot, "bin", "python"),
+			filepath.Join(executor.runtimeRoot, "llmweb", "upload_artifacts.py"),
+			"--source", experimentDirectory,
+			"--destination", spec.S3URI,
+			"--formats", strings.Join(spec.Formats, ","),
+			"--checkpoint", spec.Checkpoint,
+		}
+		if spec.S3Endpoint != "" {
+			command = append(command, "--endpoint", spec.S3Endpoint)
+		}
+		emit("progress", "正在把模型产物保存到你的对象存储", map[string]any{"percent": 96})
+		return executor.runNative(ctx, command, emit)
+	}
 	container := containerName(jobID) + "-upload"
 	args := []string{
 		"run", "--name", container,

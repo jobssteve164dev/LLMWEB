@@ -79,7 +79,7 @@ func runConnect(arguments []string, registerOnly bool) error {
 	}
 	report := capabilities.Probe(context.Background())
 	if !report.Ready() {
-		return errors.New("当前主机尚未满足 Linux x86_64、NVIDIA GPU 与可用 Docker 的要求；请先运行 doctor 查看检查结果")
+		return errors.New("当前主机尚未满足运行要求；需要 Linux x86_64 + NVIDIA GPU + Docker，或 Apple Silicon Mac + 可用的 Metal/MPS 训练环境。请先运行 doctor 查看检查结果")
 	}
 
 	if state.DeviceToken == "" {
