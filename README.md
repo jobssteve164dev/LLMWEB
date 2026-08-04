@@ -37,6 +37,8 @@ make web-service
 
 打开 `http://localhost:3000`，使用邮箱注册或登录。账号密码、邮箱验证和密码重置由 SZLKPassport 的 Headless Auth 统一处理，LLMWEB 只建立自己的工作台会话。该命令会启动网页、控制面和 PostgreSQL；它不会接触训练数据。
 
+根路径是产品公开页；登录后的工作台按用户动作使用可直接访问的路径：`/workbench/project`、`/workbench/compute`、`/workbench/data`、`/workbench/train`、`/workbench/evaluation` 与 `/workbench/models`。服务条款、隐私政策等共同法律正文由 SZLKlaws 统一治理，LLMWEB 在自己的公开路径和视觉中展示；产品特有的数据边界、算力责任与模型输出限制位于 `/legal-supplement`。
+
 每个账号拥有独立工作区，切换项目时只加载该项目的数据版本、训练、评测和模型记录。免费账号最多同时保留 2 个项目；Passport 为 `project_limit_10` 返回允许时最多保留 10 个。配额只限制新建，不会在方案变化时删除已有项目。
 
 生产部署使用根目录 `compose.yaml`，只运行网页和控制面，并通过 `LLMWEB_DATABASE_URL` 连接部署平台治理的 PostgreSQL。用于本地开发的一体化 PostgreSQL 单独定义在 `compose.local.yaml`，不会作为生产业务服务发布。

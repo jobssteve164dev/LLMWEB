@@ -51,7 +51,7 @@ export function AuthScreen({ initialMode = "login", onAuthenticated }: { initial
       } else if (mode === "reset") {
         const token = new URLSearchParams(window.location.search).get("token");
         await authRequest("/api/auth/reset-password", jsonBody({ token, password: form.get("password") }));
-        window.location.assign("/");
+        window.location.assign("/workbench/project");
       }
     } catch (caught) {
       if (mode === "login" && caught instanceof AuthRequestError && caught.code === "email_verification_required") {
@@ -72,7 +72,7 @@ export function AuthScreen({ initialMode = "login", onAuthenticated }: { initial
   };
 
   if (mode === "verify") return <AuthShell title="正在验证邮箱" description="验证完成后会直接打开你的工作台。">{submitting ? <p className="authStatus">请稍候…</p> : error ? <p className="loginError" role="alert">{error}</p> : null}</AuthShell>;
-  if (mode === "verified") return <AuthShell title="邮箱已验证" description="你的账号已经可以使用。"><button className="primaryButton" type="button" onClick={() => window.location.assign("/")}>进入工作台</button></AuthShell>;
+  if (mode === "verified") return <AuthShell title="邮箱已验证" description="你的账号已经可以使用。"><button className="primaryButton" type="button" onClick={() => window.location.assign("/workbench/project")}>进入工作台</button></AuthShell>;
   if (mode === "check-email") return <AuthShell title="请查看邮箱" description={email ? `我们已经向 ${email} 发送了下一步链接。` : "我们已经发送了下一步链接。"}><button className="primaryButton" type="button" onClick={() => switchMode("login")}>返回登录</button><button className="resendButton" disabled={submitting} type="button" onClick={async () => { setSubmitting(true); setError(""); try { await authRequest(pendingAction === "verification" ? "/api/auth/resend-verification" : "/api/auth/forgot-password", jsonBody({ email })); } catch (caught) { setError(caught instanceof Error ? caught.message : "没有发送成功。"); } finally { setSubmitting(false); } }}>{submitting ? "正在发送…" : pendingAction === "verification" ? "重新发送验证邮件" : "重新发送重置邮件"}</button>{error ? <p className="loginError" role="alert">{error}</p> : null}</AuthShell>;
 
   const isRegister = mode === "register";
