@@ -1,10 +1,11 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-04T10:56:57.597Z",
-  "runCount": 4,
+  "updatedAt": "2026-08-04T11:04:09.508Z",
+  "runCount": 5,
   "indexes": {
     "byNode": {
       "__solo__": [
+        "__solo__-6",
         "__solo__-5",
         "__solo__-4",
         "__solo__-3",
@@ -13,6 +14,7 @@
     },
     "byAgent": {
       "/usr/local/bin/codex": [
+        "__solo__-6",
         "__solo__-5",
         "__solo__-4",
         "__solo__-3",
@@ -205,6 +207,9 @@
       ]
     },
     "byStatus": {
+      "Recorded": [
+        "__solo__-6"
+      ],
       "Completed": [
         "__solo__-5",
         "__solo__-4",
@@ -214,6 +219,9 @@
     },
     "byFailure": {},
     "byCommand": {
+      "'/usr/local/bin/codex' resume --include-non-interactive --all -C '/home/ubuntu/project/LLMWEB' '019fcc50-5097-7e23-a57d-37d19fbfa9b6'": [
+        "__solo__-6"
+      ],
       "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/5/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check ...": [
         "__solo__-5"
       ],
@@ -228,6 +236,9 @@
       ]
     },
     "byExperience": {
+      "exp-reusable-signal-1477c0bd97fdae96": [
+        "__solo__-6"
+      ],
       "exp-verification-0c03448d7fe8dab9": [
         "__solo__-5",
         "__solo__-1"
@@ -308,6 +319,36 @@
     }
   },
   "experienceNodes": {
+    "exp-reusable-signal-1477c0bd97fdae96": {
+      "id": "exp-reusable-signal-1477c0bd97fdae96",
+      "type": "reusable_signal",
+      "centralMeaning": "Completion: 续聊已记录；不参与任务完成、失败或进行中判断。",
+      "sourceKinds": [
+        "solo_continue"
+      ],
+      "sourceRefs": [
+        "__solo__-6"
+      ],
+      "appliesWhen": [
+        "同一路线图入口：__solo__",
+        "后续任务出现相同目标、文件或验证需求"
+      ],
+      "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
+      "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
+      "checks": [
+        "'/usr/local/bin/codex' resume --include-non-interactive --all -C '/home/ubuntu/project/LLMWEB' '019fcc50-5097-7e23-a57d-37d19fbfa9b6'"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 1,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 2,
+        "beta": 1,
+        "winRate": 0.6667,
+        "lastUsed": "2026-08-04T11:04:09.488Z"
+      }
+    },
     "exp-verification-0c03448d7fe8dab9": {
       "id": "exp-verification-0c03448d7fe8dab9",
       "type": "verification",
@@ -1181,6 +1222,18 @@
   },
   "usageEdges": [
     {
+      "runId": "__solo__-6",
+      "experienceId": "exp-reusable-signal-1477c0bd97fdae96",
+      "phase": "observed",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-6.json",
+        "execution_logs:6",
+        "check:'/usr/local/bin/codex' resume --include-non-interactive --all -C '/home/ubuntu/project/LLMWEB' '019fcc50-5097-7e23-a57d-37d19fbfa9b6'"
+      ],
+      "createdAt": "2026-08-04T11:04:09.488Z"
+    },
+    {
       "runId": "__solo__-5",
       "experienceId": "exp-verification-0c03448d7fe8dab9",
       "phase": "verified",
@@ -1617,6 +1670,19 @@
     }
   ],
   "runs": [
+    {
+      "runId": "__solo__-6",
+      "executionLogId": 6,
+      "nodeId": "__solo__",
+      "runKind": "solo_continue",
+      "agentCli": "/usr/local/bin/codex",
+      "status": "Recorded",
+      "finishedAt": "2026-08-04T11:04:09.488Z",
+      "changedFiles": [],
+      "touchedFiles": [],
+      "failures": [],
+      "handoffSummary": "续聊已记录；不参与任务完成、失败或进行中判断。"
+    },
     {
       "runId": "__solo__-5",
       "executionLogId": 5,
