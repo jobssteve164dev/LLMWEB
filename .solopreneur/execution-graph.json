@@ -1,10 +1,11 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-05T20:01:14.824Z",
-  "runCount": 6,
+  "updatedAt": "2026-08-08T06:41:42.863Z",
+  "runCount": 7,
   "indexes": {
     "byNode": {
       "__solo__": [
+        "__solo__-8",
         "__solo__-7",
         "__solo__-6",
         "__solo__-5",
@@ -15,6 +16,7 @@
     },
     "byAgent": {
       "/usr/local/bin/codex": [
+        "__solo__-8",
         "__solo__-7",
         "__solo__-6",
         "__solo__-5",
@@ -210,6 +212,7 @@
     },
     "byStatus": {
       "Completed": [
+        "__solo__-8",
         "__solo__-7",
         "__solo__-5",
         "__solo__-4",
@@ -220,8 +223,15 @@
         "__solo__-6"
       ]
     },
-    "byFailure": {},
+    "byFailure": {
+      "dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, p...": [
+        "__solo__-8"
+      ]
+    },
     "byCommand": {
+      "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check ...": [
+        "__solo__-8"
+      ],
       "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/7/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check ...": [
         "__solo__-7"
       ],
@@ -242,12 +252,25 @@
       ]
     },
     "byExperience": {
+      "exp-verification-d2c08fe5ae8aa78a": [
+        "__solo__-8"
+      ],
+      "exp-verification-6a46d02df70f82ae": [
+        "__solo__-8"
+      ],
+      "exp-failure-00ba0705033dc3a1": [
+        "__solo__-8"
+      ],
       "exp-reusable-signal-bbd83203f5340823": [
+        "__solo__-8",
         "__solo__-7",
         "__solo__-5",
         "__solo__-4",
         "__solo__-3",
         "__solo__-1"
+      ],
+      "exp-handoff-action-d017fe1a295feb23": [
+        "__solo__-8"
       ],
       "exp-reusable-signal-1477c0bd97fdae96": [
         "__solo__-6"
@@ -326,6 +349,102 @@
     }
   },
   "experienceNodes": {
+    "exp-verification-d2c08fe5ae8aa78a": {
+      "id": "exp-verification-d2c08fe5ae8aa78a",
+      "type": "verification",
+      "centralMeaning": "dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-8"
+      ],
+      "appliesWhen": [
+        "同一路线图入口：__solo__",
+        "后续任务需要证明相同区域或相同命令链路已闭环"
+      ],
+      "doThis": "优先复用或改写这组验证动作，并验证最终产物。",
+      "avoidThis": "不要只凭实现描述或完成摘要宣称闭环。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+        "services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 1,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 2,
+        "beta": 1,
+        "winRate": 0.6667,
+        "lastUsed": "2026-08-08T06:41:39.723Z"
+      }
+    },
+    "exp-verification-6a46d02df70f82ae": {
+      "id": "exp-verification-6a46d02df70f82ae",
+      "type": "verification",
+      "centralMeaning": "services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-8"
+      ],
+      "appliesWhen": [
+        "同一路线图入口：__solo__",
+        "后续任务需要证明相同区域或相同命令链路已闭环"
+      ],
+      "doThis": "优先复用或改写这组验证动作，并验证最终产物。",
+      "avoidThis": "不要只凭实现描述或完成摘要宣称闭环。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+        "services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 1,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 2,
+        "beta": 1,
+        "winRate": 0.6667,
+        "lastUsed": "2026-08-08T06:41:39.723Z"
+      }
+    },
+    "exp-failure-00ba0705033dc3a1": {
+      "id": "exp-failure-00ba0705033dc3a1",
+      "type": "failure",
+      "centralMeaning": "dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-8"
+      ],
+      "appliesWhen": [
+        "同一路线图入口：__solo__",
+        "后续任务出现相同失败、相同命令或相同文件区域"
+      ],
+      "doThis": "先复核已知失败原因，再决定重试、回退、补验证或调整计划。",
+      "avoidThis": "不要无视同类失败历史直接重复上一条路径。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+        "services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-08T06:41:39.723Z"
+      }
+    },
     "exp-reusable-signal-bbd83203f5340823": {
       "id": "exp-reusable-signal-bbd83203f5340823",
       "type": "reusable_signal",
@@ -334,6 +453,7 @@
         "solo"
       ],
       "sourceRefs": [
+        "__solo__-8",
         "__solo__-7",
         "__solo__-5",
         "__solo__-4",
@@ -353,24 +473,56 @@
       "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
       "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
       "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+        "services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")",
         "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/7/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
         "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/5/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
         "diff --git a/services/control-plane/tests/test_workflow.py b/services/control-plane/tests/test_workflow.py",
         "--- a/services/control-plane/tests/test_workflow.py",
-        "+++ b/services/control-plane/tests/test_workflow.py",
-        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},",
-        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
-        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+        "+++ b/services/control-plane/tests/test_workflow.py"
       ],
       "stats": {
-        "uses": 5,
-        "wins": 5,
+        "uses": 6,
+        "wins": 6,
         "losses": 0,
         "neutral": 0,
-        "alpha": 6,
+        "alpha": 7,
         "beta": 1,
-        "winRate": 0.8571,
-        "lastUsed": "2026-08-05T20:01:13.887Z"
+        "winRate": 0.875,
+        "lastUsed": "2026-08-08T06:41:39.723Z"
+      }
+    },
+    "exp-handoff-action-d017fe1a295feb23": {
+      "id": "exp-handoff-action-d017fe1a295feb23",
+      "type": "handoff_action",
+      "centralMeaning": "复用或复跑验证信号：dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0 / servic...",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-8"
+      ],
+      "appliesWhen": [
+        "接手同一路线图入口：__solo__",
+        "后续 Agent 需要接续上一轮未完全显式化的上下文"
+      ],
+      "doThis": "把这条交接动作转成当前任务的第一步检查或验证。",
+      "avoidThis": "不要把 handoff 当成已验证结论；先和当前代码、日志、测试对齐。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+        "services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")"
+      ],
+      "stats": {
+        "uses": 1,
+        "wins": 0,
+        "losses": 0,
+        "neutral": 1,
+        "alpha": 1,
+        "beta": 1,
+        "winRate": 0.5,
+        "lastUsed": "2026-08-08T06:41:39.723Z"
       }
     },
     "exp-reusable-signal-1477c0bd97fdae96": {
@@ -1230,6 +1382,76 @@
   },
   "usageEdges": [
     {
+      "runId": "__solo__-8",
+      "experienceId": "exp-verification-d2c08fe5ae8aa78a",
+      "phase": "verified",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-8.json",
+        "execution_logs:8",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+        "check:services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")"
+      ],
+      "createdAt": "2026-08-08T06:41:39.723Z"
+    },
+    {
+      "runId": "__solo__-8",
+      "experienceId": "exp-verification-6a46d02df70f82ae",
+      "phase": "verified",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-8.json",
+        "execution_logs:8",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+        "check:services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")"
+      ],
+      "createdAt": "2026-08-08T06:41:39.723Z"
+    },
+    {
+      "runId": "__solo__-8",
+      "experienceId": "exp-failure-00ba0705033dc3a1",
+      "phase": "failed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-8.json",
+        "execution_logs:8",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+        "check:services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")"
+      ],
+      "createdAt": "2026-08-08T06:41:39.723Z"
+    },
+    {
+      "runId": "__solo__-8",
+      "experienceId": "exp-reusable-signal-bbd83203f5340823",
+      "phase": "observed",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-8.json",
+        "execution_logs:8",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+        "check:services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")"
+      ],
+      "createdAt": "2026-08-08T06:41:39.723Z"
+    },
+    {
+      "runId": "__solo__-8",
+      "experienceId": "exp-handoff-action-d017fe1a295feb23",
+      "phase": "observed",
+      "outcome": "neutral",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-8.json",
+        "execution_logs:8",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "check:dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0",
+        "check:services/control-plane/tests/test_health.py:7: response = TestClient(app).get(\"/health\")"
+      ],
+      "createdAt": "2026-08-08T06:41:39.723Z"
+    },
+    {
       "runId": "__solo__-7",
       "experienceId": "exp-reusable-signal-bbd83203f5340823",
       "phase": "observed",
@@ -1690,6 +1912,21 @@
     }
   ],
   "runs": [
+    {
+      "runId": "__solo__-8",
+      "executionLogId": 8,
+      "nodeId": "__solo__",
+      "runKind": "solo",
+      "agentCli": "/usr/local/bin/codex",
+      "status": "Completed",
+      "finishedAt": "2026-08-08T06:41:39.723Z",
+      "changedFiles": [],
+      "touchedFiles": [],
+      "failures": [
+        "dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0"
+      ],
+      "handoffSummary": "Solo 对话已完成，等待用户决定是否关联到路线图环节。 阻塞/风险：dit record. Values are never returned.\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"project_id\":{\"type\":\"string\"},\"key\":{\"type\"curl: (23) Failure writing output to destination, passed 4220 returned 0。 建议验证：cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/8/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -。"
+    },
     {
       "runId": "__solo__-7",
       "executionLogId": 7,

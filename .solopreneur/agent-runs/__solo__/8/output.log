@@ -1,0 +1,603 @@
+OpenAI Codex v0.147.0
+--------
+[1mworkdir:[0m /home/ubuntu/project/LLMWEB
+[1mmodel:[0m gpt-5.6-sol
+[1mprovider:[0m openai
+[1mapproval:[0m never
+[1msandbox:[0m danger-full-access
+[1mreasoning effort:[0m medium
+[1mreasoning summaries:[0m none
+[1msession id:[0m 019fe019-64f1-79f0-8a24-6c818390b126
+--------
+[36muser[0m
+你正在 SoloMap 的 Solo 模式中处理当前项目的一次直接对话。
+这次对话尚未归属于任何路线图环节；优先解决用户当前问题，不要要求用户先选择环节。
+
+项目目录：/home/ubuntu/project/LLMWEB
+
+用户本次要求（最高优先级）：
+为什么两个业务容器在gitops的业务列表的健康状态都是未配置？
+
+本轮执行内核：
+- 优先直接解决当前问题，不要要求用户先选择路线图环节。
+- 当前代码、日志、测试和用户本轮证据高于历史记忆。
+- 不要自行修改路线图、环节状态、完成标准或环节交接记录。
+- 实现或修复任务要交付改动并运行最窄验证；讨论或判断任务直接给出有用结论。
+
+SoloMap 按需上下文索引：
+- 项目规则：/home/ubuntu/project/LLMWEB/agent.md；非闲聊任务先读取。
+- 用户全局要求：/home/ubuntu/project/.solomap-global/context/global-default-prompt.md；本轮开始时读取，与用户本次要求冲突时以本次要求为准。
+- 记忆系统：需要用户偏好、执行规则、项目事实、既有决策、可复用模式、领域知识或当前交接时，运行 `node "/home/ubuntu/project/.solomap-global/tools/solomap-memory.cjs" retrieve --project "/home/ubuntu/project/LLMWEB" --global "/home/ubuntu/project/.solomap-global" --query "<具体功能、边界、决策、错误或目标>" --limit 5`；按返回的精确文件与行号读取原文，普通简单任务不默认查询。
+- 项目文档目录：/home/ubuntu/project/LLMWEB/.solopreneur/documentation.json；需要方向、边界或正式文档位置时读取，不要默认展开全部文档。
+- 技能目录：/home/ubuntu/project/.solomap-global/skills/registry.json；任务明确命中某个领域时查询，决定使用后先读取对应 SKILL.md，不适用的技能不必列出。
+- 执行经验账本：需要历史经验时运行 `node "/home/ubuntu/project/.solomap-global/tools/solomap-experience.cjs" retrieve --project "/home/ubuntu/project/LLMWEB" --global "/home/ubuntu/project/.solomap-global" --query "<具体功能、文件、错误或目标>" --limit 5`；仅在接续、复核、重复故障、历史行为调查或当前证据不足时查询，普通首次任务不默认读取。
+- 账本、记忆和文档只是历史线索；不要使用 URL、项目名或运行类型等泛化词判断相关性。
+- 记忆处置门禁：任务结束前先判断新信息属于用户偏好、通用规则、项目事实、已确认决策、可复用模式、领域知识、临时观察或当前交接；只写入经当前证据验证且未来会复用的内容。
+- 记忆写入：确认需要沉淀后，运行 `node "/home/ubuntu/project/.solomap-global/tools/solomap-memory.cjs" route --project "/home/ubuntu/project/LLMWEB" --global "/home/ubuntu/project/.solomap-global" --kind "<profile|rules|project|decision|pattern|domain|inbox|active>" --title "<主题>"`；先读取返回的目标文件，再按更新策略、必需结构和门禁精确更新，不要盲目追加。
+- 不要默认把所有内容写入项目记忆；写入 projects/ 前先确认它不应进入 decisions/、patterns/ 或 domains/。一次性过程、命令输出、diff、提交记录和完成套话不写入稳定记忆。
+
+执行边界：
+1. 可以读取当前项目文件与 `.solopreneur/roadmap.csv` 了解背景，但不要自行修改路线图、环节状态、完成标准或环节交接记录。
+2. 如果用户要的是讨论、判断或头脑风暴，直接给出有用结论即可，不要求产生文件修改。
+3. 如果用户明确要求实现或修复，直接交付可验证的最小改动并运行必要验证。
+4. 完成后在结论中用一句话说明本次对话更适合：仅保留在 Solo、关联某个已有环节（写明环节标题），或进入路线图调整。
+5. 完成后正常退出 CLI 进程；SoloMap 会保存本次 Solo 对话，由用户决定是否关联路线图环节。
+[1m[33mwarning:[0m[0m Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.
+[35m[3mcodex[0m[0m
+我要交付的是：查清两个业务容器在 GitOps 业务列表中显示“健康状态未配置”的真实原因，并用代码或运行状态证据说明，不先改配置。先从列表状态的生成路径和这两个容器的实际配置做最小审计。
+[35m[3mexec[0m[0m
+[1m/bin/bash -lc "sed -n '1,240p' agent.md && sed -n '1,240p' /home/ubuntu/project/.solomap-global/context/global-default-prompt.md && sed -n '1,220p' README.md && sed -n '1,240p' PROJECT_MEMORY.md"[0m in /home/ubuntu/project/LLMWEB
+[31m exited 2 in 0ms:[0m
+sed: can't read agent.md: No such file or directory
+
+[35m[3mcodex[0m[0m
+项目根目录没有索引中写明的 `agent.md`，所以刚才的串行读取在第一项就停止了。我会把它作为缺失项记录，继续读取其余必需文档，并定位 GitOps 列表和“未配置”文案的代码来源。
+[35m[3mexec[0m[0m
+[1m/bin/bash -lc "pwd; rg --files -g 'agent.md' -g 'AGENTS.md' -g 'README.md' -g 'PROJECT_MEMORY.md' -g '"'!node_modules'"' | sort; sed -n '1,260p' /home/ubuntu/project/.solomap-global/context/global-default-prompt.md; test -f README.md && sed -n '1,240p' README.md; test -f PROJECT_MEMORY.md && sed -n '1,280p' PROJECT_MEMORY.md; rg -n --hidden -S '未配置|健康状态|health status|healthStatus|health_check|healthCheck' . -g '"'!node_modules'"' -g '"'!.git'"'"[0m in /home/ubuntu/project/LLMWEB
+[32m succeeded in 23ms:[0m
+./.solopreneur/agent-runs/__solo__/3/output.log:110538:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:112628:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:114723:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:116876:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:119038:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:121193:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:123346:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:125576:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:127733:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:129897:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:132063:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:134227:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:136767:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:139788:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:141955:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:144134:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:146318:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:148501:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:150696:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:152901:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:155097:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:157298:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:159501:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:161718:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:163913:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:166108:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:168367:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:170715:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:172916:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:175116:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:177313:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:179508:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:181705:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:183928:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:186128:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:188326:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:190647:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:192849:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:195157:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:197354:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:199597:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:201794:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:204056:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:206257:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:208466:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:210685:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:212908:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:215119:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:217328:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:219583:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:221794:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:224005:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:226263:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:228474:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:230731:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:232942:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:235263:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:237492:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:239703:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:242014:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:244225:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:246577:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:248789:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:250998:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:253211:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:255424:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:257706:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:259925:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:262146:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:264368:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:266840:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:269316:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:271850:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:274390:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:276940:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:279486:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:282082:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:284626:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:287164:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:289700:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:292250:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:294910:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:297446:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:299992:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:302600:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:305136:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:307685:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:310221:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:312870:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:315415:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:317970:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:320512:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:323051:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:325666:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:328709:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:332005:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:335334:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:337952:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:338149:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:340772:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:343408:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:346134:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:348752:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:351397:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:354047:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:356698:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:359363:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:362012:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:364654:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:367363:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:370020:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:372664:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:375310:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:377952:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:380596:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:383238:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:385882:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:388524:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:391170:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:393814:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:396644:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:399288:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:401933:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:404577:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:407482:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:410126:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:412773:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:415415:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:418155:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:420846:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:423676:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:426318:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:428960:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:431703:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:434350:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:436995:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:439702:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:442349:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:444993:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:447642:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:450286:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:453229:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:455875:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:458519:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:461166:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:463810:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:466452:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:469094:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:471736:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:474572:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:477216:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:479860:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:482507:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:485151:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:487793:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:490435:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:493077:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:495719:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:498361:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:501005:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:503647:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:506289:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:508931:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:511573:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:514215:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:516857:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:520220:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:522864:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:525508:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:528152:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:530796:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:533457:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:536101:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:538775:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:541419:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:544077:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:546721:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:549396:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:552040:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:554700:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:557342:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:559986:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:562632:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:565276:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:567935:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:570582:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:573285:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:575990:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:578755:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:581460:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:584210:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:586924:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:589633:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+./.solopreneur/agent-runs/__solo__/3/output.log:592374:+# 可选：升级前单工作区数据的明确归属人；未配置时旧数据保留但不会暴露给新账号
+
+[35m[3mcodex[0m[0m
+这个问题明确命中 GitOps 业务部署诊断，我会按 `business-gitops-deploy` 技能检查：先读它规定的治理入口，再查询当前业务声明与探针结果。仓库旧运行日志只作线索，不会当作当前状态。
+[35m[3mexec[0m[0m
+[1m/bin/bash -lc "sed -n '1,320p' /home/ubuntu/.codex-shared/skills/business-gitops-deploy/SKILL.md; node \"/home/ubuntu/project/.solomap-global/tools/solomap-memory.cjs\" retrieve --project \"/home/ubuntu/project/LLMWEB\" --global \"/home/ubuntu/project/.solomap-global\" --query \"GitOps 业务列表 两个业务容器 健康状态未配置 health check\" --limit 5"[0m in /home/ubuntu/project/LLMWEB
+[32m succeeded in 0ms:[0m
+---
+name: business-gitops-deploy
+description: Operate, deploy, publish, govern runtime resource ceilings, diagnose, and audit artifact size for GitOps-managed business projects through the CloudMCP business lifecycle bridge. Use when an agent must onboard a project, set CPU/memory/process limits, choose GitHub Actions release builds or Agent-local source builds, investigate an oversized or slow-transfer deployment package, choose or switch a domain between Tunnel and Nginx exposure, inspect release or exposure state, configure per-service watch paths, deploy a project/service, restart a service, or inspect deployment status without bypassing the governed chain.
+---
+
+# Business GitOps Operations
+
+## Objective
+
+Operate a GitOps business project through CloudMCP while preserving one user-facing governance model: a project owns its services, and an individual business service may be released or maintained without redeploying unrelated services.
+
+## Highest-Priority Proven-Path Gate
+
+1. Find the closest currently verifiable successful deployment or migration with the same project shape, service scope, build mode, target architecture, database boundary, and exposure path. Treat it as the binding execution baseline, not optional background.
+2. Before the first production mutation, turn that precedent into an ordered checklist of exact preconditions, actions, artifact identities, terminal evidence, cutover checks, rollback boundaries, and cleanup. Complete the checklist from read-only evidence and the live contract.
+3. Do not use a production build, deploy, migration, cutover, restore, restart, or cleanup call to discover permissions, tool semantics, action ordering, artifact selection, or platform behavior. Resolve unknowns through read-only inspection, the live contract, or isolated validation; otherwise stop.
+4. Deviate from the proven path only after recording the exact baseline step, the current evidence that makes deviation necessary, the bounded replacement, its validation, and its rollback. Convenience, time pressure, an apparently healthy runtime, or an assumption that the platform will choose correctly never authorizes deviation.
+5. If execution starts accumulating runs or mutations to learn how the workflow behaves, declare a process failure immediately: stop creating work, reconcile every started action, return to the proven baseline, and only then resume.
+
+## Contract First
+
+1. Read the live machine contract before mutating state:
+   - `GET https://gitops-runner.szlk.ai/api/business-lifecycle/v1/help`
+   - Treat its `operatingModel`, `workflows`, `tools`, schemas, and usage guidance as authoritative.
+2. Use the CloudMCP-exposed business lifecycle tools corresponding to that contract.
+3. If the required tool is absent from the live contract or not callable in the active CloudMCP session, stop the mutation path and repair/escalate the contract exposure; do not imitate the operation with direct node commands.
+
+## Governance Boundary
+
+- Keep one project as the governance boundary for one business repository and its runtime placement.
+- Treat configured business services as independently releasable services within that project, not as separate projects.
+- Expose only service intent and repository paths in configuration. Do not require users to supply image names, build overrides, or Agent internals.
+- Require one explicit project-level runtime ceiling containing `cpu_cores`, `memory_mb`, and `pids`. Every Compose service in the project inherits that ceiling; repository Compose values cannot weaken or bypass it.
+- Use `set_business_resource_limits` to change an existing project's ceiling. Apply a changed ceiling to every service with `deploy_business_project`; a single-service deploy only reconciles and verifies the selected service.
+- Use `deploy_business_project` for a whole-project release.
+- Use `deploy_business_service` for a new version or redeploy of one configured service.
+- Use `restart_business_service` only to restart the currently running container without building a new version.
+- Use `running` as the canonical successful business-project state and reserve `online` for Agent/node availability. Readers may tolerate legacy project rows containing `online`, but project-state writers must not emit it for release, migration, or verified-exposure success.
+- Changes to root Compose manifests can affect all services; follow the contract's whole-project behavior.
+
+## Choose Build Location
+
+- Read `get_business_project_release_config`; `project.deploy_mode` is the authoritative current policy.
+- `release` is the default and uses GitHub Actions plus reusable release artifacts. Keep it when historical artifact replay or node migration is required.
+- `source` downloads governed source to the bound Agent and builds there without GitHub Actions. Use it when the operator explicitly requests local builds or Actions availability is the platform blocker.
+- Build location does not change the release actions: continue using `deploy_business_project` and `deploy_business_service`.
+- For an existing project, use `set_business_project_build_mode`; do not call the full project upsert merely to change this policy.
+- After changing mode, read `get_business_project_release_config` again before deploying. Do not silently switch modes as a generic retry for application build failures.
+
+## Enforce The Artifact Size Gate
+
+Treat artifact size as release correctness, not optional optimization.
+
+1. Before the first production release, and after any change to the container recipe, Compose build definition, dependency lockfile, framework output mode, or asset pipeline, record:
+   - build-context bytes sent to the builder;
+   - uncompressed runtime-image size;
+   - compressed exported-artifact bytes;
+   - target operating system and architecture;
+   - largest directories or image layers;
+   - actual governed download and extraction duration.
+2. Compare those values with the last successful equivalent release. Stop publication for any unexplained increase greater than 20% or 50 MiB. If no baseline exists, establish one by inspecting the final context, image, and archive before rollout.
+3. Reject the artifact regardless of total size when it contains version-control data, governance/workspace metadata, prior build outputs, framework or package-manager caches, test/browser caches, local environment files, secrets, or build-only dependencies that the runtime does not need. Require an explicit `.dockerignore` or equivalent context allowlist.
+4. Prefer the framework's runtime-only or standalone output, a minimal runtime base, production dependencies only, and one copy of each required asset. Never package framework build caches merely because they live under the output directory.
+5. Inspect the final exported archive itself. Do not infer contents, size, or architecture from the Dockerfile, Compose source, or a successful build status. Require its declared platform to match the bound node; Runner architecture is not the deployment target by default.
+6. Allow an intentional large payload only when it is intrinsic to the user-facing product, its largest contributors are identified, its increase is recorded, and measured transfer plus extraction completes within the governed release window. A large unexplained dependency tree or cache is never an acceptable exception.
+7. Require the release workflow to clean its exact locally built image and bound BuildKit cache on every terminal path, including failed builds. Compare Runner-node disk usage before the Job and after its finalizer; artifact upload success alone does not prove cleanup.
+8. Size the Agent's streaming download window from the measured governed-path transfer time. A progressing transfer must not fail only because a fixed whole-response deadline is shorter than the release window. Verify real `206` and `Content-Range` behavior end to end before relying on resumed downloads.
+
+## Choose Domain Exposure
+
+- Treat Tunnel/Nginx as one user-facing `域名暴露方式` choice, independent of `release`/`source` build location. Map the user choice `Nginx` to the machine value `direct_edge`; do not expose that internal term unless needed in an operation record.
+- Default to Tunnel only when the user did not choose an exposure method. Never silently replace an explicit Nginx choice with Tunnel.
+- Use Nginx only when the project's bound public node already reports `direct_edge_eligible=1` and `edge_gateway_status=online`. If not, stop before switching and ask the user to use the node operation `开启 Nginx` (or `修复 Nginx`) in node management; the business lifecycle bridge does not create this node capability.
+- Nginx is node-local direct exposure. It does not relay traffic from a public edge node to a different Homelab node. A node without stable public ingress continues to use Tunnel.
+- Use `set_business_project_exposure` for both Tunnel and Nginx publication. Always pass the exact domain in both `domain` and `confirm_domain`; pass `desired_backend=tunnel` or `desired_backend=direct_edge` explicitly.
+- A new project must reach terminal deployment success before switching it to Nginx, because Direct Edge requires a running published entrypoint. Keep the initial governed Tunnel binding until `set_business_project_exposure` completes its public verification.
+- After every switch, call `get_business_project_exposure_status` with `probe=true`. Require the newest binding to be `status=active`, its `active_backend` to equal the requested backend, and the public probe to succeed before reporting completion.
+- Do not disable node Nginx while it owns an active Direct Edge binding. Move every affected domain to Tunnel and verify it first.
+
+## Core Workflows
+
+### Enforce Single-Flight Before Any Mutation
+
+1. Before a project deploy, service deploy, restart, migration, cutover, rollback, or source cleanup, inventory every known non-terminal deployment for the project and affected service. Treat `building`, `deploying`, `pending`, `running`, and unknown callback state as active work.
+2. Permit only one state-changing action at a time for the same service. A whole-project action conflicts with every service action; a service release conflicts with migration or cutover of that service; any source-side release conflicts with a node migration that can change the active binding.
+3. Do not treat artifact creation, digest/signature presence, build callback success, Agent acceptance, or a healthy current container as deployment completion. Require the exact deployment id to reach terminal success or actionable failure, carry a terminal Agent report, and expose `finished_at` or equivalent terminal evidence.
+4. If a deployment remains non-terminal after its build or rollout appears complete, stop. Reconcile its exact Runner run, callback, Agent report, container result, and control-plane record. Do not label it harmless state lag and do not start a replacement or migration around it.
+5. Before a migration consumes a service artifact, prove that the latest terminally successful release is the intended artifact by matching service, version, digest, signature, scope, Compose identity, and target platform. “Latest generated” is not “latest verified.” If the migration selects any older or different identity, do not activate it.
+6. Keep the single-flight lock through source cleanup. Do not stop or delete source workloads while a source release can still recreate them. Completion requires every action started in the operation to be terminal or explicitly cancelled and reconciled.
+7. If the live contract cannot list, cancel, or reconcile conflicting active work, treat the missing guard as a migration blocker and repair/escalate the governed workflow. Never compensate for missing mutual exclusion by timing concurrent mutations manually.
+
+### Onboard Or Deploy A Project
+
+1. Call `list_gitops_nodes` and select the intended eligible node.
+2. Call `create_business_project` with repository, branch, domain/port, auto-deploy intent, and an explicit `resource_limits` object containing `cpu_cores`, `memory_mb`, and `pids`. Include explicit `deploy_mode` when local build was requested; otherwise retain the default `release`.
+3. When the project has independently releasable services, call `set_business_services`:
+   - Set `service_name` to the Compose service name.
+   - Set `watch_paths` to repository-relative directories/files affecting that service.
+   - Include shared paths on every service affected by them.
+4. Configure environment through `list_business_env_vars` plus `upsert_business_env_vars`; do not replace unspecified secrets unintentionally.
+5. Call `deploy_business_project` for the initial or whole-project release.
+6. Monitor the returned deployment as described in **Verify A Release**.
+7. If the requested domain exposure is Nginx, apply it only after deployment success using **Publish Or Switch A Project Domain**. If Tunnel was requested or defaulted, verify the current Tunnel-backed public result.
+
+### Migrate A Multi-Service Project Across Nodes
+
+1. Apply **Highest-Priority Proven-Path Gate** and **Enforce Single-Flight Before Any Mutation**, then treat the migration as one staged operation covering every configured application service, its database, exposure, network policy, and source-node cleanup. Inventory the source and target Agent ids, architectures, runtime readiness, service mapping, environment, database attachment, egress rules, real health path, rollback source, every known non-terminal deployment, and exact governed grants for every source and target resource before mutating anything. Resolve missing tool exposure, active conflicting work, or exact resource grants before provisioning, backup, restore, or rollout; the first migration call must not be used to discover authorization gaps. As a mandatory preflight, resolve the final target-environment Compose configuration, enumerate every published host port it requests, and compare those ports with both governed services and active listeners on the target node. Record the collision-free port mapping in project configuration and keep the project target port plus exposure binding synchronized with it before starting database or application migration. A port conflict or non-terminal source release discovered during rollout is a failed migration preflight; do not begin rollout while either remains unresolved.
+2. Compare the project with the closest successful release using the same repository and build workflow. Finish every required repository or runtime-configuration correction before the first migration attempt, then obtain one terminally successful artifact whose final Compose bundle resolves to the target mapping. A Runner host architecture is not the artifact target: when source and target architectures differ, keep the established Runner and request an artifact for the target platform. Require the exported image metadata, digest, signature, deployment scope, Compose content, and resolved published ports to match that target before deployment. Treat the migration call as rollout of a proven artifact, never as an artifact-generation or configuration-discovery probe.
+3. Use the governed node-runtime ensure operation when the target lacks Docker Engine or Compose. Runtime provisioning is a target preflight, not permission to redesign the Runner or release workflow.
+4. Provision and restore the target database first, verify SQL/schema/data evidence, then attach the target application service through the formal database and egress contracts. Keep the source database and source application usable until the final public acceptance passes. If the restore execution has ended but its control-plane record does not become terminal, do not rerun the restore or poll indefinitely: inspect the exact execution job when available, independently verify schema, representative row counts, read/write with rollback, and a target backup, then report and preserve the stale governance record as an explicit reconciliation defect.
+5. Choose migration scope from the artifact and configuration change scope, not merely from the number of application services. Stage non-entrypoint services with `migrate_business_project` using the exact `service_name` and `activate_on_success=false` only when the selected service artifact comes from the intended terminally successful deployment and already contains every required target-side configuration. A root Compose, shared override, or published-port change requires the latest whole-project artifact and a project-scope migration; do not pass `service_name` when that would select an older pre-change service artifact. Before activating the public entrypoint, recheck that no project or service deployment became non-terminal and that the activation will select the exact staged artifact identity. Stage the public entrypoint last with `activate_on_success=true`; only that verified activation may switch the project binding, domain, and active traffic.
+6. Every migrated release must use a freshly signed governance-proxy asset URL and carry the original verified digest/signature. Cross-architecture build callbacks must preserve `deploy_scope` and `target_agent_id` on both success and failure paths so the artifact is deployed to the intended node rather than the source node.
+7. During partial staging, network-policy reconciliation may tolerate configured sibling services that are not running yet, but final activation must reconcile the complete strict service/database policy. Do not leave staging exceptions as the accepted production state.
+8. Correlate each returned deployment id with its target container and service. Reuse a previously successful target-architecture migration artifact only when its scope, Compose digest, published-port mapping, and configuration identity all postdate the latest relevant change. Invalidate pre-change service artifacts after a root Compose, shared override, or published-port change; do not rebuild merely because a later cutover or callback failed, and do not replay a stale artifact merely because its image itself is still valid.
+9. Verify four facts independently before declaring cutover: the project binding names the target node; every configured Web/API service is running there with its expected image/command; the database is healthy and reachable from the intended source service; and the real public application route succeeds. A generic probe against an unimplemented `/health`, or a control-plane-generated `502`, is not proof that the application is unavailable. Reconcile the actual binding, target runtime, exposure status, real health path, and user-visible result before rollback or another release.
+10. Treat migration completion as one atomic governance closeout. Every terminal branch must close both the deployment and project states. After successful activation, first synchronize the primary project domain and target port, then reapply every alias exposure binding with the same target Agent, effective origin port, and configured health path. Verify the effective Tunnel or edge origin metadata rather than trusting only the binding's outer target-port field, then probe the configured health path on the primary domain and every alias. Status diagnostics must prefer the selected service's configured health path or URL while retaining `/health` only as the compatibility fallback when no health configuration exists.
+11. After target acceptance, close the source node through governed lifecycles: stop then precisely delete obsolete business containers, remove the old database only after backup/restore acceptance, reconcile obsolete egress, and run bounded storage inspection/reclaim separately. Preserve project configuration, release evidence, shared images, and source workspaces unless an independently confirmed cleanup scope includes them.
+
+### Publish Or Switch A Project Domain
+
+1. Call `get_business_project_release_config` and confirm the project, bound node, domain, target port, and running-release outcome.
+2. Call `get_business_project_exposure_status` to inspect current bindings and node capability.
+3. For Nginx, require the node capability described in **Choose Domain Exposure** and a running published entrypoint. For Tunnel, require a managed Tunnel on the bound node.
+4. Call `set_business_project_exposure` with the explicit backend, exact `domain`/`confirm_domain`, the real public `healthcheck_path`, and `make_primary=true` when this domain should become the project's primary domain.
+5. Call `get_business_project_exposure_status` with `probe=true` and verify the requested backend is active and publicly healthy. On failure, report the recorded activation error and preserve the previously working path; do not edit DNS, Origin Rules, certificates, containers, or binding rows out of band.
+
+### Change An Existing Project's Build Location
+
+1. Call `get_business_project_release_config` and confirm the current `deploy_mode`, bound node, branch, and requested outcome.
+2. Call `set_business_project_build_mode` with `release` or `source`.
+3. Call `get_business_project_release_config` again and require the selected mode to be persisted.
+4. Call the normal `deploy_business_project` or `deploy_business_service`; no local-build-specific deploy tool is needed.
+5. Monitor the exact returned `deployment_id` to terminal status.
+
+### Change Runtime Resource Limits
+
+1. Call `get_business_project_release_config` and read the persisted `resource_limits`; do not infer limits from repository Compose files.
+2. Call `set_business_resource_limits` with the complete desired `cpu_cores`, `memory_mb`, and `pids` object. Partial or missing ceilings are not a valid deployment configuration.
+3. Call `get_business_project_release_config` again and require the exact ceiling to be persisted.
+4. Call `deploy_business_project` so every service is recreated under the new ceiling. Do not use a restart as evidence that a changed ceiling was applied.
+5. Verify the release and the Agent's actual-container limit evidence as described in **Verify A Release**.
+
+### Maintain Or Upgrade One Service
+
+1. Call `list_business_projects` when the project identifier is not already certain.
+2. Call `get_business_project_release_config` before acting.
+3. Confirm the requested `service_name` exists in `configured_services` and that the persisted `resource_limits` are complete.
+4. Decide the action:
+   - New build/version or service redeploy: `deploy_business_service`.
+   - No new build, only restart the currently running service: resolve runtime service with `list_business_services`, then `restart_business_service`.
+   - Root Compose/shared project-wide change: `deploy_business_project`.
+5. Monitor the deployment returned by any release action.
+
+### Change Automatic Release Paths
+
+1. Read `get_business_project_release_config`.
+2. Construct the full desired service mapping; `set_business_services` replaces the mapping, it does not append.
+3. Preserve unrelated configured services unless removal is intentional.
+4. Call `set_business_services` with the complete target list.
+5. Read `get_business_project_release_config` again and confirm persisted mappings and auto-deploy flags.
+
+### Diagnose A Failure
+
+1. Read `get_business_deployment_status` using the exact `deployment_id` returned by the release call.
+2. Read runtime service state and logs using `list_business_services` and `get_business_service_logs` when needed.
+3. Do not retry from a summary such as `failed`, `unhealthy`, or a truncated build error. First obtain the terminal build/deployment log; if a container was created, also obtain its command, image identity, health output, and container logs. A retry is allowed only after a concrete cause has been repaired or the evidence proves a transient interruption.
+4. Diagnose by stage:
+   - Release did not enter build: inspect dispatch/auth and tool response.
+   - Build failed in `release`: inspect GitHub dispatch/build/upload/callback evidence.
+   - Build failed in `source`: inspect governed source download, target-node capacity, Docker/Compose availability, and local build logs.
+   - Build succeeded but rollout failed: inspect deployment logs and target service runtime state.
+   - Rollout succeeded but app unhealthy: inspect service logs, environment, ingress, and health endpoint.
+5. Repair the governed shared path when systemic; rerun the release through CloudMCP to verify recurrence is removed. If the same failure class repeats, stop retrying and reopen the evidence chain rather than stacking attempts.
+
+### Preflight A Source-Build Migration
+
+1. Prove the governed source archive is downloadable by the target Agent and originates from the configured runner/public archive endpoint, not from the request host.
+2. Confirm the target Agent version supports the required release behavior and that the node enforces one safe build slot plus explicit memory, disk, and host-reserve limits.
+3. Inspect the target Compose service before building. A service with only `image: latest` and no `build:` can make a Compose build succeed as a no-op and reuse old content.
+4. Require every concurrently built Compose service to have a distinct image identity. Two services must never share one mutable image tag: the later build can overwrite the earlier image and launch the wrong entrypoint or dependency set.
+5. Treat application runtime limits and BuildKit build limits as separate contracts. For memory-related failures, inspect the live BuildKit cap, host available memory/swap, build stage, and exit code; do not infer viability from the service's runtime memory limit.
+6. Treat repeated application builds as invalid evidence while archive routing, Agent capability, build capacity, image identity, or terminal failure logs are unproven; repair the shared release substrate first.
+7. If releases overlap, retain every returned deployment id and correlate its Agent report with the resulting container id. Before starting the replacement, cancel obsolete active releases; a superseded release is closed only when its real build child process is gone, its deployment is terminal, and its intermediate artifacts are removed or explicitly retained.
+8. Identify startup work such as schema creation or migration before rollout. The health window must cover its measured worst-case duration, or migration must run as a separately observable release step; a slow first start must not be misreported as an application crash.
+
+## Verify A Release
+
+- Always capture the `deployment_id` returned by `deploy_business_project` or `deploy_business_service`.
+- Poll `get_business_deployment_status` with both `project_id` and that `deployment_id`; never infer completion from the newest project deployment during concurrent service releases.
+- Require a terminal success status or an actionable failure report before claiming completion.
+- Treat a missing terminal Agent report or missing `finished_at` as non-terminal even when the build, artifact upload, callback, runtime container, or public probe succeeded. Reconcile that exact deployment before any conflicting mutation.
+- Require the deployment response/status to carry the expected `resource_limits`, and require the terminal Agent report to confirm the actual target container has matching CPU, memory, and process limits. A generated override or successful Compose command alone is not completion evidence.
+- Require the artifact-size record from **Enforce The Artifact Size Gate**. A terminally successful build without final archive bytes, platform, and baseline comparison is incomplete release evidence.
+- For `source` builds, require one source identity across the Agent report, deployment commit, immutable image tag, and Compose version. Reject `latest`, `unversioned`, or branch-only identity as completion evidence.
+- Require the success report to confirm mutable and superseded source-build image cleanup; inspect governed node storage diagnostics when cleanup evidence is absent.
+- For `release` builds, require the Runner Job's unconditional cleanup step to succeed and confirm post-Job disk usage no longer grows with each release. Keep final release assets; remove only exact local intermediates and bounded caches.
+- For multi-service Compose projects, confirm each running service resolves to its own expected image and command; a healthy sibling does not prove the other service was built from the correct image.
+- For user-facing applications, verify the intended public health/result after rollout when a probe or public endpoint is part of the request.
+- When the deployment includes an exposure choice, verify release success first and exposure success second. A healthy container does not prove the requested Tunnel/Nginx path is active.
+- A healthy container and a successful `/health` probe are necessary but insufficient for migrations. Exercise at least one real public read and every affected identity/session path; inspect application and dependency logs after those requests.
+- If recorded deployment status conflicts with current target runtime and real public behavior, report the inconsistency explicitly and reconcile the exact deployment/cutover record. Do not convert a stale failure record or a probe-path mismatch into a claim that the live service is down.
+
+## Prohibited Bypasses
+
+- Do not directly run container changes, edit deployment rows, or invoke internal Agent endpoints to make a CloudMCP-managed task appear successful.
+- Do not split services into separate projects solely to gain independent maintenance.
+- Do not use runtime service discovery as a substitute for configured automatic release mappings; read the project release configuration.
+- Do not rely on repository Compose resource fields as the business ceiling, omit any of the three required ceilings, or report success when actual-container resource verification is absent or mismatched.
+- Allow direct read-only diagnostics only when CloudMCP lacks required evidence, and state that limitation in the handoff.
+
+## Related Database Work
+
+When the task includes provisioning, attaching, migrating, or validating a business database, also use `$business-gitops-database`; keep project deployment and database lifecycle on their governed CloudMCP tools.
+
+## Handoff Record
+
+Report the project id, chosen action, affected service if any, configured CPU/memory/process ceiling, actual-container verification result, every deployment id started or inherited by the operation and its terminal status, confirmation that no conflicting non-terminal action remains, the exact artifact identity selected for migration/cutover, requested and active exposure method, exposure binding/probe result, configured mapping changes if any, observed health/log result, and any platform repair or non-CloudMCP read-only diagnostic used.
+(node:2896707) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+# SoloMap Memory Retrieval
+
+- Query: GitOps 业务列表 两个业务容器 健康状态未配置 health check
+- Guidance: 只返回高相关记忆片段及精确位置；读取原文前仍应以当前代码、日志、测试和用户要求校验。
+
+## 1. GITOPS WARP gateway health alignment (2026-07-19)
+- Source: active
+- Location: /home/ubuntu/project/.solomap-global/memory/active/current-session.md:934
+- Relevance: 18
+- Why: active 中的“GITOPS WARP gateway health alignment (2026-07-19)”命中：gitops、health、check
+- Summary: GITOPS WARP gateway health alignment (2026-07-19) User reported all three `gitops-warp-gateway` rows unhealthy while node private-network status remained connected. Governed CloudMCP evidence confirmed Docker native health was `unhealthy` on `tc-gz1`, `tc-sh1`, and `oc-singapore`, while all three Agents were online at `1.0.77`, reported private network conn…
+
+## 2. GitOps Release Artifact Size And Runner Cleanup Gate
+- Source: patterns
+- Location: /home/ubuntu/project/.solomap-global/memory/patterns/gitops-release-artifact-size-and-runner-cleanup-gate.md:1
+- Relevance: 17
+- Why: patterns 中的“GitOps Release Artifact Size And Runner Cleanup Gate”命中：gitops
+- Summary: GitOps Release Artifact Size And Runner Cleanup Gate
+
+## 3. GitOps Runner 仓库治理代理与成品媒体隔离
+- Source: patterns
+- Location: /home/ubuntu/project/.solomap-global/memory/patterns/gitops-runner-仓库治理代理与成品媒体隔离.md:1
+- Relevance: 17
+- Why: patterns 中的“GitOps Runner 仓库治理代理与成品媒体隔离”命中：gitops
+- Summary: GitOps Runner 仓库治理代理与成品媒体隔离
+
+## 4. GitOps 本地源码构建发布验收
+- Source: patterns
+- Location: /home/ubuntu/project/.solomap-global/memory/patterns/gitops-本地源码构建发布验收.md:1
+- Relevance: 17
+- Why: patterns 中的“GitOps 本地源码构建发布验收”命中：gitops
+- Summary: GitOps 本地源码构建发布验收
+
+## 5. GitOps 资源治理与预构建 Compose 发布契约
+- Source: patterns
+- Location: /home/ubuntu/project/.solomap-global/memory/patterns/gitops-资源治理与预构建-compose-发布契约.md:1
+- Relevance: 17
+- Why: patterns 中的“GitOps 资源治理与预构建 Compose 发布契约”命中：gitops
+- Summary: GitOps 资源治理与预构建 Compose 发布契约
+
+
+[35m[3mexec[0m[0m
+[1m/bin/bash -lc 'curl -fsS https://gitops-runner.szlk.ai/api/business-lifecycle/v1/help | head -c 20000'[0m in /home/ubuntu/project/LLMWEB
+[32m succeeded in 4999ms:[0m
+{"object":"cloudmcp_provider_bridge_help","sdk":{"package":"@cloudmcp/provider-bridge-sdk","version":"2026-05-07-v1"},"provider":{"bridgeId":"gitops_business_lifecycle","providerId":"gitops","providerName":"GitOps Business Lifecycle","routePath":"/api/business-lifecycle"},"publicBaseUrl":"https://cloudmcp.szlk.ai","machineReadablePath":"/api/business-lifecycle/v1/help","humanReadablePath":"/api/business-lifecycle/help","auth":{"mode":"cloudmcp_provider_env_v1","requiredEnv":{"CLOUDMCP_BRIDGE_CLIENT_ID":"<issued-by-cloudmcp>","CLOUDMCP_BRIDGE_CLIENT_SECRET":"<issued-by-cloudmcp>","CLOUDMCP_BASE_URL":"https://cloudmcp.szlk.ai"},"legacyTokenEnvKey":"BUSINESS_LIFECYCLE_TOKEN","runtimeHeaders":{"Authorization":"Bearer <CLOUDMCP_BRIDGE_CLIENT_SECRET>","X-CloudMCP-Bridge-Client":"<CLOUDMCP_BRIDGE_CLIENT_ID>","X-CloudMCP-Bridge-Version":"2026-05-07-v1"}},"protocol":{"requestShape":{"tool":"string","params":{}},"successShape":{"success":true,"result":"any"},"failureShape":{"success":false,"error":"string"}},"operatingModel":{"primary_object":"project","service_object":"business_service","rules":["A project is the single governance boundary for one business repository and its runtime placement. Do not create separate projects merely to maintain individual services.","Read get_business_project_release_config before modifying or releasing an existing project.","A configured business service is an independently releasable Compose service within its project. service_name must match its Compose service name.","watch_paths are repository-relative paths that affect a service. Add shared paths to every service they affect.","Automatic path-matched releases require project auto_deploy_enabled and configured services. Root Compose manifest changes intentionally release the whole project.","Build location is a project policy: release uses GitHub Actions and reusable release artifacts; source builds on the bound Agent without GitHub Actions. Existing projects stay on release unless explicitly changed.","Every project must have CPU, memory, and process ceilings before release. The Agent applies the project limits to every business service and verifies the live containers after rollout.","Delete one project environment variable only through delete_business_env_var after listing the current key version; exact project/key confirmation, a reason, and an atomic audit record are required.","Use deploy_business_project for whole-project releases, deploy_business_service for one service upgrade or redeploy, and start_business_service/stop_business_service/restart_business_service only to control the current runtime without building a new version.","Use delete_business_service only after stopping one exact Docker Compose business container. It permanently removes that container while preserving project configuration, images, source workspaces, and sibling services.","After any release action, call get_business_deployment_status with its returned deployment_id and inspect logs until that exact deployment succeeds or reports an actionable failure."],"compose_root_manifests":["compose.yaml","compose.yml","docker-compose.yaml","docker-compose.yml"]},"workflows":[{"intent":"create_or_onboard_project","steps":["list_gitops_nodes","create_business_project","set_business_services","deploy_business_project","get_business_deployment_status"]},{"intent":"maintain_existing_project","steps":["list_business_projects","get_business_project_release_config","set_business_resource_limits when limits must change","deploy_business_service OR deploy_business_project","get_business_deployment_status"]},{"intent":"change_project_build_location","steps":["get_business_project_release_config","set_business_project_build_mode","get_business_project_release_config","deploy_business_project","get_business_deployment_status"]},{"intent":"change_automatic_release_paths","steps":["get_business_project_release_config","set_business_services","get_business_project_release_config"]},{"intent":"diagnose_running_service","steps":["get_business_deployment_status","list_business_services","get_business_service_logs","start_business_service OR stop_business_service OR restart_business_service only when no new build is needed"]},{"intent":"delete_stopped_business_service","steps":["list_business_services","stop_business_service","delete_business_service","list_business_services"]},{"intent":"reconcile_service_health","steps":["get_business_project_release_config","check_business_service_health","reconcile_business_service_health"]},{"intent":"inspect_node_alerts","steps":["list_gitops_node_alerts","inspect_gitops_node_storage","reclaim_gitops_node_ephemeral_storage OR restart_business_service only when an alert points to that action"]},{"intent":"expand_node_disk_capacity","steps":["list_gitops_nodes","inspect_gitops_node_disk_capacity","expand_gitops_node_disk_capacity","inspect_gitops_node_disk_capacity"]},{"intent":"verify_private_mesh_connectivity","steps":["list_gitops_nodes","verify_warp_gateway_mesh","diagnose_warp_gateway_mesh"]},{"intent":"take_over_external_project_domain","steps":["list_business_projects","get_business_project_release_config","update_business_project_domain","get_business_project_domain_status","verify_business_project_parity"]},{"intent":"publish_project_through_governed_exposure_backend","steps":["get_business_project_release_config","set_business_project_exposure","get_business_project_exposure_status"]},{"intent":"delete_one_project_environment_variable","steps":["list_business_env_vars","delete_business_env_var","list_business_env_vars"]},{"intent":"attach_managed_database","steps":["list_business_projects","attach_database_to_business_project","list_business_env_vars","verify_business_project_parity"]},{"intent":"recover_existing_database_env","steps":["get_business_deployment_status","restore_business_database_url_from_service","list_business_env_vars","verify_business_project_parity"]},{"intent":"allow_private_service_dependency","steps":["list_business_egress_rules","set_business_egress_rules","get_business_project_release_config"]},{"intent":"allow_same_project_service_dependency","steps":["list_business_service_egress_rules","set_business_service_egress_rules","get_business_project_release_config"]},{"intent":"resync_business_egress_policies","steps":["sync_all_business_egress_policies"]},{"intent":"diagnose_business_egress_policy","steps":["get_business_project_release_config","diagnose_business_egress_policy"]},{"intent":"benchmark_business_service_local_http","steps":["get_business_project_release_config","benchmark_business_service_local_http","check_business_service_health"]}],"tools":[{"name":"list_gitops_nodes","description":"List GitOps nodes that can run business services.","inputSchema":{"type":"object","properties":{"include_offline":{"type":"boolean"}}}},{"name":"ensure_business_node_runtime","description":"Install or verify the Docker Engine and Compose runtime required for governed business services on one online GitOps node.","inputSchema":{"type":"object","properties":{"agent_id":{"type":"string"}},"required":["agent_id"]}},{"name":"verify_warp_gateway_mesh","description":"Verify cross-node Cloudflare Mesh reachability from each selected GitOps warp gateway container.","inputSchema":{"type":"object","properties":{"source_agent_id":{"type":"string"},"target_agent_id":{"type":"string"},"probe_count":{"type":"integer"},"timeout_seconds":{"type":"integer"}}},"usage":{"when":"Use after list_gitops_nodes shows selected nodes have cloudflare_mesh private_network_ip values.","next":"Inspect passed and per-probe ok fields; a failed probe means the mesh address is known but traffic did not verify."}},{"name":"inspect_gitops_node_storage","description":"Independently inspect one GitOps node, correlate physical managed artifacts with live containers, processes, Runner placement, and direct-build records, and return exact protected, unresolved, and confirmation-ready paths without deleting data.","inputSchema":{"type":"object","properties":{"agent_id":{"type":"string"}},"required":["agent_id"]},"usage":{"when":"Use as the first node-storage maintenance action, including when dashboard totals disagree with a previous scan.","next":"Require maintenance.complete=true. Review maintenance.cleanup_candidates and their evidence; physical cleanup remains a separate explicitly confirmed action."}},{"name":"inspect_gitops_node_disk_capacity","description":"Inspect the root filesystem, LVM topology, physical volumes, and exact empty whole-disk candidates on one GitOps node without changing storage.","inputSchema":{"type":"object","properties":{"agent_id":{"type":"string"},"desired_capacity_gb":{"type":"number","minimum":20,"maximum":16384}},"required":["agent_id"]},"usage":{"when":"Always call before expanding a GitOps node disk. Use desired_capacity_gb to receive an explicit readiness and strategy assessment.","next":"If an additional disk is required, pass exactly one returned empty_disk_candidates[].path to expand_gitops_node_disk_capacity."}},{"name":"expand_gitops_node_disk_capacity","description":"Expand one GitOps node root filesystem to a requested decimal-GB capacity through a fixed guarded workflow. Supports an enlarged root backing device or one explicitly selected empty whole disk attached to an LVM root.","inputSchema":{"type":"object","additionalProperties":false,"properties":{"agent_id":{"type":"string"},"confirm_agent_id":{"type":"string","description":"Must exactly match agent_id."},"desired_capacity_gb":{"type":"number","minimum":20,"maximum":16384},"additional_disk_path":{"type":"string","description":"Optional exact empty whole-disk path returned by the inspection tool."},"execute":{"type":"boolean","description":"Must be true. Inspection is a separate tool."}},"required":["agent_id","confirm_agent_id","desired_capacity_gb","execute"]},"usage":{"prerequisites":["Call inspect_gitops_node_disk_capacity immediately before this tool.","The node must be online and the requested additional_disk_path must still be an exact empty whole-disk candidate."],"next":"Require expansion.completed=true and verification.satisfied=true, then call inspect_gitops_node_disk_capacity again for independent readback."}},{"name":"reclaim_gitops_node_ephemeral_storage","description":"Run the same independent node-storage inspection and optionally reclaim only unused container image, build cache, and explicitly enabled bounded system cache through a fixed governed maintenance script.","inputSchema":{"type":"object","properties":{"agent_id":{"type":"string"},"execute":{"type":"boolean","description":"When false or omitted, only reports storage and reclaim candidates."},"confirmed_artifact_path":{"type":"string","description":"Delete only this one exact path when it remains a current maintenance.cleanup_candidate. Requires execute=true."},"threshold_percent":{"type":"integer","description":"Minimum root filesystem usage percentage required before execute=true reclaims caches. Defaults to 80."},"include_containerd":{"type":"boolean","description":"Also prune unused containerd images with crictl. Defaults to false."},"include_unused_images":{"type":"boolean","description":"Also prune unused Docker images older than 168h. Defaults to false."},"builder_cache_until_hours":{"type":"integer","description":"Only prune Docker builder and buildx cache older than this many hours. Defaults to 24."},"include_system_cache":{"type":"boolean","description":"Also retain at most 7 days/512 MiB of systemd journal and clean the OS package cache. Defaults to false."}},"required":["agent_id"]},"usage":{"when":"Use when Kubernetes reports DiskPressure or ephemeral-storage eviction on a GitOps node.","next":"Run first with execute=false. Require inspection.complete=true and review cleanup_candidates. Runtime cache reclaim uses execute=true without confirmed_artifact_path. Physical cleanup requires execute=true plus one exact candidate path, and rechecks mounts and process references before deleting only that path."}},{"name":"diagnose_warp_gateway_mesh","description":"Collect fixed, read-only diagnostics from selected GitOps warp gateway containers for Cloudflare Mesh troubleshooting.","inputSchema":{"type":"object","properties":{"source_agent_id":{"type":"string"},"target_agent_id":{"type":"string"},"timeout_seconds":{"type":"integer"}},"required":["source_agent_id","target_agent_id"]},"usage":{"when":"Use after verify_warp_gateway_mesh fails even though source and target nodes have Cloudflare Mesh IPs.","next":"Inspect route, interface, local listener, and remote TCP sections to distinguish Cloudflare policy issues from local container listener issues."}},{"name":"diagnose_business_source_build","description":"Collect fixed read-only process, BuildKit container, resource, and tail-log diagnostics for one GitOps source-build project.","inputSchema":{"type":"object","properties":{"project_id":{"type":"string"}},"required":["project_id"]}},{"name":"benchmark_business_service_local_http","description":"Run a bounded read-only HTTP load baseline through the project node-local published entrypoint to one configured business service health path, bypassing Cloudflare and Tunnel.","inputSchema":{"type":"object","properties":{"project_id":{"type":"string"},"service_name":{"type":"string"},"concurrency_stages":{"type":"array","maxItems":4,"items":{"type":"integer","minimum":1,"maximum":500},"description":"Ascending concurrency stages. Defaults to 10, 50, 100, 200."},"duration_seconds":{"type":"integer","minimum":5,"maximum":15},"request_timeout_seconds":{"type":"integer","minimum":1,"maximum":10},"max_p99_ms":{"type":"integer","minimum":100,"maximum":30000},"max_error_rate":{"type":"number","minimum":0,"maximum":0.1}},"required":["project_id","service_name"]},"usage":{"when":"Use to separate node-local application capacity from Cloudflare/Tunnel path capacity. The tool can only GET the selected service configured healthcheck_path through the project node-local published port.","next":"Compare the returned local stages with the external baseline, then call check_business_service_health to confirm public recovery."}},{"name":"list_business_projects","description":"List registered GitOps business projects so an agent can select an existing governance boundary before acting.","inputSchema":{"type":"object","properties":{}},"usage":{"when":"Discover existing projects before maintenance or release configuration changes.","next":"Call get_business_project_release_config with the chosen project_id."}},{"name":"create_business_project","description":"Create or update one GitOps business project, including optional domain and tunnel binding.","inputSchema":{"type":"object","properties":{"project_id":{"type":"string"},"name":{"type":"string"},"agent_id":{"type":"string"},"git_repo":{"type":"string"},"local_path":{"type":"string"},"deploy_mode":{"type":"string","enum":["release","source"]},"domain":{"type":"string"},"target_port":{"type":"integer"},"deploy_branch":{"type":"string"},"auto_deploy_enabled":{"type":"boolean"},"resource_limits":{"type":"object","description":"Required runtime ceiling applied to every service in this project.","properties":{"cpu_cores":{"type":"number","minimum":0.1,"maximum":64},"memory_mb":{"type":"integer","minimum":128,"maximum":262144},"pids":{"type":"integer","minimum":32,"maximum":4096}},"required":["cpu_cores","memory_mb","pids"],"additionalProperties":false},"env_vars":{"type":"array","items":{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"},"is_secret":{"type":"boolean"}}}}},"required":["project_id","name","agent_id","git_repo","resource_limits"]},"usage":{"when":"Create or fully update a project. deploy_mode defaults to release; choose source only when the bound node should build locally without GitHub Actions.","next":"Read get_business_project_release_config, then deploy with the unchanged deploy_business_project or deploy_business_service tools."}},{"name":"set_business_resource_limits","description":"Set the required CPU, memory, and process ceilings applied to every runtime service in one business project.","inputSchema":{"type":"object","properties":{"project_id":{"type":"string"},"resource_limits":{"type":"object","properties":{"cpu_cores":{"type":"number","minimum":0.1,"maximum":64},"memory_mb":{"type":"integer","minimum":128,"maximum":262144},"pids":{"type":"integer","minimum":32,"maximum":4096}},"required":["cpu_cores","memory_mb","pids"],"additionalProperties":false}},"required":["project_id","resource_limits"]},"usage":{"prerequisites":["Call get_business_project_release_config first and compare the current limits with the intended workload."],"when":"Use before release when the project runtime ceiling must change. The next rollout applies and verifies the new limits.","next":"Read get_business_project_release_config again, then call deploy_business_project so every service receives the changed limits."}},{"name":"set_business_project_build_mode","description":"Change where one existing business project builds. release uses GitHub Actions and reusable artifacts; source builds on the bound GitOps Agent.","inputSchema":{"type":"object","properties":{"project_id":{"type":"string"},"deploy_mode":{"type":"string","enum":["release","source"]}},"required":["project_id","deploy_mode"]},"usage":{"prerequisites":["Call get_business_project_release_config first.","Do not change mode merely to retry an unrelated application failure."],"when":"Use source when GitHub Actions is unavailable or the operator explicitly wants the bound node to build. Use release when cross-node artifact replay and release history are required.","next":"Confirm the persisted mode with get_business_project_release_config, then call the normal deploy tool and monitor its deployment_id."}},{"name":"migrate_business_project","description":"Move an existing business project service to another GitOps node from its latest verified release. Staged services can be prepared without cutover; only the activating service switches the domain and active node after target verification.","inputSchema":{"type":"object","properties":{"project_id":{"type":"string"},"target_agent_id":{"type":"string"},"service_name":{"type":"string"},"activate_on_success":{"type":"boolean"}},"required":["project_id","target_agent_id"]},"usage":{"when":"Use for a planned one-click node migration or manual disaster-recovery failover.","next":"Monitor the returned deployment_id with get_business_deployment_status. The source remains available for rollback."}},{"name":"set_business_env_vars","description":"Replace the environment variables for one GitOps business project.","inputSchema":{"type":"object","properties":{"project_id":{"type":"string"},"env_vars":{"type":"array","items":{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"},"is_secret":{"type":"boolean"}}}}},"required":["project_id","env_vars"]}},{"name":"list_business_env_vars","description":"List environment variables for one GitOps business project without revealing secret values.","inputSchema":{"type":"object","properties":{"project_id":{"type":"string"}},"required":["project_id"]}},{"name":"upsert_business_env_vars","description":"Add or update environment variables for one GitOps business project without deleting unspecified keys.","inputSchema":{"type":"object","properties":{"project_id":{"type":"string"},"env_vars":{"type":"array","items":{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"},"is_secret":{"type":"boolean"}}}}},"required":["project_id","env_vars"]}},{"name":"delete_business_env_var","description":"Permanently delete exactly one environment variable from a GitOps business project with exact confirmation, version protection, and an atomic audit record. Values are never returned.","inputSchema":{"type":"object","properties":{"project_id":{"type":"string"},"key":{"type"curl: (23) Failure writing output to destination, passed 4220 returned 0
+
+[1mmcp:[0m [36mcloudmcp/list_business_projects[0m [2mstarted[0m
+[1mmcp:[0m [36mcloudmcp/list_business_projects[0m [2m([32mcompleted[0m)[0m
+[1mmcp:[0m [36mcloudmcp/get_business_project_release_config[0m [2mstarted[0m
+[1mmcp:[0m [36mcloudmcp/get_business_project_release_config[0m [2m([32mcompleted[0m)[0m
+[1mmcp:[0m [36mcloudmcp/list_business_services[0m [2mstarted[0m
+[1mmcp:[0m [36mcloudmcp/list_business_services[0m [2m([32mcompleted[0m)[0m
+[1mmcp:[0m [36mcloudmcp/get_business_deployment_status[0m [2mstarted[0m
+[1mmcp:[0m [36mcloudmcp/get_business_deployment_status[0m [2m([32mcompleted[0m)[0m
+[35m[3mcodex[0m[0m
+已确认当前平台契约里，“健康状态”来自每个已配置业务服务的 `healthcheck_path` 或 `healthcheck_url`，并不是 Docker 容器只要处于 running 就会自动显示健康。当前正在读取 `llmweb` 的服务映射和运行态，下一步会核对究竟是配置缺失，还是列表读取链没有带出配置。
+[35m[3mexec[0m[0m
+[1m/bin/bash -lc "nl -ba compose.yaml | sed -n '1,220p'; rg -n -S 'healthcheck|/health|api/health' compose.yaml apps/web services/control-plane -g '"'!**/node_modules/**'"'"[0m in /home/ubuntu/project/LLMWEB
+[32m succeeded in 0ms:[0m
+     1	services:
+     2	  control-plane:
+     3	    image: llmweb-control-plane:latest
+     4	    build:
+     5	      context: .
+     6	      dockerfile: services/control-plane/Dockerfile
+     7	    environment:
+     8	      LLMWEB_WEB_TOKEN: ${LLMWEB_WEB_TOKEN:-local-dev-token}
+     9	      LLMWEB_LEGACY_OWNER_EMAIL: ${LLMWEB_LEGACY_OWNER_EMAIL:-}
+    10	      LLMWEB_PUBLIC_URL: ${LLMWEB_PUBLIC_URL:-http://localhost:8000}
+    11	      LLMWEB_RUNNER_INSTALLER_URL: ${LLMWEB_RUNNER_INSTALLER_URL:-https://raw.githubusercontent.com/jobssteve164dev/LLMWEB/main/scripts/install-runner.sh}
+    12	    ports:
+    13	      - "8000:8000"
+    14	
+    15	  web:
+    16	    image: llmweb-web:latest
+    17	    build:
+    18	      context: .
+    19	      dockerfile: apps/web/Dockerfile
+    20	    environment:
+    21	      LLMWEB_CONTROL_URL: http://control-plane:8000
+    22	      LLMWEB_WEB_TOKEN: ${LLMWEB_WEB_TOKEN:-local-dev-token}
+    23	      LLMWEB_SESSION_SECRET: ${LLMWEB_SESSION_SECRET:-local-llmweb-session-secret}
+    24	      SZLK_PASSPORT_URL: ${SZLK_PASSPORT_URL:-https://passport.szlk.ai}
+    25	      SZLK_PASSPORT_SECRET: ${SZLK_PASSPORT_SECRET:-}
+    26	      PASSPORT_PRODUCT: ${PASSPORT_PRODUCT:-llmweb}
+    27	      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+    28	      SZLKLAWS_BASE_URL: ${SZLKLAWS_BASE_URL:-https://laws.szlk.ai}
+    29	    depends_on:
+    30	      - control-plane
+    31	    ports:
+    32	      - "3000:3000"
+services/control-plane/src/llmweb_control/main.py:46:@app.get("/health", tags=["system"])
+services/control-plane/tests/test_health.py:7:    response = TestClient(app).get("/health")
+
+[35m[3mcodex[0m[0m
+根因已经收敛：这是两套健康状态没有合并导致的显示差异。`web` 的 GitOps 服务探针其实已配置且刚检查为 `healthy`，但业务容器列表展示的是 Docker 原生容器健康状态；仓库 `compose.yaml` 中两个服务都没有 `healthcheck`，所以两个容器统一显示 `not_configured`。我再读取一次容器规范，确认 Agent 侧也确实没有原生健康检查，而不是列表映射误判。
+[1mmcp:[0m [36mcloudmcp/get_business_service_config[0m [2mstarted[0m
+[1mmcp:[0m [36mcloudmcp/get_business_service_config[0m [2m([32mcompleted[0m)[0m
+[1mmcp:[0m [36mcloudmcp/get_business_service_config[0m [2mstarted[0m
+[1mmcp:[0m [36mcloudmcp/get_business_service_config[0m [2m([32mcompleted[0m)[0m
+[35m[3mcodex[0m[0m
+原因是 GitOps 业务列表展示的是 Docker 原生容器健康状态，而两个服务在 [compose.yaml](/home/ubuntu/project/LLMWEB/compose.yaml:1) 中都没有配置 `healthcheck`，因此统一显示“未配置”。
+
+当前实际状态：
+
+- `web`、`control-plane` 容器均为 `running`，已运行约 26–27 小时。
+- `web` 的 GitOps HTTP 探针已单独配置为 `/api/health`，最近结果是 `healthy`；公网实测返回 200。
+- `control-plane` 的 GitOps HTTP 探针尚未配置，虽然代码已有 `/health` 接口。
+- 因此“未配置”不代表服务异常，只表示容器层没有 Docker `HEALTHCHECK`。
+
+结论：这是健康状态来源不一致造成的展示结果，不是两个容器宕机。本轮仅诊断，没有修改配置或路线图。
+
+本次对话更适合：仅保留在 Solo。
+[2mtokens used[0m
+69,966
+原因是 GitOps 业务列表展示的是 Docker 原生容器健康状态，而两个服务在 [compose.yaml](/home/ubuntu/project/LLMWEB/compose.yaml:1) 中都没有配置 `healthcheck`，因此统一显示“未配置”。
+
+当前实际状态：
+
+- `web`、`control-plane` 容器均为 `running`，已运行约 26–27 小时。
+- `web` 的 GitOps HTTP 探针已单独配置为 `/api/health`，最近结果是 `healthy`；公网实测返回 200。
+- `control-plane` 的 GitOps HTTP 探针尚未配置，虽然代码已有 `/health` 接口。
+- 因此“未配置”不代表服务异常，只表示容器层没有 Docker `HEALTHCHECK`。
+
+结论：这是健康状态来源不一致造成的展示结果，不是两个容器宕机。本轮仅诊断，没有修改配置或路线图。
+
+本次对话更适合：仅保留在 Solo。
