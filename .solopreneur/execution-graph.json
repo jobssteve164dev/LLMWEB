@@ -1,10 +1,11 @@
 {
   "schemaVersion": 2,
-  "updatedAt": "2026-08-04T11:04:09.508Z",
-  "runCount": 5,
+  "updatedAt": "2026-08-05T20:01:14.824Z",
+  "runCount": 6,
   "indexes": {
     "byNode": {
       "__solo__": [
+        "__solo__-7",
         "__solo__-6",
         "__solo__-5",
         "__solo__-4",
@@ -14,6 +15,7 @@
     },
     "byAgent": {
       "/usr/local/bin/codex": [
+        "__solo__-7",
         "__solo__-6",
         "__solo__-5",
         "__solo__-4",
@@ -207,18 +209,22 @@
       ]
     },
     "byStatus": {
-      "Recorded": [
-        "__solo__-6"
-      ],
       "Completed": [
+        "__solo__-7",
         "__solo__-5",
         "__solo__-4",
         "__solo__-3",
         "__solo__-1"
+      ],
+      "Recorded": [
+        "__solo__-6"
       ]
     },
     "byFailure": {},
     "byCommand": {
+      "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/7/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check ...": [
+        "__solo__-7"
+      ],
       "'/usr/local/bin/codex' resume --include-non-interactive --all -C '/home/ubuntu/project/LLMWEB' '019fcc50-5097-7e23-a57d-37d19fbfa9b6'": [
         "__solo__-6"
       ],
@@ -236,6 +242,13 @@
       ]
     },
     "byExperience": {
+      "exp-reusable-signal-bbd83203f5340823": [
+        "__solo__-7",
+        "__solo__-5",
+        "__solo__-4",
+        "__solo__-3",
+        "__solo__-1"
+      ],
       "exp-reusable-signal-1477c0bd97fdae96": [
         "__solo__-6"
       ],
@@ -254,12 +267,6 @@
       "exp-verification-15081ed66d4e3c9f": [
         "__solo__-5",
         "__solo__-3"
-      ],
-      "exp-reusable-signal-bbd83203f5340823": [
-        "__solo__-5",
-        "__solo__-4",
-        "__solo__-3",
-        "__solo__-1"
       ],
       "exp-reusable-signal-0f8cf10e4d085617": [
         "__solo__-5"
@@ -319,6 +326,53 @@
     }
   },
   "experienceNodes": {
+    "exp-reusable-signal-bbd83203f5340823": {
+      "id": "exp-reusable-signal-bbd83203f5340823",
+      "type": "reusable_signal",
+      "centralMeaning": "Completion: Solo 对话已完成，等待用户决定是否关联到路线图环节。",
+      "sourceKinds": [
+        "solo"
+      ],
+      "sourceRefs": [
+        "__solo__-7",
+        "__solo__-5",
+        "__solo__-4",
+        "__solo__-3",
+        "__solo__-1"
+      ],
+      "appliesWhen": [
+        "同一路线图入口：__solo__",
+        "后续任务出现相同目标、文件或验证需求",
+        "runner/internal/executor/native.go",
+        "apps/web/app/components/workbench.tsx",
+        "apps/web/app/globals.css",
+        "apps/web/app/lib/types.ts",
+        "apps/web/app/page.tsx",
+        ".agents/product-marketing-context.md"
+      ],
+      "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
+      "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
+      "checks": [
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/7/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/5/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "diff --git a/services/control-plane/tests/test_workflow.py b/services/control-plane/tests/test_workflow.py",
+        "--- a/services/control-plane/tests/test_workflow.py",
+        "+++ b/services/control-plane/tests/test_workflow.py",
+        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},",
+        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
+        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },"
+      ],
+      "stats": {
+        "uses": 5,
+        "wins": 5,
+        "losses": 0,
+        "neutral": 0,
+        "alpha": 6,
+        "beta": 1,
+        "winRate": 0.8571,
+        "lastUsed": "2026-08-05T20:01:13.887Z"
+      }
+    },
     "exp-reusable-signal-1477c0bd97fdae96": {
       "id": "exp-reusable-signal-1477c0bd97fdae96",
       "type": "reusable_signal",
@@ -517,52 +571,6 @@
         "alpha": 3,
         "beta": 1,
         "winRate": 0.75,
-        "lastUsed": "2026-08-04T10:56:52.879Z"
-      }
-    },
-    "exp-reusable-signal-bbd83203f5340823": {
-      "id": "exp-reusable-signal-bbd83203f5340823",
-      "type": "reusable_signal",
-      "centralMeaning": "Completion: Solo 对话已完成，等待用户决定是否关联到路线图环节。",
-      "sourceKinds": [
-        "solo"
-      ],
-      "sourceRefs": [
-        "__solo__-5",
-        "__solo__-4",
-        "__solo__-3",
-        "__solo__-1"
-      ],
-      "appliesWhen": [
-        "runner/internal/executor/native.go",
-        "apps/web/app/components/workbench.tsx",
-        "apps/web/app/globals.css",
-        "apps/web/app/lib/types.ts",
-        "apps/web/app/page.tsx",
-        "同一路线图入口：__solo__",
-        ".agents/product-marketing-context.md",
-        "apps/web/app/[legalDocument]/page.tsx"
-      ],
-      "doThis": "在下一次执行前召回这条经验，并转成具体动作或验证。",
-      "avoidThis": "不要只复述历史摘要；必须用当前证据确认适用性。",
-      "checks": [
-        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/5/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
-        "diff --git a/services/control-plane/tests/test_workflow.py b/services/control-plane/tests/test_workflow.py",
-        "--- a/services/control-plane/tests/test_workflow.py",
-        "+++ b/services/control-plane/tests/test_workflow.py",
-        "+ split={\"train\": 80, \"validation\": 10, \"test\": 10},",
-        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/4/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -",
-        "+ rules: { userAgent: \"*\", allow: \"/\", disallow: [\"/api/\", \"/workbench/\", \"/reset-password\", \"/verify-email\"] },",
-        "cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/3/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -"
-      ],
-      "stats": {
-        "uses": 4,
-        "wins": 4,
-        "losses": 0,
-        "neutral": 0,
-        "alpha": 5,
-        "beta": 1,
-        "winRate": 0.8333,
         "lastUsed": "2026-08-04T10:56:52.879Z"
       }
     },
@@ -1222,6 +1230,18 @@
   },
   "usageEdges": [
     {
+      "runId": "__solo__-7",
+      "experienceId": "exp-reusable-signal-bbd83203f5340823",
+      "phase": "observed",
+      "outcome": "win",
+      "evidenceRefs": [
+        "digest:.solopreneur/run-digests/__solo__-7.json",
+        "execution_logs:7",
+        "check:cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/7/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -"
+      ],
+      "createdAt": "2026-08-05T20:01:13.887Z"
+    },
+    {
       "runId": "__solo__-6",
       "experienceId": "exp-reusable-signal-1477c0bd97fdae96",
       "phase": "observed",
@@ -1670,6 +1690,19 @@
     }
   ],
   "runs": [
+    {
+      "runId": "__solo__-7",
+      "executionLogId": 7,
+      "nodeId": "__solo__",
+      "runKind": "solo",
+      "agentCli": "/usr/local/bin/codex",
+      "status": "Completed",
+      "finishedAt": "2026-08-05T20:01:13.887Z",
+      "changedFiles": [],
+      "touchedFiles": [],
+      "failures": [],
+      "handoffSummary": "Solo 对话已完成，等待用户决定是否关联到路线图环节。 建议验证：cat '/home/ubuntu/project/LLMWEB/.solopreneur/agent-runs/__solo__/7/prompt.txt' | '/usr/local/bin/codex' exec --color always -C '/home/ubuntu/project/LLMWEB' --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -。"
+    },
     {
       "runId": "__solo__-6",
       "executionLogId": 6,
