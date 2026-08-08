@@ -1,6 +1,7 @@
 services:
   control-plane:
     image: llmweb-control-plane:latest
+    platform: linux/amd64
     build:
       context: .
       dockerfile: services/control-plane/Dockerfile
@@ -24,6 +25,7 @@ services:
 
   web:
     image: llmweb-web:latest
+    platform: linux/amd64
     build:
       context: .
       dockerfile: apps/web/Dockerfile
