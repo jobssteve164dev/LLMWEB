@@ -28,11 +28,7 @@ function readUser(result: Record<string, unknown>): SessionUser {
 }
 
 async function authenticatedResponse(user: SessionUser) {
-  try {
-    await linkPassportIdentity(user);
-  } catch (error) {
-    console.error("[LLMWEB] Passport identity link failed", error);
-  }
+  await linkPassportIdentity(user);
   const response = NextResponse.json({ ok: true, user });
   response.cookies.set(sessionCookie, createSessionValue(user), {
     httpOnly: true,
