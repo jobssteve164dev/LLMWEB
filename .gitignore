@@ -25,3 +25,6 @@ coverage.out
 .DS_Store
 .idea/
 .vscode/
+
+# SoloMap runtime state
+/.solopreneur/
