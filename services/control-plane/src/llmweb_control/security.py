@@ -53,7 +53,7 @@ def require_web(
         limit = int(project_limit or "")
     except ValueError:
         limit = 0
-    if limit not in {2, 10}:
+    if limit <= 0:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="网页项目配额无效")
     settings = get_settings()
     if settings.legacy_owner_email and hmac.compare_digest(email, settings.legacy_owner_email.strip().lower()):

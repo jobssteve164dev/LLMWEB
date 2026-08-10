@@ -182,6 +182,18 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .accountMenu button { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 10px; grid-column: 2; grid-row: 1 / 3; padding: 7px; }
 
 .workspaceLayout { display: grid; grid-template-columns: clamp(248px, 16vw, 280px) minmax(0, 1fr); margin: 0 auto; max-width: var(--workspace-max); min-height: calc(100vh - 72px); }
+.pricingSection { background: #f5f4ef; }
+.pricingGrid { display: grid; gap: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 44px; }
+.pricingGrid article { align-items: flex-start; background: white; border: 1px solid #d9dbd3; border-radius: 24px; display: flex; flex-direction: column; gap: 16px; padding: 32px; }
+.pricingGrid article > span { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.pricingGrid h3 { font-size: clamp(36px, 4vw, 54px); margin: 0; }
+.pricingGrid h3 small { color: var(--muted); font-size: 16px; font-weight: 500; }
+.pricingGrid p { color: var(--muted); margin: 0; }
+.pricingGrid strong { font-size: 18px; margin-bottom: 8px; }
+.pricingGrid .featuredPrice { background: var(--ink); color: white; }
+.pricingGrid .featuredPrice > span, .pricingGrid .featuredPrice p, .pricingGrid .featuredPrice h3 small { color: #c7cbc3; }
+.pricingBoundary { grid-column: 1 / -1; text-align: center; }
+.pricingUnavailable { background: #fff; border: 1px solid #d9dbd3; border-radius: 18px; color: var(--muted); margin-top: 36px; padding: 22px; }
 .stepRail { border-right: 1px solid var(--line); padding: 38px 20px 26px; position: relative; }
 .railTitle { color: #8b938e; font-size: 11px; font-weight: 800; letter-spacing: .14em; margin: 0 12px 17px; text-transform: uppercase; }
 .stepRail ol { list-style: none; margin: 0; padding: 0; }
@@ -486,6 +498,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 }
 
 @media (max-width: 700px) {
+  .pricingGrid { grid-template-columns: 1fr; }
   .landingNav { height: 68px; padding: 0 18px; }
   .landingNav .brandMark { height: 31px; width: 31px; }
   .navCta { padding: 12px 14px; }

@@ -13,7 +13,13 @@ async function proxy(request: NextRequest, context: RouteContext) {
   const { path } = await context.params;
   const baseUrl = process.env.LLMWEB_CONTROL_URL ?? "http://localhost:8000";
   const token = process.env.LLMWEB_WEB_TOKEN ?? "local-dev-token";
-  const projectLimit = await projectLimitForUser(user);
+  let projectLimit: number;
+  try {
+    projectLimit = await projectLimitForUser(user);
+  } catch (error) {
+    console.error("[LLMWEB] Passport plan decision unavailable", error);
+    return NextResponse.json({ detail: "当前无法确认项目方案，请稍后重试。" }, { status: 503 });
+  }
   const target = `${baseUrl.replace(/\/$/, "")}/v1/${path.join("/")}${request.nextUrl.search}`;
 
   try {

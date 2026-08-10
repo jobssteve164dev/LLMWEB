@@ -223,7 +223,7 @@ export function Workbench() {
           <button className="headerAction" type="button" onClick={() => { setCreatingProject(true); moveTo("project"); }}>新建项目</button>
           <span className="privacyPill"><span aria-hidden="true">●</span> 原始数据留在你的环境</span>
         </div>
-        <div className="accountMenu"><span>{state.account.name || state.account.email}</span><small>{state.account.tier === "paid" ? "专业版" : "免费版"}</small><button type="button" onClick={() => void signOut()}>退出</button></div>
+        <div className="accountMenu"><span>{state.account.name || state.account.email}</span><small>{state.project_quota.used}/{state.project_quota.limit} 个项目</small><button type="button" onClick={() => void signOut()}>退出</button></div>
       </header>
 
       <div className="workspaceLayout">
@@ -282,7 +282,7 @@ function ProjectStep({ project, quota, forceCreate, busy, perform, moveTo, onCre
       <div className="summaryGrid"><article><span>模型要完成什么</span><p>{project.goal}</p></article><article><span>怎样算成功</span><p>{project.success_criteria}</p></article></div>
       <div className="formActions"><button className="secondaryButton" type="button" onClick={onStartCreate}>新建项目</button><button className="primaryButton" type="button" onClick={() => moveTo("compute")}>继续连接算力</button></div></>;
   }
-  if (quota.remaining <= 0) return <Prerequisite title="项目名额已用完" text={quota.limit === 2 ? "免费版最多同时保留 2 个项目，付费版可以保留 10 个；已有项目和训练结果不会受影响。" : "专业版最多同时保留 10 个项目；已有项目和训练结果不会受影响。"} action="返回当前项目" onClick={onCancel} />;
+  if (quota.remaining <= 0) return <Prerequisite title="项目名额已用完" text={`当前方案最多同时保留 ${quota.limit} 个项目；已有项目和训练结果不会受影响。`} action="升级方案" onClick={() => { window.location.href = "/api/billing/checkout"; }} />;
   return <><SectionIntro eyebrow={project ? "新项目" : "第一步"} title="先说清模型要变成什么样。" description={`还可以建立 ${quota.remaining} 个项目。每个项目的数据、训练和模型结果独立保存。`} />
     <form className="formCard" onSubmit={(event) => {
       event.preventDefault();

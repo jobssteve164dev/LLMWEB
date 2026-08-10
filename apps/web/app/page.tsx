@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getLlmwebPlanTruth } from "./lib/passport";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "用自己的 GPU 完成大语言模型微调、评测与导出",
@@ -24,7 +27,11 @@ const faqs = [
   ["LLMWEB 会托管训练后的模型吗？", "默认不会。模型权重、checkpoint 和导出产物保存在你的 GPU 主机或你自己的 S3 兼容存储中，平台只保留版本、指标和产物引用。"],
 ] as const;
 
-export default function HomePage() {
+export default async function HomePage() {
+  const plan = await getLlmwebPlanTruth().catch((error) => {
+    console.error("[LLMWEB] Passport public plan unavailable", error);
+    return null;
+  });
   const softwareSchema = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
@@ -33,6 +40,7 @@ export default function HomePage() {
     operatingSystem: "Web; Linux x86_64 with NVIDIA GPU and Docker; macOS on Apple Silicon",
     description: "连接用户自己控制的 GPU，在网页中完成数据准备、大语言模型微调、同测试集评测和模型导出。",
     featureList: ["SFT、LoRA 与 QLoRA", "本地数据检查", "训练前后同测试集评测", "Adapter、Hugging Face 与 GGUF 导出"],
+    ...(plan ? { offers: { "@type": "Offer", price: (plan.amountCents / 100).toFixed(2), priceCurrency: plan.currency.toUpperCase(), availability: "https://schema.org/InStock", url: "https://llmweb.szlk.ai/#pricing" } } : {}),
   };
   const faqSchema = {
     "@context": "https://schema.org",
@@ -57,6 +65,7 @@ export default function HomePage() {
         <nav aria-label="主要导航">
           <a href="#workflow">工作流程</a>
           <a href="#data-boundary">数据边界</a>
+          <a href="#pricing">方案</a>
           <a href="#faq">常见问题</a>
         </nav>
         <Link className="navCta" href="/workbench/project">进入工作台</Link>
@@ -138,6 +147,15 @@ export default function HomePage() {
           <div><i /><b>出站连接</b><i /></div>
           <article className="local"><span>你的 GPU 环境</span><strong>数据 · 训练 · 模型</strong><small>你控制主机与存储位置</small></article>
         </div>
+      </section>
+
+      <section className="landingSection pricingSection" id="pricing">
+        <header className="landingSectionHeader compact"><p>简单透明的方案</p><h2>算力属于你，订阅只为更顺畅的训练管理。</h2><span>两个方案都使用你自己的 GPU 和存储；LLMWEB 不收取训练时长或算力费用。</span></header>
+        {plan ? <div className="pricingGrid">
+          <article><span>{plan.metadata.freeTier.name.zh}</span><h3>${(plan.metadata.freeTier.amountCents / 100).toFixed(0)}</h3><p>{plan.metadata.freeTier.summary.zh}</p><strong>{plan.metadata.quotas.projects.free} 个活跃项目</strong><Link className="landingSecondary" href="/workbench/project">开始使用</Link></article>
+          <article className="featuredPrice"><span>{plan.metadata.customerDisplay.zh.offerLabel}</span><h3>${(plan.amountCents / 100).toFixed(0)} <small>{plan.metadata.customerDisplay.zh.billingSuffix}</small></h3><p>{plan.metadata.customerDisplay.zh.summary}</p><strong>{plan.metadata.quotas.projects.paid} 个活跃项目</strong><Link className="landingPrimary" href="/api/billing/checkout">升级 Pro <span aria-hidden="true">→</span></Link></article>
+          <p className="pricingBoundary">不包含 GPU、云算力、模型托管或存储费用 · {plan.metadata.refundDays} 天退款期</p>
+        </div> : <p className="pricingUnavailable">方案暂时无法加载，购买入口已安全关闭；免费工作台不受影响。</p>}
       </section>
 
       <section className="landingSection fitSection">

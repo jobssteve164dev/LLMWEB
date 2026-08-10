@@ -8,8 +8,13 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const user = readSession(request.cookies.get(sessionCookie)?.value);
   if (!user) return NextResponse.json({ detail: "请先登录。" }, { status: 401 });
-  const projectLimit = await projectLimitForUser(user);
-  return NextResponse.json({ user, tier: projectLimit === 10 ? "paid" : "free", projectLimit });
+  try {
+    const projectLimit = await projectLimitForUser(user);
+    return NextResponse.json({ user, projectLimit });
+  } catch (error) {
+    console.error("[LLMWEB] Passport plan decision unavailable", error);
+    return NextResponse.json({ detail: "当前无法确认项目方案，请稍后重试。" }, { status: 503 });
+  }
 }
 
 export async function DELETE() {

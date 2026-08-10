@@ -19,7 +19,7 @@ This file stores stable project facts future agents should reuse. Do not paste r
 - 没有同一测试集上的基础模型与微调模型对比，不得宣称效果已经提升。
 - 首版基础模型固定为 Qwen2.5 0.5B、1.5B、3B 指令模型的精确 revision；不接受用户输入任意镜像或命令。
 - 账号密码、邮箱验证和密码重置由 SZLKPassport Headless Auth 统一负责；LLMWEB 维护自己的签名会话，不保存本地密码真相。
-- 每个 Passport 用户映射到独立工作区，项目数据按当前选中项目隔离；免费用户最多同时保留 2 个项目，Passport `project_limit_10` 权益允许时最多保留 10 个。
+- 每个 Passport 用户映射到独立工作区，项目数据按当前选中项目隔离；免费与付费项目配额只读取 Passport catalog，`project_limit_10` access decision 只决定使用中央免费额度还是付费额度。
 - 项目配额只约束新建；权益降级时不删除或隐藏已有项目。升级前的 `ws_default` 数据只有在明确配置旧工作区归属邮箱时才会被认领。
 - 生产 PostgreSQL 由 GitOps 数据库池治理并注入控制面，根 `compose.yaml` 只定义 Web 与控制面；本地 PostgreSQL 只存在于 `compose.local.yaml`。
 - “连接算力”只向用户提供一条带一次性注册码的安装命令；GitHub 安装脚本负责平台识别、Linux Docker/CUDA 或 Apple Silicon Metal/MPS 受控训练环境、设备注册和后台 Runner，用户不再手动构建或填写数据/结果目录。

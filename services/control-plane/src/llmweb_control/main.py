@@ -171,7 +171,6 @@ def state(
         "account": {
             "email": identity.email,
             "name": identity.name,
-            "tier": "paid" if identity.project_limit == 10 else "free",
         },
         "project_quota": {
             "used": len(projects),
