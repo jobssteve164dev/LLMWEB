@@ -311,6 +311,25 @@ def test_project_limits_and_user_isolation() -> None:
         ).status_code == 404
 
 
+def test_control_plane_enforces_the_positive_catalog_quota_without_a_local_plan_matrix() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        catalog_headers = web_headers("passport-catalog-user", "catalog@example.com", 3)
+        for index in range(3):
+            response = client.post(
+                "/v1/projects",
+                headers=catalog_headers,
+                json={"name": f"中央额度项目 {index + 1}", "goal": "目标", "success_criteria": "标准"},
+            )
+            assert response.status_code == 201, response.text
+        assert client.post(
+            "/v1/projects",
+            headers=catalog_headers,
+            json={"name": "超出中央额度", "goal": "目标", "success_criteria": "标准"},
+        ).status_code == 409
+        assert client.get("/v1/state", headers=web_headers(project_limit=0)).status_code == 401
+
+
 def test_state_only_returns_selected_project_resources() -> None:
     reset_database()
     with TestClient(app) as client:
