@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const user = readSession(request.cookies.get(sessionCookie)?.value);
-  if (!user) return NextResponse.redirect(new URL("/workbench/project", request.url));
+  if (!user) return NextResponse.redirect(new URL("/workbench/project", appBaseUrl()));
   try {
     const plan = await getLlmwebPlanTruth();
     const result = await getPassportClient().createCheckoutLink({
