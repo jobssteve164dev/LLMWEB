@@ -205,8 +205,9 @@ fi
 
 say "正在下载与 ${PLATFORM} 匹配的连接程序"
 record_install_stage "source_download"
+SOURCE_ARCHIVE_URL="${LLMWEB_SOURCE_ARCHIVE_URL:-https://github.com/${REPOSITORY}/archive/${SOURCE_REF}.tar.gz}"
 curl -fL --retry 3 --retry-all-errors \
-  "https://github.com/${REPOSITORY}/archive/${SOURCE_REF}.tar.gz" \
+  "$SOURCE_ARCHIVE_URL" \
   -o "$INSTALL_ROOT/source.tar.gz.download"
 mv "$INSTALL_ROOT/source.tar.gz.download" "$INSTALL_ROOT/source.tar.gz"
 tar -xzf "$INSTALL_ROOT/source.tar.gz" --strip-components=1 -C "$INSTALL_ROOT/source"
