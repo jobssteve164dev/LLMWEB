@@ -173,6 +173,14 @@ command -v curl >/dev/null 2>&1 || fail "缺少 curl，无法下载安装文件"
 command -v tar >/dev/null 2>&1 || fail "缺少 tar，无法解压安装文件"
 command -v sha256sum >/dev/null 2>&1 || fail "缺少 sha256sum，无法校验连接程序工具链"
 mkdir -p "$INSTALL_ROOT/bin" "$INSTALL_ROOT/source" "$STATE_ROOT"
+INSTALL_STAGE_FILE="$STATE_ROOT/install-stage"
+CURRENT_INSTALL_STAGE="base_runtime"
+record_install_stage() {
+  CURRENT_INSTALL_STAGE="$1"
+  printf '%s\n' "$CURRENT_INSTALL_STAGE" > "$INSTALL_STAGE_FILE"
+}
+trap 'printf "failed:%s\n" "$CURRENT_INSTALL_STAGE" > "$INSTALL_STAGE_FILE"' EXIT
+record_install_stage "base_runtime"
 
 start_docker() {
   if command -v systemctl >/dev/null 2>&1 && [[ -d /run/systemd/system ]]; then
@@ -196,13 +204,17 @@ if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
 fi
 
 say "正在下载与 ${PLATFORM} 匹配的连接程序"
-curl -fL "https://github.com/${REPOSITORY}/archive/${SOURCE_REF}.tar.gz" -o "$INSTALL_ROOT/source.tar.gz.download"
+record_install_stage "source_download"
+curl -fL --retry 3 --retry-all-errors \
+  "https://github.com/${REPOSITORY}/archive/${SOURCE_REF}.tar.gz" \
+  -o "$INSTALL_ROOT/source.tar.gz.download"
 mv "$INSTALL_ROOT/source.tar.gz.download" "$INSTALL_ROOT/source.tar.gz"
 tar -xzf "$INSTALL_ROOT/source.tar.gz" --strip-components=1 -C "$INSTALL_ROOT/source"
 
 RUNNER_BINARY_URL="https://github.com/${REPOSITORY}/releases/download/llmweb-runner-bec5876f/llmweb-runner-linux-amd64"
 RUNNER_BINARY_SHA256="5b647a97c9403d443c58415c56e5d3b8217fb0cd28a8ec0d0d6e231353fbb76b"
 say "正在下载已校验的连接程序"
+record_install_stage "runner_download"
 curl -fL --retry 3 --retry-all-errors "$RUNNER_BINARY_URL" \
   -o "$INSTALL_ROOT/bin/llmweb-runner.download"
 printf '%s  %s\n' "$RUNNER_BINARY_SHA256" "$INSTALL_ROOT/bin/llmweb-runner.download" | sha256sum -c -
@@ -220,6 +232,7 @@ if [[ "$TARGET_USER" != "root" ]]; then
 fi
 
 say "正在注册这台训练主机"
+record_install_stage "runner_register"
 "$INSTALL_ROOT/bin/llmweb-runner" register \
   --url "$CONTROL_URL" \
   --code "$REGISTRATION_CODE" \
@@ -260,6 +273,7 @@ install_nvidia_toolkit() {
 }
 
 say "正在安装受控训练环境，这一步可能需要几分钟"
+record_install_stage "runtime_image"
 if [[ "$HAS_NVIDIA" -eq 1 ]]; then
   if ! docker info --format '{{json .Runtimes}}' | grep -q 'nvidia'; then
     install_nvidia_toolkit
@@ -277,6 +291,7 @@ command -v systemctl >/dev/null 2>&1 || fail "当前系统不支持 systemd，�
 [[ -d /run/systemd/system ]] || fail "systemd 当前未运行，无法安装后台连接服务"
 
 say "正在启动后台连接服务"
+record_install_stage "service_install"
 cat > /etc/systemd/system/llmweb-runner.service <<EOF
 [Unit]
 Description=LLMWEB Training Runner
@@ -298,6 +313,8 @@ EOF
 systemctl daemon-reload
 systemctl enable --now llmweb-runner
 systemctl is-active --quiet llmweb-runner || fail "后台连接服务未能启动，请运行 systemctl status llmweb-runner 查看原因"
+record_install_stage "ready"
+trap - EXIT
 
 if [[ "$HAS_NVIDIA" -eq 1 ]]; then
   say "连接完成。已启用 GPU 训练；数据目录：$DATA_ROOT；模型与结果目录：$OUTPUT_ROOT"
