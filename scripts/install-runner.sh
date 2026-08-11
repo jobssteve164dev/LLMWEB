@@ -211,7 +211,7 @@ curl -fL --retry 3 --retry-all-errors \
 mv "$INSTALL_ROOT/source.tar.gz.download" "$INSTALL_ROOT/source.tar.gz"
 tar -xzf "$INSTALL_ROOT/source.tar.gz" --strip-components=1 -C "$INSTALL_ROOT/source"
 
-RUNNER_BINARY_URL="https://github.com/${REPOSITORY}/releases/download/llmweb-runner-bec5876f/llmweb-runner-linux-amd64"
+RUNNER_BINARY_URL="${LLMWEB_RUNNER_BINARY_URL:-https://github.com/${REPOSITORY}/releases/download/llmweb-runner-bec5876f/llmweb-runner-linux-amd64}"
 RUNNER_BINARY_SHA256="5b647a97c9403d443c58415c56e5d3b8217fb0cd28a8ec0d0d6e231353fbb76b"
 say "正在下载已校验的连接程序"
 record_install_stage "runner_download"
