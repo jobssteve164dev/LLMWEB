@@ -283,7 +283,12 @@ if [[ "$HAS_NVIDIA" -eq 1 ]]; then
   docker run --rm --gpus all "$RUNTIME_IMAGE" nvidia-smi >/dev/null \
     || fail "训练环境无法使用 NVIDIA GPU，请检查驱动与 NVIDIA Container Toolkit"
 else
-  docker build --platform "$PLATFORM" -t "$CPU_RUNTIME_IMAGE" -f "$INSTALL_ROOT/source/runtime/Dockerfile.cpu" "$INSTALL_ROOT/source"
+  NANOGPT_SOURCE_URL="${LLMWEB_NANOGPT_SOURCE_URL:-https://github.com/karpathy/nanoGPT/archive/3adf61e154c3fe3fca428ad6bc3818b27a3b8291.tar.gz}"
+  docker build --platform "$PLATFORM" \
+    --build-arg "NANOGPT_SOURCE_URL=$NANOGPT_SOURCE_URL" \
+    -t "$CPU_RUNTIME_IMAGE" \
+    -f "$INSTALL_ROOT/source/runtime/Dockerfile.cpu" \
+    "$INSTALL_ROOT/source"
   docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/null \
     || fail "普通电脑训练环境没有通过自检"
 fi
