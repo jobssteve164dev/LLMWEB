@@ -284,8 +284,10 @@ if [[ "$HAS_NVIDIA" -eq 1 ]]; then
     || fail "训练环境无法使用 NVIDIA GPU，请检查驱动与 NVIDIA Container Toolkit"
 else
   NANOGPT_SOURCE_URL="${LLMWEB_NANOGPT_SOURCE_URL:-https://github.com/karpathy/nanoGPT/archive/3adf61e154c3fe3fca428ad6bc3818b27a3b8291.tar.gz}"
+  TORCH_WHEEL_URL="${LLMWEB_TORCH_WHEEL_URL:-https://download-r2.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl}"
   docker build --platform "$PLATFORM" \
     --build-arg "NANOGPT_SOURCE_URL=$NANOGPT_SOURCE_URL" \
+    --build-arg "TORCH_WHEEL_URL=$TORCH_WHEEL_URL" \
     -t "$CPU_RUNTIME_IMAGE" \
     -f "$INSTALL_ROOT/source/runtime/Dockerfile.cpu" \
     "$INSTALL_ROOT/source"
