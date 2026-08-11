@@ -274,8 +274,8 @@ install_nvidia_toolkit() {
 }
 
 say "正在安装受控训练环境，这一步可能需要几分钟"
-record_install_stage "runtime_image"
 if [[ "$HAS_NVIDIA" -eq 1 ]]; then
+  record_install_stage "runtime_image"
   if ! docker info --format '{{json .Runtimes}}' | grep -q 'nvidia'; then
     install_nvidia_toolkit
   fi
@@ -285,9 +285,18 @@ if [[ "$HAS_NVIDIA" -eq 1 ]]; then
 else
   NANOGPT_SOURCE_URL="${LLMWEB_NANOGPT_SOURCE_URL:-https://github.com/karpathy/nanoGPT/archive/3adf61e154c3fe3fca428ad6bc3818b27a3b8291.tar.gz}"
   TORCH_WHEEL_URL="${LLMWEB_TORCH_WHEEL_URL:-https://download-r2.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl}"
+  TORCH_WHEEL_PATH="$INSTALL_ROOT/source/runtime/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl"
+  TORCH_WHEEL_DOWNLOAD="$TORCH_WHEEL_PATH.download"
+  TORCH_WHEEL_SHA256="cb06175284673a581dd91fb1965662ae4ecaba6e5c357aa0ea7bb8b84b6b7eeb"
+  record_install_stage "runtime_asset"
+  if ! printf '%s  %s\n' "$TORCH_WHEEL_SHA256" "$TORCH_WHEEL_PATH" | sha256sum -c - >/dev/null 2>&1; then
+    curl -fL -C - --retry 3 --retry-all-errors "$TORCH_WHEEL_URL" -o "$TORCH_WHEEL_DOWNLOAD"
+    printf '%s  %s\n' "$TORCH_WHEEL_SHA256" "$TORCH_WHEEL_DOWNLOAD" | sha256sum -c -
+    mv "$TORCH_WHEEL_DOWNLOAD" "$TORCH_WHEEL_PATH"
+  fi
+  record_install_stage "runtime_image"
   docker build --platform "$PLATFORM" \
     --build-arg "NANOGPT_SOURCE_URL=$NANOGPT_SOURCE_URL" \
-    --build-arg "TORCH_WHEEL_URL=$TORCH_WHEEL_URL" \
     -t "$CPU_RUNTIME_IMAGE" \
     -f "$INSTALL_ROOT/source/runtime/Dockerfile.cpu" \
     "$INSTALL_ROOT/source"

@@ -3,7 +3,6 @@ FROM ${PYTHON_BASE_IMAGE}
 
 ARG NANOGPT_REF=3adf61e154c3fe3fca428ad6bc3818b27a3b8291
 ARG NANOGPT_SOURCE_URL=https://github.com/karpathy/nanoGPT/archive/3adf61e154c3fe3fca428ad6bc3818b27a3b8291.tar.gz
-ARG TORCH_WHEEL_URL=https://download-r2.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl
 ARG TORCH_WHEEL_SHA256=cb06175284673a581dd91fb1965662ae4ecaba6e5c357aa0ea7bb8b84b6b7eeb
 
 LABEL ai.szlk.llmweb.nanogpt-ref="$NANOGPT_REF"
@@ -11,9 +10,10 @@ LABEL ai.szlk.llmweb.nanogpt-ref="$NANOGPT_REF"
 ENV PIP_ROOT_USER_ACTION=ignore \
     PYTHONUNBUFFERED=1
 
+COPY runtime/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl /tmp/torch.whl
+
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends ca-certificates curl \
-    && curl -fsSL --retry 3 --retry-all-errors "$TORCH_WHEEL_URL" -o /tmp/torch.whl \
     && printf '%s  %s\n' "$TORCH_WHEEL_SHA256" /tmp/torch.whl | sha256sum -c - \
     && pip install --no-cache-dir --index-url https://mirrors.aliyun.com/pypi/simple/ /tmp/torch.whl \
     && mkdir -p /opt/nanogpt \
