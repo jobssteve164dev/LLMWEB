@@ -284,6 +284,9 @@ if [[ "$HAS_NVIDIA" -eq 1 ]]; then
     || fail "训练环境无法使用 NVIDIA GPU，请检查驱动与 NVIDIA Container Toolkit"
 else
   NANOGPT_SOURCE_URL="${LLMWEB_NANOGPT_SOURCE_URL:-https://github.com/karpathy/nanoGPT/archive/3adf61e154c3fe3fca428ad6bc3818b27a3b8291.tar.gz}"
+  NANOGPT_REF="3adf61e154c3fe3fca428ad6bc3818b27a3b8291"
+  NANOGPT_SOURCE_PATH="$INSTALL_ROOT/source/runtime/nanogpt-$NANOGPT_REF"
+  NANOGPT_ARCHIVE_PATH="$INSTALL_ROOT/source/runtime/nanogpt-$NANOGPT_REF.tar.gz"
   TORCH_WHEEL_URL="${LLMWEB_TORCH_WHEEL_URL:-https://download-r2.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl}"
   TORCH_WHEEL_PATH="$INSTALL_ROOT/source/runtime/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl"
   TORCH_WHEEL_DOWNLOAD="$TORCH_WHEEL_PATH.download"
@@ -294,9 +297,16 @@ else
     printf '%s  %s\n' "$TORCH_WHEEL_SHA256" "$TORCH_WHEEL_DOWNLOAD" | sha256sum -c -
     mv "$TORCH_WHEEL_DOWNLOAD" "$TORCH_WHEEL_PATH"
   fi
+  if [[ ! -f "$NANOGPT_SOURCE_PATH/model.py" || ! -f "$NANOGPT_SOURCE_PATH/train.py" ]]; then
+    curl -fL --retry 3 --retry-all-errors "$NANOGPT_SOURCE_URL" -o "$NANOGPT_ARCHIVE_PATH.download"
+    mv "$NANOGPT_ARCHIVE_PATH.download" "$NANOGPT_ARCHIVE_PATH"
+    mkdir -p "$NANOGPT_SOURCE_PATH"
+    tar -xzf "$NANOGPT_ARCHIVE_PATH" --strip-components=1 -C "$NANOGPT_SOURCE_PATH"
+    [[ -f "$NANOGPT_SOURCE_PATH/model.py" && -f "$NANOGPT_SOURCE_PATH/train.py" ]] \
+      || fail "训练项目源码没有准备完整"
+  fi
   record_install_stage "runtime_image"
   docker build --platform "$PLATFORM" \
-    --build-arg "NANOGPT_SOURCE_URL=$NANOGPT_SOURCE_URL" \
     -t "$CPU_RUNTIME_IMAGE" \
     -f "$INSTALL_ROOT/source/runtime/Dockerfile.cpu" \
     "$INSTALL_ROOT/source"
