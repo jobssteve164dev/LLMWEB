@@ -171,7 +171,8 @@ esac
 
 command -v curl >/dev/null 2>&1 || fail "缺少 curl，无法下载安装文件"
 command -v tar >/dev/null 2>&1 || fail "缺少 tar，无法解压安装文件"
-mkdir -p "$INSTALL_ROOT/bin" "$INSTALL_ROOT/source" "$STATE_ROOT"
+command -v sha256sum >/dev/null 2>&1 || fail "缺少 sha256sum，无法校验连接程序工具链"
+mkdir -p "$INSTALL_ROOT/bin" "$INSTALL_ROOT/source" "$INSTALL_ROOT/toolchains" "$STATE_ROOT"
 
 start_docker() {
   if command -v systemctl >/dev/null 2>&1 && [[ -d /run/systemd/system ]]; then
@@ -199,12 +200,21 @@ curl -fL "https://github.com/${REPOSITORY}/archive/${SOURCE_REF}.tar.gz" -o "$IN
 mv "$INSTALL_ROOT/source.tar.gz.download" "$INSTALL_ROOT/source.tar.gz"
 tar -xzf "$INSTALL_ROOT/source.tar.gz" --strip-components=1 -C "$INSTALL_ROOT/source"
 
-docker run --rm --platform "$PLATFORM" \
-  -v "$INSTALL_ROOT/source/runner:/src:ro" \
-  -v "$INSTALL_ROOT/bin:/out" \
-  -w /src \
-  golang:1.25.12 \
-  go build -trimpath -ldflags="-s -w" -o /out/llmweb-runner ./cmd/runner
+GO_ROOT="$INSTALL_ROOT/toolchains/go1.25.12"
+GO_ARCHIVE="$INSTALL_ROOT/go1.25.12.linux-amd64.tar.gz"
+GO_ARCHIVE_SHA256="234828b7a89e0e303d2556310ee549fbcf253d28de937bac3da13d6294262ac1"
+if [[ ! -x "$GO_ROOT/bin/go" ]]; then
+  say "正在准备轻量连接程序工具链"
+  curl -fL --retry 3 --retry-all-errors \
+    "https://go.dev/dl/go1.25.12.linux-amd64.tar.gz" \
+    -o "$GO_ARCHIVE.download"
+  printf '%s  %s\n' "$GO_ARCHIVE_SHA256" "$GO_ARCHIVE.download" | sha256sum -c -
+  mv "$GO_ARCHIVE.download" "$GO_ARCHIVE"
+  mkdir -p "$GO_ROOT"
+  tar -xzf "$GO_ARCHIVE" --strip-components=1 -C "$GO_ROOT"
+fi
+"$GO_ROOT/bin/go" -C "$INSTALL_ROOT/source/runner" build \
+  -trimpath -ldflags="-s -w" -o "$INSTALL_ROOT/bin/llmweb-runner" ./cmd/runner
 chmod 0755 "$INSTALL_ROOT/bin/llmweb-runner"
 
 TARGET_USER="${SUDO_USER:-root}"
