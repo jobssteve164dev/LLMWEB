@@ -265,6 +265,93 @@ def test_apple_silicon_uses_lora_instead_of_cuda_qlora() -> None:
         assert accepted.status_code == 201, accepted.text
 
 
+def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        project_id = client.post(
+            "/v1/projects",
+            headers=WEB_HEADERS,
+            json={"name": "第一次训练", "goal": "学会文本续写", "success_criteria": "测试损失下降"},
+        ).json()["id"]
+        pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
+        pair_response = client.post(
+            "/v1/runners/pair",
+            json={
+                "code": pairing["code"],
+                "name": "4 核 8G 普通电脑",
+                "capabilities": {"ready": True, "backend": "docker_cpu", "cpu_cores": 4, "memory_total_mb": 8192},
+            },
+        )
+        runner_id = pair_response.json()["runner_id"]
+        runner_headers = {"Authorization": f"Bearer {pair_response.json()['device_token']}"}
+        dataset_response = client.post(
+            "/v1/datasets",
+            headers=WEB_HEADERS,
+            json={
+                "project_id": project_id, "runner_id": runner_id, "name": "入门练习数据",
+                "source_type": "starter", "source_ref": "tiny-shakespeare", "format": "txt",
+            },
+        )
+        assert dataset_response.status_code == 201, dataset_response.text
+        dataset_id = dataset_response.json()["id"]
+        inspect_lease = client.post("/v1/runners/jobs/lease", headers=runner_headers).json()
+        assert inspect_lease["payload"]["source_type"] == "starter"
+        complete_job(client, runner_headers, inspect_lease, {"version_hash": "sha256:starter", "statistics": {"characters": 1000}})
+
+        experiment_response = client.post(
+            "/v1/experiments",
+            headers=WEB_HEADERS,
+            json={
+                "project_id": project_id, "runner_id": runner_id, "dataset_id": dataset_id,
+                "name": "入门训练", "model_id": "karpathy/nanoGPT", "method": "starter",
+                "export_formats": ["model"], "license_confirmed": True,
+            },
+        )
+        assert experiment_response.status_code == 201, experiment_response.text
+        baseline = client.post("/v1/runners/jobs/lease", headers=runner_headers).json()
+        assert baseline["payload"]["runtime"] == {"engine": "nanogpt", "image": "llmweb/runtime-cpu:0.1.0"}
+        assert baseline["payload"]["training"]["iterations"] == 500
+
+
+def test_cloudmcp_provider_bridge_exposes_governed_training_tools(monkeypatch) -> None:
+    reset_database()
+    monkeypatch.setenv("LLMWEB_CLOUDMCP_BRIDGE_CLIENT_ID", "bridge-client")
+    monkeypatch.setenv("LLMWEB_CLOUDMCP_BRIDGE_CLIENT_SECRET", "bridge-secret")
+    get_settings.cache_clear()
+    headers = {
+        "Authorization": "Bearer bridge-secret",
+        "X-CloudMCP-Bridge-Client": "bridge-client",
+    }
+    try:
+        with TestClient(app) as client:
+            rejected = client.post("/api/provider-bridge", json={"tool": "list_tools", "params": {}})
+            assert rejected.status_code == 401
+            tools_response = client.post("/api/provider-bridge", headers=headers, json={"tool": "list_tools", "params": {}})
+            assert tools_response.status_code == 200
+            names = {item["name"] for item in tools_response.json()["result"]}
+            assert {
+                "create_llmweb_starter_project", "create_llmweb_runner_pairing",
+                "prepare_llmweb_starter_dataset", "start_llmweb_starter_training",
+                "get_llmweb_training_run", "select_llmweb_training_result",
+            }.issubset(names)
+            serialized = str(tools_response.json())
+            assert "command" not in serialized
+            project_response = client.post(
+                "/api/provider-bridge", headers=headers,
+                json={"tool": "create_llmweb_starter_project", "params": {}},
+            ).json()
+            assert project_response["success"] is True
+            pool = client.post(
+                "/api/provider-bridge", headers=headers,
+                json={"tool": "list_llmweb_training_pool", "params": {"project_id": project_response["result"]["id"]}},
+            ).json()
+            assert pool["result"]["projects"][0]["name"] == "我的第一次模型训练"
+    finally:
+        monkeypatch.delenv("LLMWEB_CLOUDMCP_BRIDGE_CLIENT_ID")
+        monkeypatch.delenv("LLMWEB_CLOUDMCP_BRIDGE_CLIENT_SECRET")
+        get_settings.cache_clear()
+
+
 def test_project_limits_and_user_isolation() -> None:
     reset_database()
     with TestClient(app) as client:

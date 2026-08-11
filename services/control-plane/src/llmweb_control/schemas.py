@@ -25,9 +25,9 @@ class DatasetCreate(BaseModel):
     project_id: str
     runner_id: str
     name: str = Field(min_length=1, max_length=120)
-    source_type: Literal["local", "huggingface", "modelscope", "s3"] = "local"
+    source_type: Literal["local", "huggingface", "modelscope", "s3", "starter"] = "local"
     source_ref: str = Field(min_length=1, max_length=500)
-    format: Literal["json", "jsonl", "csv"]
+    format: Literal["json", "jsonl", "csv", "txt"]
     instruction_field: str = Field(default="instruction", min_length=1, max_length=120)
     input_field: str = Field(default="input", min_length=1, max_length=120)
     output_field: str = Field(default="output", min_length=1, max_length=120)
@@ -62,13 +62,13 @@ class ExperimentCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     model_id: str = Field(min_length=1, max_length=300)
     model_revision: str = Field(default="main", min_length=1, max_length=120)
-    method: Literal["lora", "qlora"] = "qlora"
+    method: Literal["lora", "qlora", "starter"] = "qlora"
     epochs: float = Field(default=3, gt=0, le=100)
     learning_rate: float = Field(default=0.0002, gt=0, le=1)
     max_length: int = Field(default=2048, ge=128, le=32768)
     batch_size: int = Field(default=1, ge=1, le=128)
     gradient_accumulation: int = Field(default=8, ge=1, le=1024)
-    export_formats: list[Literal["adapter", "huggingface", "gguf"]] = ["adapter"]
+    export_formats: list[Literal["adapter", "huggingface", "gguf", "model"]] = ["adapter"]
     evaluation_preview_allowed: bool = False
     output_destination: Literal["local", "user_s3"] = "local"
     output_s3_uri: str | None = Field(default=None, max_length=500)

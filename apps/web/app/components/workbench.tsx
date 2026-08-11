@@ -21,11 +21,11 @@ function saveCurrentProject(projectId: string | null) {
 }
 
 const steps: Array<{ id: Step; label: string; short: string }> = [
-  { id: "project", label: "定义目标", short: "项目" },
-  { id: "compute", label: "连接算力", short: "算力" },
-  { id: "data", label: "准备数据", short: "数据" },
-  { id: "train", label: "设置训练", short: "训练" },
-  { id: "monitor", label: "查看结果", short: "评测" },
+  { id: "project", label: "说出目标", short: "项目" },
+  { id: "compute", label: "连接电脑", short: "算力" },
+  { id: "data", label: "准备练习", short: "数据" },
+  { id: "train", label: "开始训练", short: "训练" },
+  { id: "monitor", label: "查看效果", short: "评测" },
   { id: "model", label: "取得模型", short: "模型" },
 ];
 
@@ -302,13 +302,18 @@ function ComputeStep({ runner, busy, perform }: { runner: Runner | null; busy: b
   if (runner && runner.status !== "offline") {
     const gpu = runner.capabilities.gpus?.[0];
     const isAppleSilicon = runner.capabilities.backend === "native_mps";
+    const isCPU = runner.capabilities.backend === "docker_cpu";
+    const deviceName = isCPU ? "普通电脑入门训练" : gpu?.name ?? (isAppleSilicon ? "Apple Silicon GPU" : "NVIDIA GPU");
+    const deviceDetail = isCPU
+      ? `${runner.capabilities.cpu_cores ?? "—"} 核处理器 · ${runner.capabilities.memory_total_mb ? `${(runner.capabilities.memory_total_mb / 1024).toFixed(0)} GB 内存` : "内存信息同步中"}`
+      : gpu ? `${isAppleSilicon ? "Metal / MPS" : `${runner.capabilities.gpus?.length ?? 1} 张 GPU`} · ${(gpu.memory_total_mb / 1024).toFixed(0)} GB ${gpu.shared_memory ? "统一内存" : "显存"}` : "能力信息正在同步";
     return <><SectionIntro eyebrow="算力已连接" title={runner.name} description="这台机器已经可以接收数据检查、训练和评测任务。" />
-      <div className="computeCard ready"><div className="computeIcon">✓</div><div><span>当前可用</span><h2>{gpu?.name ?? (isAppleSilicon ? "Apple Silicon GPU" : "NVIDIA GPU")}</h2><p>{gpu ? `${isAppleSilicon ? "Metal / MPS" : `${runner.capabilities.gpus?.length ?? 1} 张 GPU`} · ${(gpu.memory_total_mb / 1024).toFixed(0)} GB ${gpu.shared_memory ? "统一内存" : "显存"}` : "能力信息正在同步"}</p></div><span className="statusBadge">在线</span></div>
-      <div className="privacyCallout"><strong>数据边界保持不变</strong><p>网页只接收统计、进度和你主动授权的少量预览；原始文件、模型权重与 checkpoint 都留在这台机器。</p></div></>;
+      <div className="computeCard ready"><div className="computeIcon">✓</div><div><span>当前可用</span><h2>{deviceName}</h2><p>{deviceDetail}</p></div><span className="statusBadge">在线</span></div>
+      <div className="privacyCallout"><strong>数据边界保持不变</strong><p>网页只接收统计、进度和你主动授权的少量预览；原始文件和训练结果都留在这台机器。</p></div></>;
   }
-  return <><SectionIntro eyebrow="第二步" title="连接一台你控制的 GPU。" description="连接程序只会主动访问网页服务，不需要开放公网端口或提供 SSH。" />
-    {!pairing ? <div className="connectionStart"><div className="computeIllustration" aria-hidden="true"><span>GPU</span><i /></div><h2>准备 Linux NVIDIA GPU 或 Apple Silicon Mac</h2><p>同一条命令会自动识别 Linux、M1 Max 及其他 M 系列芯片，并安装对应训练环境。</p><button className="primaryButton" disabled={busy} type="button" onClick={() => void perform(async () => setPairing(await api("runners/pairing", { method: "POST", body: "{}" })), "安装命令已生成，复制到 GPU 主机运行即可。")}>{busy ? "正在生成…" : "生成安装命令"}</button></div> :
-      <div className="pairingCard"><div className="pairingHeader"><div><span>在 GPU 主机运行一次</span><strong>复制下面的命令</strong></div><small>{new Date(pairing.expires_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })} 前开始运行</small></div>
+  return <><SectionIntro eyebrow="第二步" title="连接一台你控制的电脑。" description="4 核 8G 的 Ubuntu 普通电脑就能完成入门训练；有 GPU 时系统也会自动使用。" />
+    {!pairing ? <div className="connectionStart"><div className="computeIllustration" aria-hidden="true"><span>电脑</span><i /></div><h2>准备一台 Ubuntu 电脑</h2><p>只需运行一次安装命令。系统会检查机器并选择适合它的训练方式。</p><button className="primaryButton" disabled={busy} type="button" onClick={() => void perform(async () => setPairing(await api("runners/pairing", { method: "POST", body: "{}" })), "安装命令已生成，复制到要用于训练的电脑运行即可。")}>{busy ? "正在生成…" : "生成连接命令"}</button></div> :
+      <div className="pairingCard"><div className="pairingHeader"><div><span>在训练电脑运行一次</span><strong>复制下面的命令</strong></div><small>{new Date(pairing.expires_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })} 前开始运行</small></div>
         <div className="connectionCommand"><p>命令会自动安装环境、注册这台机器并保持连接，过程可能需要几分钟。</p><pre>{pairing.command}</pre><button className="primaryButton" type="button" onClick={async () => { await navigator.clipboard.writeText(pairing.command); setCopied(true); }}>{copied ? "命令已复制" : "复制安装命令"}</button></div>
         <p className="waitingLine"><span className="pulseDot" />正在等待算力连接，连接成功后本页会自动更新。</p></div>}
   </>;
@@ -317,8 +322,12 @@ function ComputeStep({ runner, busy, perform }: { runner: Runner | null; busy: b
 function DataStep({ project, runner, dataset, busy, perform, moveTo }: { project: Project | null; runner: Runner | null; dataset: Dataset | null; busy: boolean; perform: Perform; moveTo: (step: Step) => void }) {
   const [sourceType, setSourceType] = useState<Dataset["source_type"]>("local");
   if (!project || !runner || runner.status === "offline") return <Prerequisite title="先完成前两步" text="建立项目并连接在线算力后，才能在用户环境中检查数据。" action="去连接算力" onClick={() => moveTo("compute")} />;
-  if (dataset?.status === "checking") return <><SectionIntro eyebrow="正在准备数据" title="检查在你的环境中进行。" description="原始文件不会上传。完成后这里会显示质量问题、切分和长度风险。" /><ProgressPanel label="正在读取、去重并建立数据版本" progress={35} /></>;
+  const isCPU = runner.capabilities.backend === "docker_cpu";
+  if (dataset?.status === "checking") return <><SectionIntro eyebrow="正在准备练习" title={isCPU ? "正在把练习文本分成三份。" : "检查在你的环境中进行。"} description={isCPU ? "一份用来学习，一份用来挑选效果，一份留到最后考试。你不需要处理文件。" : "原始文件不会上传。完成后这里会显示质量问题、切分和长度风险。"} /><ProgressPanel label={isCPU ? "正在下载并检查练习文本" : "正在读取、去重并建立数据版本"} progress={35} /></>;
   if (dataset?.status === "ready" && dataset.statistics) return <><SectionIntro eyebrow="数据已就绪" title={dataset.name} description="已形成不可变数据版本，训练和测试使用各自独立的切分。" /><DatasetReport dataset={dataset} /><div className="formActions"><button className="primaryButton" type="button" onClick={() => moveTo("train")}>用这份数据开始训练</button></div></>;
+  if (isCPU) return <><SectionIntro eyebrow="第三步" title="先用示例完成第一次训练。" description="LLMWEB 会准备一份莎士比亚文本，让小模型学习如何逐字续写。完成这一遍后，你会看懂训练的每个阶段。" />
+    {dataset?.status === "failed" ? <div className="inlineError">练习数据没有准备完成，请重新开始；系统会继续使用同一份固定数据。</div> : null}
+    <section className="starterCard"><div className="starterBadge">无需上传文件</div><h2>莎士比亚文本续写练习</h2><p>约 110 万个字符，系统自动分成学习、验证和考试三份。预计准备时间不到 1 分钟。</p><ul><li>原始文本直接进入你的训练电脑</li><li>最后考试内容不会参与训练</li><li>训练前后使用同一份考试内容比较</li></ul><button className="primaryButton" disabled={busy} type="button" onClick={() => void perform(() => api("datasets", { method: "POST", body: JSON.stringify({ project_id: project.id, runner_id: runner.id, name: "莎士比亚文本练习集", source_type: "starter", source_ref: "tiny-shakespeare", format: "txt", train_percent: 80, validation_percent: 10, test_percent: 10, preview_allowed: true }) }), "练习数据开始准备，完成后会自动显示结果。")}>{busy ? "正在开始…" : "准备练习数据"}</button></section></>;
   return <><SectionIntro eyebrow="第三步" title="选择本地数据，先检查再训练。" description="填写算力数据目录内的相对路径；平台不会保存你的完整本地路径。" />
     {dataset?.status === "failed" ? <div className="inlineError">上一次数据检查失败，请确认文件路径、格式和字段后重新提交。</div> : null}
     <form className="formCard" onSubmit={(event) => {
@@ -336,6 +345,11 @@ function DataStep({ project, runner, dataset, busy, perform, moveTo }: { project
 
 function DatasetReport({ dataset }: { dataset: Dataset }) {
   const stats = dataset.statistics!;
+  if (dataset.source_type === "starter") {
+    return <><div className="metricGrid starterMetrics"><article><span>练习文本</span><strong>{(stats.characters ?? stats.valid_rows).toLocaleString("zh-CN")}</strong><small>个字符</small></article><article><span>模型会认识</span><strong>{stats.vocabulary_size ?? "—"}</strong><small>种字符</small></article><article><span>用于学习</span><strong>80%</strong><small>{stats.splits.train.toLocaleString("zh-CN")} 个字符</small></article><article><span>留到考试</span><strong>10%</strong><small>{stats.splits.test.toLocaleString("zh-CN")} 个字符</small></article></div>
+      <div className="resultNote beginnerResult"><strong>准备完成</strong><p>考试文本已单独留出。接下来系统会先记录模型没学过时的成绩，再开始训练，最后用同一份考试文本复测。</p></div>
+      {dataset.preview?.length ? <details className="previewDetails"><summary>看看模型将学习的文字</summary>{dataset.preview.map((item, index) => <article key={index}><span>文本片段</span><p>{item.input}</p></article>)}</details> : null}</>;
+  }
   return <><div className="metricGrid"><article><span>可用样本</span><strong>{stats.valid_rows}</strong><small>原始 {stats.rows} 条</small></article><article><span>重复项</span><strong>{stats.duplicates}</strong><small>已从数据版本中排除</small></article><article><span>最长估算</span><strong>{stats.token_length.max}</strong><small>tokens</small></article><article><span>测试泄漏</span><strong>{stats.leakage.exact_matches}</strong><small>精确重复</small></article></div>
     <div className="reportCard"><div><span>训练集</span><strong>{stats.splits.train}</strong></div><div><span>验证集</span><strong>{stats.splits.validation}</strong></div><div><span>测试集</span><strong>{stats.splits.test}</strong></div><p>版本 {dataset.version_hash?.slice(0, 18)}…</p></div>
     {dataset.preview?.length ? <details className="previewDetails"><summary>查看已授权的样本预览</summary>{dataset.preview.map((item, index) => <article key={index}><span>样本 {index + 1}</span><p>{item.instruction}</p><small>{item.output}</small></article>)}</details> : null}</>;
@@ -347,6 +361,23 @@ function TrainStep({ project, runner, dataset, busy, perform, moveTo }: { projec
   const [selectedModel, setSelectedModel] = useState<string>(modelOptions[1][0]);
   if (!project || !runner || !dataset || dataset.status !== "ready") return <Prerequisite title="先准备好训练数据" text="数据检查完成后，系统才能给出可执行的训练方案。" action="去准备数据" onClick={() => moveTo("data")} />;
   const isAppleSilicon = runner.capabilities.backend === "native_mps";
+  const isCPU = runner.capabilities.backend === "docker_cpu";
+  if (isCPU) {
+    const starterProfiles = [
+      ["fast", "快速体验", "约 2–4 分钟", "先完整跑通一次"],
+      ["balanced", "推荐", "约 4–8 分钟", "时间与效果更均衡"],
+      ["thorough", "多学一会", "约 8–15 分钟", "通常能得到更低的考试损失"],
+    ];
+    const profileLabel = starterProfiles.find(([value]) => value === profile)?.[1] ?? "推荐";
+    return <><SectionIntro eyebrow="第四步" title="选择愿意等待多久，然后开始。" description="模型和训练设置已经按这台电脑匹配好。你只需要选择时长，剩下的步骤由系统依次完成。" />
+      <form className="formCard starterTraining" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); const epochs = profile === "fast" ? 1 : profile === "thorough" ? 5 : 3; void perform(() => api("experiments", { method: "POST", body: JSON.stringify({ project_id: project.id, runner_id: runner.id, dataset_id: dataset.id, name: form.get("name"), model_id: "karpathy/nanoGPT", method: "starter", epochs, learning_rate: 0.001, max_length: 128, batch_size: 12, gradient_accumulation: 1, export_formats: ["model"], evaluation_preview_allowed: true, output_destination: "local", license_confirmed: form.get("license_confirmed") === "on" }) }), "训练已开始。网页可以关闭，电脑会继续完成。") }}>
+        <label><span>给这次训练起个名字</span><input name="name" required defaultValue={`${project.name} · 第一次训练`} /></label>
+        <fieldset className="choiceField"><legend>我愿意等待</legend><div className="profileChoices starterProfiles">{starterProfiles.map(([value, name, time, description]) => <label key={value} className={profile === value ? "selected" : ""}><input type="radio" name="profile" value={value} checked={profile === value} onChange={() => setProfile(value)} /><strong>{name}</strong><small>{time}</small><em>{description}</em></label>)}</div></fieldset>
+        <div className="runSummary starterSummary"><div><span>系统将自动完成</span><strong>先考试 → 学习文本 → 选择最好结果 → 再考试 → 保存模型</strong></div><div><span>当前选择</span><strong>{profileLabel}</strong></div><div><span>保存位置</span><strong>{runner.name}</strong></div></div>
+        <label className="consentRow"><input type="checkbox" name="license_confirmed" required /><span>我同意使用内置公开练习材料完成这次入门训练</span></label>
+        <div className="formActions"><button className="primaryButton" disabled={busy} type="submit">{busy ? "正在启动…" : "开始第一次训练"}</button></div>
+      </form></>;
+  }
   const estimate = trainingEstimate(selectedModel, profile, dataset.statistics?.valid_rows ?? 0);
   return <><SectionIntro eyebrow="第四步" title="选择模型和训练强度。" description="系统会先测基础模型，再训练并用同一测试集复测。" />
     <form className="formCard" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); const profiles: Record<string, { epochs: number; max_length: number; gradient_accumulation: number }> = { fast: { epochs: 1, max_length: 1024, gradient_accumulation: 4 }, balanced: { epochs: 3, max_length: 2048, gradient_accumulation: 8 }, thorough: { epochs: 5, max_length: 2048, gradient_accumulation: 8 } }; const selected = profiles[profile]; const formats = ["adapter", ...(form.get("huggingface") ? ["huggingface"] : []), ...(form.get("gguf") ? ["gguf"] : [])]; void perform(() => api("experiments", { method: "POST", body: JSON.stringify({ project_id: project.id, runner_id: runner.id, dataset_id: dataset.id, name: form.get("name"), model_id: form.get("model"), method: form.get("method"), ...selected, learning_rate: 0.0002, batch_size: 1, export_formats: formats, evaluation_preview_allowed: form.get("evaluation_preview") === "on", output_destination: outputDestination, output_s3_uri: form.get("s3_uri") || null, output_s3_endpoint: form.get("s3_endpoint") || null, license_confirmed: form.get("license_confirmed") === "on" }) }), "训练流程已启动，会先建立基础模型基线。 "); }}>
@@ -366,11 +397,13 @@ function MonitorStep({ experiment, jobs, runner, busy, perform, moveTo }: { expe
   const activeJob = experimentJobs.find((job) => ["leased", "running", "paused"].includes(job.status));
   const logs = experimentJobs.flatMap((job) => job.events.filter((event) => event.message && ["log", "failed", "progress"].includes(event.type)).map((event) => ({ ...event, job: job.kind }))).slice(-30).reverse();
   const percent = Math.round(experimentJobs.reduce((sum, job) => sum + (job.status === "completed" ? 100 : job.progress), 0) / Math.max(experimentJobs.length, 1));
-  return <><SectionIntro eyebrow={experiment.status === "completed" ? "训练已完成" : "训练进行中"} title={stageLabels[experiment.current_stage] ?? "正在准备"} description={experiment.status === "completed" ? "基础模型与微调模型已经在同一测试集上完成比较。" : "网页可以关闭；任务由你的 GPU 主机继续执行，回来后进度会自动追平。"} />
+  const isStarter = experiment.training.method === "starter";
+  const stageTitle = isStarter ? starterStageLabel(experiment.current_stage) : stageLabels[experiment.current_stage] ?? "正在准备";
+  return <><SectionIntro eyebrow={experiment.status === "completed" ? "训练已完成" : "训练进行中"} title={stageTitle} description={experiment.status === "completed" ? "训练前后的模型已经用同一份考试文本完成比较。" : `网页可以关闭；任务由 ${runner?.name ?? "你的电脑"} 继续执行，回来后进度会自动追平。`} />
     {experiment.status === "failed" ? <div className="failurePanel"><strong>本次训练没有完成</strong><p>{experimentJobs.find((job) => job.status === "failed")?.error ?? "请展开运行记录查看具体原因。"}</p></div> : null}
-    <ProgressPanel label={`${percent}% · ${stageLabels[experiment.current_stage] ?? "准备中"}`} progress={percent} />
-    {runner?.capabilities.gpus?.length && experiment.status !== "completed" ? <GpuLive runner={runner} /> : null}
-    <div className="stageGrid">{experimentJobs.map((job) => <article key={job.id} className={job.status}><span>{job.status === "completed" ? "✓" : job.status === "running" || job.status === "leased" ? "●" : job.status === "failed" ? "!" : "○"}</span><div><strong>{jobLabels[job.kind]}</strong><small>{jobStatus(job.status)}</small></div></article>)}</div>
+    <ProgressPanel label={`${percent}% · ${stageTitle}`} progress={percent} />
+    {runner && experiment.status !== "completed" ? <MachineLive runner={runner} /> : null}
+    <div className="stageGrid">{experimentJobs.map((job) => <article key={job.id} className={job.status}><span>{job.status === "completed" ? "✓" : job.status === "running" || job.status === "leased" ? "●" : job.status === "failed" ? "!" : "○"}</span><div><strong>{isStarter ? starterJobLabel(job.kind) : jobLabels[job.kind]}</strong><small>{jobStatus(job.status)}</small></div></article>)}</div>
     {experiment.status === "awaiting_selection" && experiment.checkpoints?.length ? <CheckpointPicker experiment={experiment} busy={busy} perform={perform} /> : null}
     {activeJob?.kind === "train" ? <div className="controlRow"><button className="secondaryButton" disabled={busy} type="button" onClick={() => void perform(() => api(`jobs/${activeJob.id}/control`, { method: "POST", body: JSON.stringify({ action: activeJob.status === "paused" ? "resume" : "pause" }) }), activeJob.status === "paused" ? "训练将从暂停处继续。" : "训练会保留当前进度并暂停。")}>{activeJob.status === "paused" ? "继续训练" : "暂停训练"}</button><button className="dangerButton" disabled={busy} type="button" onClick={() => { if (window.confirm("确定取消这次训练吗？已经生成的本地产物不会被自动删除。")) void perform(() => api(`jobs/${activeJob.id}/control`, { method: "POST", body: JSON.stringify({ action: "cancel" }) }), "取消指令已发送。 "); }}>取消训练</button></div> : null}
     {(experiment.baseline_metrics || experiment.tuned_metrics) ? <><Comparison baseline={experiment.baseline_metrics} tuned={experiment.tuned_metrics} /><Performance metrics={experiment.tuned_metrics ?? experiment.baseline_metrics} /></> : null}
@@ -380,6 +413,12 @@ function MonitorStep({ experiment, jobs, runner, busy, perform, moveTo }: { expe
 }
 
 function Comparison({ baseline, tuned }: { baseline: Metrics | null; tuned: Metrics | null }) {
+  if (baseline?.test_loss !== undefined) {
+    const before = baseline.test_loss;
+    const after = tuned?.test_loss;
+    const improvement = after === undefined ? null : ((before - after) / before) * 100;
+    return <section className="comparison starterComparison"><div className="cardHeading"><div><span>同一份考试文本</span><h2>{after === undefined ? "训练前成绩已记录" : "训练确实带来了进步吗？"}</h2></div>{after === undefined ? <small>等待训练后复测</small> : <strong className={improvement !== null && improvement > 0 ? "evidenceBadge" : "evidenceBadge warning"}>{improvement !== null && improvement > 0 ? "有进步" : "没有变好"}</strong>}</div><div className="lossComparison"><article><span>训练前错误程度</span><strong>{before.toFixed(3)}</strong><small>越低越好</small></article><span aria-hidden="true">→</span><article className="tuned"><span>训练后错误程度</span><strong>{after === undefined ? "等待中" : after.toFixed(3)}</strong><small>{improvement === null ? "完成后显示" : `${Math.abs(improvement).toFixed(1)}% ${improvement >= 0 ? "降低" : "升高"}`}</small></article></div></section>;
+  }
   const metrics = [["答案完全一致", "exact_match"], ["格式通过", "format_pass_rate"]] as const;
   return <section className="comparison"><div className="cardHeading"><div><span>同一测试集对比</span><h2>{tuned ? "训练前后效果" : "基础模型基线"}</h2></div>{tuned ? <strong className="evidenceBadge">已完成复测</strong> : <small>等待训练后复测</small>}</div>{metrics.map(([label, key]) => { const before = baseline?.[key] ?? 0; const after = tuned?.[key]; const change = after === undefined ? null : after - before; return <div className="metricCompare" key={key}><div><span>{label}</span>{change === null ? null : <strong className={change >= 0 ? "positive" : "negative"}>{change >= 0 ? "+" : ""}{(change * 100).toFixed(1)}%</strong>}</div><div className="barRow"><small>训练前</small><i><b style={{ width: `${before * 100}%` }} /></i><em>{(before * 100).toFixed(1)}%</em></div>{after === undefined ? null : <div className="barRow tuned"><small>训练后</small><i><b style={{ width: `${after * 100}%` }} /></i><em>{(after * 100).toFixed(1)}%</em></div>}</div>; })}</section>;
 }
@@ -390,13 +429,16 @@ function Performance({ metrics }: { metrics: Metrics | null }) {
     ["首字响应", metrics.first_token_latency_ms === undefined ? "—" : `${metrics.first_token_latency_ms.toFixed(0)} ms`],
     ["生成速度", metrics.tokens_per_second === undefined ? "—" : `${metrics.tokens_per_second.toFixed(1)} token/s`],
     ["峰值显存", metrics.peak_gpu_memory_mb === undefined ? "—" : `${(metrics.peak_gpu_memory_mb / 1024).toFixed(1)} GB`],
-    ["模型体积", metrics.model_size_mb === undefined ? "—" : `${(metrics.model_size_mb / 1024).toFixed(1)} GB`],
-  ];
+    ["模型体积", metrics.model_size_mb === undefined ? "—" : metrics.model_size_mb < 1024 ? `${metrics.model_size_mb.toFixed(1)} MB` : `${(metrics.model_size_mb / 1024).toFixed(1)} GB`],
+    ["考试文本", metrics.test_characters === undefined ? "—" : `${metrics.test_characters.toLocaleString("zh-CN")} 字符`],
+  ].filter(([, value]) => value !== "—");
   return <section className="performance"><div className="cardHeading"><div><span>本机运行表现</span><h2>速度与资源代价</h2></div></div><div>{values.map(([label, value]) => <article key={label}><span>{label}</span><strong>{value}</strong></article>)}</div></section>;
 }
 
-function GpuLive({ runner }: { runner: Runner }) {
+function MachineLive({ runner }: { runner: Runner }) {
+  if (runner.capabilities.backend === "docker_cpu") return <div className="gpuLive"><div><span>正在使用</span><strong>普通电脑处理器</strong></div><div><span>处理器</span><strong>{runner.capabilities.cpu_cores ?? "—"} 核</strong></div><div><span>内存</span><strong>{runner.capabilities.memory_total_mb ? `${(runner.capabilities.memory_total_mb / 1024).toFixed(0)} GB` : "—"}</strong></div></div>;
   const gpus = runner.capabilities.gpus ?? [];
+  if (!gpus.length) return null;
   const sharedMemory = gpus.some((gpu) => gpu.shared_memory);
   const used = gpus.reduce((sum, gpu) => sum + gpu.memory_total_mb - gpu.memory_free_mb, 0);
   const total = gpus.reduce((sum, gpu) => sum + gpu.memory_total_mb, 0);
@@ -408,6 +450,7 @@ function GpuLive({ runner }: { runner: Runner }) {
 
 function CheckpointPicker({ experiment, busy, perform }: { experiment: Experiment; busy: boolean; perform: Perform }) {
   const [selected, setSelected] = useState(experiment.checkpoints?.find((item) => item.recommended)?.reference ?? experiment.checkpoints?.[0]?.reference ?? "adapter");
+  if (experiment.training.method === "starter" && experiment.checkpoints?.length === 1) return <section className="checkpointPicker beginnerCheckpoint"><div className="cardHeading"><div><span>学习阶段已完成</span><h2>效果最好的一版已经找到了</h2></div><strong className="evidenceBadge">推荐</strong></div><p>下一步会用从未参与训练的考试文本检验它，然后生成可以保留的模型文件。</p><div className="formActions"><button className="primaryButton" disabled={busy} type="button" onClick={() => void perform(() => api(`experiments/${experiment.id}/select-checkpoint`, { method: "POST", body: JSON.stringify({ checkpoint_ref: selected }) }), "正在进行最后考试并保存模型。")}>{busy ? "正在继续…" : "使用推荐结果继续"}</button></div></section>;
   return <section className="checkpointPicker"><div className="cardHeading"><div><span>训练版本</span><h2>选择一个版本继续评测</h2></div><small>推荐项来自最低验证损失</small></div><div>{experiment.checkpoints?.map((checkpoint) => <label className={selected === checkpoint.reference ? "selected" : ""} key={checkpoint.reference}><input type="radio" name="checkpoint" value={checkpoint.reference} checked={selected === checkpoint.reference} onChange={() => setSelected(checkpoint.reference)} /><span><strong>{checkpoint.label}{checkpoint.recommended ? " · 推荐" : ""}</strong><small>{checkpoint.validation_loss === undefined ? "训练完成版本" : `验证损失 ${checkpoint.validation_loss.toFixed(4)}`}</small></span></label>)}</div><div className="formActions"><button className="primaryButton" disabled={busy} type="button" onClick={() => void perform(() => api(`experiments/${experiment.id}/select-checkpoint`, { method: "POST", body: JSON.stringify({ checkpoint_ref: selected }) }), "已选定模型版本，正在用固定测试集复测。")}>{busy ? "正在继续…" : "选定并继续评测"}</button></div></section>;
 }
 
@@ -418,7 +461,7 @@ function BlindReview({ baseline, tuned }: { baseline: EvaluationSample[]; tuned:
 function ModelStep({ experiment, moveTo }: { experiment: Experiment | null; moveTo: (step: Step) => void }) {
   if (!experiment || experiment.status !== "completed" || !experiment.artifacts?.length) return <Prerequisite title="模型还没有准备好" text="训练、同集复测和导出全部完成后，产物会出现在这里。" action="查看训练进度" onClick={() => moveTo("monitor")} />;
   return <><SectionIntro eyebrow="最后一步" title="模型已经留在你的环境。" description="下面是相对于你设置的结果目录的位置；平台没有复制或托管模型文件。" />
-    <div className="artifactList">{experiment.artifacts.map((artifact) => <article key={artifact.format}><span className="artifactIcon">{artifact.format === "gguf" ? "G" : artifact.format === "huggingface" ? "HF" : "A"}</span><div><strong>{artifactLabel(artifact.format)}</strong><code>{artifact.reference}</code></div><span className="readyLabel">已生成</span></article>)}</div>
+    <div className="artifactList">{experiment.artifacts.map((artifact) => <article key={artifact.format}><span className="artifactIcon">{artifact.format === "gguf" ? "G" : artifact.format === "huggingface" ? "HF" : artifact.format === "model" ? "M" : "A"}</span><div><strong>{artifactLabel(artifact.format)}</strong><code>{artifact.reference}</code></div><span className="readyLabel">已生成</span></article>)}</div>
     <Comparison baseline={experiment.baseline_metrics} tuned={experiment.tuned_metrics} />
     <Performance metrics={experiment.tuned_metrics} />
     {experiment.evaluation_samples?.baseline?.length && experiment.evaluation_samples?.tuned?.length ? <BlindReview baseline={experiment.evaluation_samples.baseline} tuned={experiment.evaluation_samples.tuned} /> : null}
@@ -429,5 +472,7 @@ function ProgressPanel({ label, progress }: { label: string; progress: number })
 function Prerequisite({ title, text, action, onClick }: { title: string; text: string; action: string; onClick: () => void }) { return <div className="emptyState"><span>→</span><h1>{title}</h1><p>{text}</p><button className="primaryButton" type="button" onClick={onClick}>{action}</button></div>; }
 function runnerStatus(runner: Runner | null) { if (!runner) return "等待连接"; if (runner.status === "busy") return "正在执行任务"; if (runner.status === "online") return "在线可用"; return "当前离线"; }
 function jobStatus(status: Job["status"]) { return ({ blocked: "等待选择版本", queued: "等待算力开始", leased: "正在开始", running: "进行中", paused: "已暂停", completed: "已完成", failed: "未完成", cancelled: "已取消" } as const)[status]; }
-function artifactLabel(format: string) { return ({ adapter: "LoRA Adapter", huggingface: "Hugging Face 完整模型", gguf: "GGUF 模型" } as Record<string, string>)[format] ?? format; }
+function artifactLabel(format: string) { return ({ adapter: "LoRA Adapter", huggingface: "Hugging Face 完整模型", gguf: "GGUF 模型", model: "可继续使用的训练模型" } as Record<string, string>)[format] ?? format; }
+function starterJobLabel(kind: Job["kind"]) { return ({ inspect: "准备练习文本", baseline: "记录训练前成绩", train: "让模型学习文本", evaluate: "进行训练后考试", export: "保存训练模型" } as const)[kind]; }
+function starterStageLabel(stage: string) { return ({ baseline: "先记录训练前成绩", train: "模型正在学习文本", evaluate: "正在进行训练后考试", export: "正在保存训练模型", select: "选择效果最好的结果", completed: "第一次训练全部完成" } as Record<string, string>)[stage] ?? "正在准备"; }
 function trainingEstimate(model: string, profile: string, rows: number) { const billions = model.includes("0.5B") ? 0.5 : model.includes("1.5B") ? 1.5 : 3; const epochs = profile === "fast" ? 1 : profile === "thorough" ? 5 : 3; const minutes = Math.max(4, Math.ceil(rows * epochs * billions / 90)); return { memory: `${Math.ceil(4 + billions * 1.7)}–${Math.ceil(6 + billions * 2.2)} GB`, time: minutes < 60 ? `${minutes}–${Math.ceil(minutes * 1.8)} 分钟` : `${(minutes / 60).toFixed(1)}–${(minutes * 1.8 / 60).toFixed(1)} 小时`, disk: `${Math.ceil(billions * 2.2 + 1)}–${Math.ceil(billions * 4.5 + 2)} GB` }; }

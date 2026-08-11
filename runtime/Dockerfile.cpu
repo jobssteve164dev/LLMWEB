@@ -1,0 +1,19 @@
+FROM python:3.11-slim-bookworm
+
+ARG NANOGPT_REF=3adf61e154c3fe3fca428ad6bc3818b27a3b8291
+
+ENV PIP_ROOT_USER_ACTION=ignore \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends ca-certificates curl \
+    && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 \
+    && mkdir -p /opt/nanogpt \
+    && curl -fsSL "https://github.com/karpathy/nanoGPT/archive/${NANOGPT_REF}.tar.gz" -o /opt/nanogpt.tar.gz \
+    && tar -xzf /opt/nanogpt.tar.gz --strip-components=1 -C /opt/nanogpt \
+    && apt-get clean
+
+COPY runtime/cpu_starter.py /opt/llmweb/cpu_starter.py
+
+ENV PYTHONPATH=/opt/nanogpt
+WORKDIR /workspace

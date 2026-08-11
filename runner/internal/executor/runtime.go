@@ -19,12 +19,16 @@ import (
 	"llmweb/runner/internal/controlplane"
 )
 
-const approvedRuntimeImage = "llmweb/runtime:0.1.0"
+const (
+	approvedRuntimeImage    = "llmweb/runtime:0.1.0"
+	approvedCPURuntimeImage = "llmweb/runtime-cpu:0.1.0"
+)
 
 var approvedModels = map[string]string{
 	"Qwen/Qwen2.5-0.5B-Instruct": "7ae557604adf67be50417f59c2c2f167def9a775",
 	"Qwen/Qwen2.5-1.5B-Instruct": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
 	"Qwen/Qwen2.5-3B-Instruct":   "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+	"karpathy/nanoGPT":           "3adf61e154c3fe3fca428ad6bc3818b27a3b8291",
 }
 
 type runtimeSpec struct {
@@ -39,6 +43,7 @@ type runtimeSpec struct {
 	MaxLength    int
 	BatchSize    int
 	Accumulation int
+	Iterations   int
 	Formats      []string
 	Image        string
 	Preview      bool
@@ -63,8 +68,14 @@ func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lea
 	if err != nil {
 		return nil, err
 	}
-	if spec.Image != approvedRuntimeImage {
+	if spec.Image != approvedRuntimeImage && spec.Image != approvedCPURuntimeImage {
 		return nil, fmt.Errorf("训练镜像不在首版批准范围内")
+	}
+	if executor.backend == "docker_cpu" && (spec.Image != approvedCPURuntimeImage || spec.Method != "starter") {
+		return nil, fmt.Errorf("CPU 算力只接受固定的入门训练方案")
+	}
+	if executor.backend != "docker_cpu" && spec.Image == approvedCPURuntimeImage {
+		return nil, fmt.Errorf("入门 CPU 训练方案与当前算力不匹配")
 	}
 	datasetDirectory := filepath.Join(executor.outputRoot, "llmweb", "datasets", spec.DatasetID)
 	experimentDirectory := filepath.Join(executor.outputRoot, "llmweb", "experiments", spec.ExperimentID)
@@ -90,6 +101,9 @@ func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lea
 		paths = executor.nativeRuntimePaths(datasetDirectory, experimentDirectory, configPath)
 	}
 	config, command, requiresGPU, err := buildRuntimeConfigForPaths(lease.Kind, spec, paths, executor.backend == "native_mps")
+	if executor.backend == "docker_cpu" {
+		config, command, requiresGPU, err = buildCPUStarterCommand(lease.Kind, spec, paths)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +150,9 @@ func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lea
 	case "evaluate":
 		return readEvaluationResult(filepath.Join(experimentDirectory, "evaluation"), spec.Preview)
 	case "train":
+		if spec.Method == "starter" {
+			return readCPUStarterTrainingResult(experimentDirectory)
+		}
 		checkpoints, err := collectCheckpoints(filepath.Join(experimentDirectory, "adapter"))
 		if err != nil {
 			return nil, err
@@ -164,6 +181,38 @@ func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lea
 		return map[string]any{"artifacts": artifacts}, nil
 	}
 	return map[string]any{}, nil
+}
+
+func buildCPUStarterCommand(kind string, spec runtimeSpec, paths runtimePaths) (string, []string, bool, error) {
+	if !contains([]string{"baseline", "train", "evaluate", "export"}, kind) {
+		return "", nil, false, fmt.Errorf("不支持的入门训练阶段 %q", kind)
+	}
+	command := []string{
+		"python", "/opt/llmweb/cpu_starter.py", kind,
+		"--data", paths.data,
+		"--output", paths.output,
+		"--checkpoint", spec.Checkpoint,
+		"--iterations", strconv.Itoa(spec.Iterations),
+	}
+	return "# LLMWEB fixed CPU starter preset.\n", command, false, nil
+}
+
+func readCPUStarterTrainingResult(experimentDirectory string) (map[string]any, error) {
+	payload, err := os.ReadFile(filepath.Join(experimentDirectory, "training_state.json"))
+	if err != nil {
+		return nil, fmt.Errorf("读取入门训练结果: %w", err)
+	}
+	var state struct {
+		BestValidationLoss float64 `json:"best_validation_loss"`
+		Iterations         int     `json:"iterations"`
+	}
+	if err := json.Unmarshal(payload, &state); err != nil {
+		return nil, fmt.Errorf("解析入门训练结果: %w", err)
+	}
+	return map[string]any{"checkpoints": []map[string]any{{
+		"reference": "model.pt", "label": "效果最好的训练结果", "recommended": true,
+		"step": state.Iterations, "validation_loss": state.BestValidationLoss,
+	}}}, nil
 }
 
 func buildRuntimeConfig(kind string, spec runtimeSpec) (string, []string, bool, error) {
@@ -429,6 +478,7 @@ func parseRuntimeSpec(payload map[string]any) (runtimeSpec, error) {
 		MaxLength:    int(numberValue(training, "max_length", 2048)),
 		BatchSize:    int(numberValue(training, "batch_size", 1)),
 		Accumulation: int(numberValue(training, "gradient_accumulation", 8)),
+		Iterations:   int(numberValue(training, "iterations", 500)),
 		Formats:      stringSlice(output["formats"]),
 		Image:        stringValue(runtime, "image"),
 		Preview:      boolValue(output, "preview_allowed"),
@@ -443,13 +493,18 @@ func parseRuntimeSpec(payload map[string]any) (runtimeSpec, error) {
 	if approvedModels[spec.ModelID] != spec.Revision {
 		return runtimeSpec{}, errors.New("基础模型或版本不在首版批准范围内")
 	}
-	if spec.Template == "default" || spec.Template == "" {
+	if spec.Method != "starter" && (spec.Template == "default" || spec.Template == "") {
 		return runtimeSpec{}, fmt.Errorf("暂时无法为模型 %q 自动确定对话模板，请改用 Qwen、Llama 3、Mistral 或 Gemma 指令模型", spec.ModelID)
 	}
 	if spec.Checkpoint == "" {
-		spec.Checkpoint = "adapter"
+		if spec.Method == "starter" {
+			spec.Checkpoint = "model.pt"
+		} else {
+			spec.Checkpoint = "adapter"
+		}
 	}
-	if spec.Checkpoint != "adapter" && (!strings.HasPrefix(spec.Checkpoint, "adapter/checkpoint-") || strings.Contains(spec.Checkpoint, "..")) {
+	validStarterCheckpoint := spec.Method == "starter" && spec.Checkpoint == "model.pt"
+	if !validStarterCheckpoint && spec.Checkpoint != "adapter" && (!strings.HasPrefix(spec.Checkpoint, "adapter/checkpoint-") || strings.Contains(spec.Checkpoint, "..")) {
 		return runtimeSpec{}, errors.New("选择的模型版本引用无效")
 	}
 	if spec.Destination == "" {

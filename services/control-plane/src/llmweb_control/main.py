@@ -1,10 +1,11 @@
 from contextlib import asynccontextmanager
 from datetime import timedelta, timezone
+import hmac
 import secrets
 import shlex
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -22,7 +23,84 @@ APPROVED_MODELS = {
     "Qwen/Qwen2.5-0.5B-Instruct": "7ae557604adf67be50417f59c2c2f167def9a775",
     "Qwen/Qwen2.5-1.5B-Instruct": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
     "Qwen/Qwen2.5-3B-Instruct": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
+    "karpathy/nanoGPT": "3adf61e154c3fe3fca428ad6bc3818b27a3b8291",
 }
+CLOUDMCP_PROVIDER_ID = "llmweb_training"
+CLOUDMCP_PROVIDER_VERSION = "1.0"
+CLOUDMCP_TOOL_CATALOG = [
+    {
+        "name": "list_llmweb_training_pool",
+        "description": "查看 LLMWEB 训练池、项目和最近训练状态。",
+        "inputSchema": {"type": "object", "additionalProperties": False, "properties": {"project_id": {"type": "string"}}},
+    },
+    {
+        "name": "create_llmweb_starter_project",
+        "description": "建立一个由 LLMWEB 全程引导的入门模型训练项目。",
+        "inputSchema": {
+            "type": "object", "additionalProperties": False,
+            "properties": {
+                "name": {"type": "string", "minLength": 1, "maxLength": 120},
+                "goal": {"type": "string", "minLength": 1, "maxLength": 2000},
+                "success_criteria": {"type": "string", "minLength": 1, "maxLength": 2000},
+            },
+        },
+    },
+    {
+        "name": "create_llmweb_runner_pairing",
+        "description": "生成一次性训练池接入凭证，供 GitOps 把指定节点接入 LLMWEB。",
+        "inputSchema": {"type": "object", "additionalProperties": False, "properties": {}},
+    },
+    {
+        "name": "prepare_llmweb_starter_dataset",
+        "description": "在指定 CPU 训练节点准备并检查固定的入门练习数据。",
+        "inputSchema": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"project_id": {"type": "string"}, "runner_id": {"type": "string"}},
+            "required": ["project_id", "runner_id"],
+        },
+    },
+    {
+        "name": "start_llmweb_starter_training",
+        "description": "启动入门模型的训练前基线、训练、版本选择、复测和模型生成流程。",
+        "inputSchema": {
+            "type": "object", "additionalProperties": False,
+            "properties": {
+                "project_id": {"type": "string"}, "runner_id": {"type": "string"}, "dataset_id": {"type": "string"},
+                "name": {"type": "string", "minLength": 1, "maxLength": 120},
+                "profile": {"type": "string", "enum": ["fast", "balanced", "thorough"]},
+                "license_confirmed": {"type": "boolean"},
+            },
+            "required": ["project_id", "runner_id", "dataset_id", "license_confirmed"],
+        },
+    },
+    {
+        "name": "get_llmweb_training_run",
+        "description": "读取一次训练的阶段、进度、可操作项、对比指标和模型产物。",
+        "inputSchema": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"project_id": {"type": "string"}, "experiment_id": {"type": "string"}},
+            "required": ["project_id", "experiment_id"],
+        },
+    },
+    {
+        "name": "select_llmweb_training_result",
+        "description": "选定一次训练中推荐或指定的模型版本并继续固定测试集复测。",
+        "inputSchema": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"experiment_id": {"type": "string"}, "checkpoint_ref": {"type": "string"}},
+            "required": ["experiment_id"],
+        },
+    },
+    {
+        "name": "control_llmweb_training_job",
+        "description": "暂停、继续或取消一个明确的 LLMWEB 训练任务。",
+        "inputSchema": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"job_id": {"type": "string"}, "action": {"type": "string", "enum": ["pause", "resume", "cancel"]}},
+            "required": ["job_id", "action"],
+        },
+    },
+]
 
 
 @asynccontextmanager
@@ -264,7 +342,8 @@ def create_pairing(db: Db, identity: WebAuth) -> dict[str, Any]:
         "expires_at": as_iso(pairing.expires_at),
         "command": (
             f"curl -fsSL {shlex.quote(settings.runner_installer_url)} | "
-            f"sudo bash -s -- --url {shlex.quote(settings.public_url)} --code {shlex.quote(code)}"
+            f"sudo bash -s -- --url {shlex.quote(settings.public_url)} --code {shlex.quote(code)} "
+            f"--source-ref {shlex.quote(settings.runner_source_ref)}"
         ),
     }
 
@@ -316,6 +395,11 @@ def create_dataset(body: DatasetCreate, db: Db, identity: WebAuth) -> dict[str, 
         raise HTTPException(status_code=404, detail="项目不存在")
     if runner is None or runner.workspace_id != identity.workspace_id or runner.revoked:
         raise HTTPException(status_code=404, detail="算力连接不存在")
+    if body.source_type == "starter":
+        if body.source_ref != "tiny-shakespeare" or body.format != "txt":
+            raise HTTPException(status_code=400, detail="入门练习数据由系统自动准备")
+        if runner.capabilities.get("backend") != "docker_cpu":
+            raise HTTPException(status_code=400, detail="入门练习数据用于普通 CPU 算力")
     dataset = Dataset(
         workspace_id=identity.workspace_id,
         project_id=body.project_id,
@@ -379,11 +463,25 @@ def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict
         raise HTTPException(status_code=400, detail="项目、数据和算力连接不属于同一训练流程")
     revision = APPROVED_MODELS.get(body.model_id)
     if revision is None:
-        raise HTTPException(status_code=400, detail="首版只支持工作台中列出的 Qwen 2.5 指令模型")
+        raise HTTPException(status_code=400, detail="请选择工作台提供的训练方案")
+    backend = runner.capabilities.get("backend")
+    if backend == "docker_cpu":
+        if body.method != "starter" or body.model_id != "karpathy/nanoGPT" or dataset.source_type != "starter":
+            raise HTTPException(status_code=400, detail="这台普通电脑使用入门训练方案；模型、练习数据和训练设置会由系统自动匹配")
+        if body.output_destination != "local":
+            raise HTTPException(status_code=400, detail="入门训练结果会先保存在这台电脑，完成后可从模型页查看")
+    elif body.method == "starter":
+        raise HTTPException(status_code=400, detail="入门训练方案需要选择普通 CPU 算力")
     if runner.capabilities.get("backend") == "native_mps" and body.method == "qlora":
         raise HTTPException(status_code=400, detail="Apple Silicon 当前使用 Metal/MPS LoRA；4 位 QLoRA 需要 CUDA 量化后端")
 
-    model = {"source": "huggingface", "id": body.model_id, "revision": revision, "template": infer_template(body.model_id)}
+    is_starter = body.method == "starter"
+    model = {
+        "source": "github" if is_starter else "huggingface",
+        "id": body.model_id,
+        "revision": revision,
+        "template": "character" if is_starter else infer_template(body.model_id),
+    }
     training = {
         "method": body.method,
         "epochs": body.epochs,
@@ -392,6 +490,8 @@ def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict
         "batch_size": body.batch_size,
         "gradient_accumulation": body.gradient_accumulation,
     }
+    if is_starter:
+        training["iterations"] = 200 if body.epochs <= 1 else 500 if body.epochs <= 3 else 1000
     experiment = Experiment(
         workspace_id=identity.workspace_id,
         project_id=project.id,
@@ -400,7 +500,7 @@ def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict
         name=body.name,
         model=model,
         training=training,
-        export_formats=list(dict.fromkeys(body.export_formats)),
+        export_formats=["model"] if is_starter else list(dict.fromkeys(body.export_formats)),
         output_destination=body.output_destination,
         output_s3_uri=body.output_s3_uri,
         output_s3_endpoint=body.output_s3_endpoint,
@@ -417,7 +517,10 @@ def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict
         "dataset_id": dataset.id,
         "model": model,
         "training": training,
-        "runtime": {"engine": "llamafactory", "image": "llmweb/runtime:0.1.0"},
+        "runtime": {
+            "engine": "nanogpt" if is_starter else "llamafactory",
+            "image": "llmweb/runtime-cpu:0.1.0" if is_starter else "llmweb/runtime:0.1.0",
+        },
     }
     jobs = []
     for sequence, kind in enumerate(("baseline", "train", "evaluate", "export")):
@@ -625,3 +728,158 @@ def control_job(job_id: str, body: JobControl, db: Db, identity: WebAuth) -> dic
                     pending.finished_at = utc_now()
     db.commit()
     return {"job_id": job.id, "desired_state": job.desired_state}
+
+
+def cloudmcp_identity() -> WebIdentity:
+    settings = get_settings()
+    return WebIdentity(
+        user_id="cloudmcp-operator",
+        email="cloudmcp-operator@internal.invalid",
+        name="训练助手",
+        project_limit=50,
+        workspace_id=settings.cloudmcp_operator_workspace_id,
+    )
+
+
+def authenticate_cloudmcp(request: Request) -> None:
+    settings = get_settings()
+    expected_client_id = settings.cloudmcp_bridge_client_id or ""
+    accepted_secrets = [value for value in (
+        settings.cloudmcp_bridge_client_secret,
+        settings.cloudmcp_bridge_client_secret_next,
+    ) if value]
+    declared_client_id = request.headers.get("X-CloudMCP-Bridge-Client", "")
+    authorization = request.headers.get("Authorization", "")
+    configured = bool(expected_client_id and accepted_secrets)
+    valid_client = configured and hmac.compare_digest(declared_client_id, expected_client_id)
+    valid_secret = any(hmac.compare_digest(authorization, f"Bearer {secret}") for secret in accepted_secrets)
+    if not configured:
+        raise HTTPException(status_code=500, detail="CloudMCP provider bridge is not configured")
+    if not valid_client or not valid_secret:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+def cloudmcp_state_summary(db: Session, identity: WebIdentity, project_id: str | None = None) -> dict[str, Any]:
+    snapshot = state(db, identity, project_id)
+    return {
+        "workspace": snapshot["workspace"],
+        "projects": snapshot["projects"],
+        "training_pool": snapshot["runners"],
+        "datasets": snapshot["datasets"],
+        "training_runs": [
+            {
+                "id": item["id"], "project_id": item["project_id"], "runner_id": item["runner_id"],
+                "dataset_id": item["dataset_id"], "name": item["name"], "status": item["status"],
+                "current_stage": item["current_stage"], "baseline_metrics": item["baseline_metrics"],
+                "tuned_metrics": item["tuned_metrics"], "checkpoints": item["checkpoints"],
+                "selected_checkpoint": item["selected_checkpoint"], "artifacts": item["artifacts"],
+            }
+            for item in snapshot["experiments"]
+        ],
+        "jobs": [
+            {
+                "id": item["id"], "kind": item["kind"], "status": item["status"],
+                "desired_state": item["desired_state"], "progress": item["progress"],
+                "error": item["error"], "experiment_id": item["experiment_id"], "dataset_id": item["dataset_id"],
+            }
+            for item in snapshot["jobs"]
+        ],
+    }
+
+
+@app.get("/api/provider-bridge/v1/help", tags=["cloudmcp"])
+@app.get("/api/provider-bridge/help", tags=["cloudmcp"])
+def cloudmcp_help(request: Request) -> dict[str, Any]:
+    return {
+        "object": "llmweb_training_provider_bridge_help",
+        "provider": {
+            "bridgeId": CLOUDMCP_PROVIDER_ID,
+            "providerId": CLOUDMCP_PROVIDER_ID,
+            "providerName": "LLMWEB Training",
+            "routePath": "/api/provider-bridge",
+        },
+        "auth": {
+            "mode": "cloudmcp_provider_env_v1",
+            "runtimeHeaders": {
+                "Authorization": "Bearer <CLOUDMCP_BRIDGE_CLIENT_SECRET>",
+                "X-CloudMCP-Bridge-Client": "<CLOUDMCP_BRIDGE_CLIENT_ID>",
+                "X-CloudMCP-Bridge-Provider": CLOUDMCP_PROVIDER_ID,
+                "X-CloudMCP-Bridge-Version": CLOUDMCP_PROVIDER_VERSION,
+            },
+        },
+        "protocol": {
+            "requestShape": {"tool": "string", "params": {}},
+            "successShape": {"success": True, "result": "any"},
+            "failureShape": {"success": False, "error": "string"},
+        },
+        "tools": CLOUDMCP_TOOL_CATALOG,
+    }
+
+
+@app.post("/api/provider-bridge", tags=["cloudmcp"])
+async def cloudmcp_provider_bridge(request: Request, db: Db) -> dict[str, Any]:
+    authenticate_cloudmcp(request)
+    body = await request.json()
+    tool = str(body.get("tool") or "").strip()
+    params = body.get("params") if isinstance(body.get("params"), dict) else {}
+    identity = cloudmcp_identity()
+    try:
+        if tool == "list_tools":
+            result: Any = CLOUDMCP_TOOL_CATALOG
+        elif tool == "list_llmweb_training_pool":
+            result = cloudmcp_state_summary(db, identity, params.get("project_id"))
+        elif tool == "create_llmweb_starter_project":
+            result = create_project(ProjectCreate(
+                name=params.get("name") or "我的第一次模型训练",
+                goal=params.get("goal") or "让一个小模型学会续写莎士比亚风格的文本",
+                success_criteria=params.get("success_criteria") or "训练后的测试损失低于训练前",
+            ), db, identity)
+        elif tool == "create_llmweb_runner_pairing":
+            result = create_pairing(db, identity)
+        elif tool == "prepare_llmweb_starter_dataset":
+            result = create_dataset(DatasetCreate(
+                project_id=params.get("project_id", ""), runner_id=params.get("runner_id", ""),
+                name="莎士比亚文本练习集", source_type="starter", source_ref="tiny-shakespeare",
+                format="txt", train_percent=80, validation_percent=10, test_percent=10, preview_allowed=True,
+            ), db, identity)
+        elif tool == "start_llmweb_starter_training":
+            profile = params.get("profile") or "balanced"
+            epochs = {"fast": 1, "balanced": 3, "thorough": 5}.get(profile)
+            if epochs is None:
+                raise HTTPException(status_code=400, detail="profile 必须是 fast、balanced 或 thorough")
+            result = create_experiment(ExperimentCreate(
+                project_id=params.get("project_id", ""), runner_id=params.get("runner_id", ""),
+                dataset_id=params.get("dataset_id", ""), name=params.get("name") or "第一次入门训练",
+                model_id="karpathy/nanoGPT", method="starter", epochs=epochs,
+                learning_rate=0.001, max_length=128, batch_size=12, gradient_accumulation=1,
+                export_formats=["model"], evaluation_preview_allowed=True,
+                output_destination="local", license_confirmed=params.get("license_confirmed") is True,
+            ), db, identity)
+        elif tool == "get_llmweb_training_run":
+            summary = cloudmcp_state_summary(db, identity, params.get("project_id"))
+            experiment_id = params.get("experiment_id")
+            run = next((item for item in summary["training_runs"] if item["id"] == experiment_id), None)
+            if run is None:
+                raise HTTPException(status_code=404, detail="训练不存在")
+            result = {"training_run": run, "jobs": [item for item in summary["jobs"] if item["experiment_id"] == experiment_id]}
+        elif tool == "select_llmweb_training_result":
+            experiment_id = str(params.get("experiment_id") or "")
+            experiment = db.get(Experiment, experiment_id)
+            if experiment is None or experiment.workspace_id != identity.workspace_id:
+                raise HTTPException(status_code=404, detail="训练不存在")
+            reference = params.get("checkpoint_ref")
+            if not reference:
+                recommended = next((item for item in experiment.checkpoints or [] if item.get("recommended")), None)
+                reference = recommended.get("reference") if recommended else None
+            if not reference:
+                raise HTTPException(status_code=409, detail="训练还没有可选择的结果")
+            result = select_checkpoint(experiment_id, CheckpointSelect(checkpoint_ref=reference), db, identity)
+        elif tool == "control_llmweb_training_job":
+            result = control_job(str(params.get("job_id") or ""), JobControl(action=params.get("action")), db, identity)
+        else:
+            raise HTTPException(status_code=404, detail=f"Unknown tool: {tool}")
+        return {"success": True, "result": result}
+    except HTTPException as error:
+        return {"success": False, "error": str(error.detail), "status": error.status_code}
+    except (TypeError, ValueError) as error:
+        return {"success": False, "error": str(error), "status": 400}

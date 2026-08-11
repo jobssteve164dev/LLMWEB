@@ -52,3 +52,19 @@ func TestAppleSiliconRequiresMPS(t *testing.T) {
 		t.Fatal("expected Apple Silicon without MPS to be unavailable")
 	}
 }
+
+func TestLinuxWithoutNvidiaUsesCPUTraining(t *testing.T) {
+	report := probeFor("linux", "amd64", func(name string) (string, error) {
+		if name == "docker" {
+			return "/usr/bin/docker", nil
+		}
+		return "", errors.New("not found")
+	})
+
+	if report.Backend != "docker_cpu" {
+		t.Fatalf("expected CPU backend, got %q", report.Backend)
+	}
+	if !report.Ready() {
+		t.Fatal("expected Linux amd64 with Docker to be ready for CPU starter training")
+	}
+}

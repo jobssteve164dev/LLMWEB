@@ -13,7 +13,9 @@ export type Runner = {
   last_seen_at: string | null;
   capabilities: {
     ready?: boolean;
-    backend?: "docker_cuda" | "native_mps";
+    backend?: "docker_cuda" | "docker_cpu" | "native_mps";
+    cpu_cores?: number;
+    memory_total_mb?: number;
     mps_available?: boolean;
     gpus?: Array<{ name: string; memory_total_mb: number; memory_free_mb: number; utilization_percent?: number; temperature_c?: number; shared_memory?: boolean }>;
   };
@@ -24,9 +26,9 @@ export type Dataset = {
   project_id: string;
   runner_id: string;
   name: string;
-  source_type: "local" | "huggingface" | "modelscope" | "s3";
+  source_type: "local" | "huggingface" | "modelscope" | "s3" | "starter";
   source_ref: string;
-  format: "json" | "jsonl" | "csv";
+  format: "json" | "jsonl" | "csv" | "txt";
   status: "checking" | "ready" | "failed";
   version_hash: string | null;
   statistics: null | {
@@ -39,6 +41,8 @@ export type Dataset = {
     token_length: { p50: number; p95: number; max: number };
     splits: { train: number; validation: number; test: number };
     leakage: { exact_matches: number };
+    characters?: number;
+    vocabulary_size?: number;
   };
   preview: null | Array<{ instruction: string; input: string; output: string }>;
 };
@@ -71,6 +75,9 @@ export type Metrics = {
   tokens_per_second?: number;
   peak_gpu_memory_mb?: number;
   model_size_mb?: number;
+  test_loss?: number;
+  perplexity?: number;
+  test_characters?: number;
 };
 
 export type EvaluationSample = { instruction: string; input: string; reference: string; prediction: string };
@@ -82,7 +89,7 @@ export type Experiment = {
   dataset_id: string;
   name: string;
   model: { id: string; revision: string };
-  training: { method: "lora" | "qlora"; epochs: number; learning_rate: number; max_length: number };
+  training: { method: "lora" | "qlora" | "starter"; epochs: number; learning_rate: number; max_length: number; iterations?: number };
   export_formats: string[];
   output_destination: "local" | "user_s3";
   output_s3_uri: string | null;

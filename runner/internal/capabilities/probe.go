@@ -24,6 +24,8 @@ type Report struct {
 	OperatingSystem string `json:"operating_system"`
 	Architecture    string `json:"architecture"`
 	Backend         string `json:"backend"`
+	CPUCores        int    `json:"cpu_cores"`
+	MemoryTotalMB   int    `json:"memory_total_mb"`
 	DockerAvailable bool   `json:"docker_available"`
 	NvidiaAvailable bool   `json:"nvidia_available"`
 	MPSAvailable    bool   `json:"mps_available"`
@@ -34,12 +36,17 @@ type commandLookup func(string) (string, error)
 
 func Probe(ctx context.Context) Report {
 	report := probe(exec.LookPath)
+	report.CPUCores = runtime.NumCPU()
+	report.MemoryTotalMB = probeMemoryTotalMB()
 	if report.DockerAvailable {
 		command := exec.CommandContext(ctx, "docker", "info", "--format", "{{.ServerVersion}}")
 		report.DockerAvailable = command.Run() == nil
 	}
 	if report.NvidiaAvailable {
 		report.GPUs = probeGPUs(ctx)
+		if len(report.GPUs) == 0 && report.OperatingSystem == "linux" && report.Architecture == "amd64" {
+			report.Backend = "docker_cpu"
+		}
 	}
 	if report.OperatingSystem == "darwin" && report.Architecture == "arm64" {
 		report.MPSAvailable = probeMPS(ctx)
@@ -48,6 +55,25 @@ func Probe(ctx context.Context) Report {
 		}
 	}
 	return report
+}
+
+func probeMemoryTotalMB() int {
+	if runtime.GOOS != "linux" {
+		return 0
+	}
+	payload, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(payload), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 2 && fields[0] == "MemTotal:" {
+			if kilobytes, parseErr := strconv.Atoi(fields[1]); parseErr == nil {
+				return kilobytes / 1024
+			}
+		}
+	}
+	return 0
 }
 
 func probeMPS(ctx context.Context) bool {
@@ -109,10 +135,14 @@ func probeFor(operatingSystem, architecture string, lookup commandLookup) Report
 	_, dockerErr := lookup("docker")
 	_, nvidiaErr := lookup("nvidia-smi")
 
+	backend := backendFor(operatingSystem, architecture)
+	if operatingSystem == "linux" && architecture == "amd64" && nvidiaErr != nil {
+		backend = "docker_cpu"
+	}
 	return Report{
 		OperatingSystem: operatingSystem,
 		Architecture:    architecture,
-		Backend:         backendFor(operatingSystem, architecture),
+		Backend:         backend,
 		DockerAvailable: dockerErr == nil,
 		NvidiaAvailable: nvidiaErr == nil,
 	}
@@ -128,6 +158,9 @@ func backendFor(operatingSystem, architecture string) string {
 func (report Report) Ready() bool {
 	if report.Backend == "native_mps" {
 		return report.OperatingSystem == "darwin" && report.Architecture == "arm64" && report.MPSAvailable && len(report.GPUs) > 0
+	}
+	if report.Backend == "docker_cpu" {
+		return report.OperatingSystem == "linux" && report.Architecture == "amd64" && report.DockerAvailable
 	}
 	return report.OperatingSystem == "linux" && report.Architecture == "amd64" && report.DockerAvailable && report.NvidiaAvailable && len(report.GPUs) > 0
 }

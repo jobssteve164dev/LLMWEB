@@ -8,6 +8,7 @@ REPOSITORY="jobssteve164dev/LLMWEB"
 INSTALL_ROOT="/opt/llmweb"
 STATE_ROOT="/var/lib/llmweb/state"
 RUNTIME_IMAGE="llmweb/runtime:0.1.0"
+CPU_RUNTIME_IMAGE="llmweb/runtime-cpu:0.1.0"
 
 say() {
   printf '\n[LLMWEB] %s\n' "$1"
@@ -154,7 +155,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   exit 0
 fi
 
-[[ "$(uname -s)" == "Linux" ]] || fail "当前支持 Linux NVIDIA GPU 主机和 Apple Silicon Mac"
+[[ "$(uname -s)" == "Linux" ]] || fail "当前支持 Linux x86_64 主机和 Apple Silicon Mac"
 
 case "$(uname -m)" in
   x86_64|amd64)
@@ -170,9 +171,6 @@ esac
 
 command -v curl >/dev/null 2>&1 || fail "缺少 curl，无法下载安装文件"
 command -v tar >/dev/null 2>&1 || fail "缺少 tar，无法解压安装文件"
-command -v nvidia-smi >/dev/null 2>&1 || fail "没有检测到 NVIDIA 驱动，请先安装与 GPU 匹配的驱动"
-nvidia-smi >/dev/null 2>&1 || fail "NVIDIA 驱动当前不可用，请先修复驱动状态"
-
 mkdir -p "$INSTALL_ROOT/bin" "$INSTALL_ROOT/source" "$STATE_ROOT"
 
 start_docker() {
@@ -190,6 +188,11 @@ if ! command -v docker >/dev/null 2>&1; then
   sh "$INSTALL_ROOT/get-docker.sh"
 fi
 start_docker
+
+HAS_NVIDIA=0
+if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
+  HAS_NVIDIA=1
+fi
 
 say "正在下载与 ${PLATFORM} 匹配的连接程序"
 curl -fL "https://github.com/${REPOSITORY}/archive/${SOURCE_REF}.tar.gz" -o "$INSTALL_ROOT/source.tar.gz.download"
@@ -214,7 +217,7 @@ if [[ "$TARGET_USER" != "root" ]]; then
   chown "$TARGET_USER":"$TARGET_USER" "$DATA_ROOT" "$OUTPUT_ROOT"
 fi
 
-say "正在注册这台 GPU 主机"
+say "正在注册这台训练主机"
 "$INSTALL_ROOT/bin/llmweb-runner" register \
   --url "$CONTROL_URL" \
   --code "$REGISTRATION_CODE" \
@@ -254,14 +257,19 @@ install_nvidia_toolkit() {
   docker info >/dev/null 2>&1 || fail "安装 NVIDIA 容器运行环境后 Docker 未能启动"
 }
 
-if ! docker info --format '{{json .Runtimes}}' | grep -q 'nvidia'; then
-  install_nvidia_toolkit
-fi
-
 say "正在安装受控训练环境，这一步可能需要几分钟"
-docker build --platform "$PLATFORM" -t "$RUNTIME_IMAGE" -f "$INSTALL_ROOT/source/runtime/Dockerfile" "$INSTALL_ROOT/source"
-docker run --rm --gpus all "$RUNTIME_IMAGE" nvidia-smi >/dev/null \
-  || fail "训练环境无法使用 NVIDIA GPU，请检查驱动与 NVIDIA Container Toolkit"
+if [[ "$HAS_NVIDIA" -eq 1 ]]; then
+  if ! docker info --format '{{json .Runtimes}}' | grep -q 'nvidia'; then
+    install_nvidia_toolkit
+  fi
+  docker build --platform "$PLATFORM" -t "$RUNTIME_IMAGE" -f "$INSTALL_ROOT/source/runtime/Dockerfile" "$INSTALL_ROOT/source"
+  docker run --rm --gpus all "$RUNTIME_IMAGE" nvidia-smi >/dev/null \
+    || fail "训练环境无法使用 NVIDIA GPU，请检查驱动与 NVIDIA Container Toolkit"
+else
+  docker build --platform "$PLATFORM" -t "$CPU_RUNTIME_IMAGE" -f "$INSTALL_ROOT/source/runtime/Dockerfile.cpu" "$INSTALL_ROOT/source"
+  docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/null \
+    || fail "普通电脑训练环境没有通过自检"
+fi
 
 command -v systemctl >/dev/null 2>&1 || fail "当前系统不支持 systemd，无法安装后台连接服务"
 [[ -d /run/systemd/system ]] || fail "systemd 当前未运行，无法安装后台连接服务"
@@ -269,7 +277,7 @@ command -v systemctl >/dev/null 2>&1 || fail "当前系统不支持 systemd，�
 say "正在启动后台连接服务"
 cat > /etc/systemd/system/llmweb-runner.service <<EOF
 [Unit]
-Description=LLMWEB GPU Runner
+Description=LLMWEB Training Runner
 After=docker.service network-online.target
 Wants=network-online.target
 Requires=docker.service
@@ -289,4 +297,8 @@ systemctl daemon-reload
 systemctl enable --now llmweb-runner
 systemctl is-active --quiet llmweb-runner || fail "后台连接服务未能启动，请运行 systemctl status llmweb-runner 查看原因"
 
-say "连接完成。数据目录：$DATA_ROOT；模型与结果目录：$OUTPUT_ROOT"
+if [[ "$HAS_NVIDIA" -eq 1 ]]; then
+  say "连接完成。已启用 GPU 训练；数据目录：$DATA_ROOT；模型与结果目录：$OUTPUT_ROOT"
+else
+  say "连接完成。已启用普通电脑入门训练；数据目录：$DATA_ROOT；模型与结果目录：$OUTPUT_ROOT"
+fi

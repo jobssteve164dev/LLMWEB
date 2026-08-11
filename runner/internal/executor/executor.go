@@ -42,7 +42,9 @@ func (executor *Executor) Run(ctx context.Context, lease controlplane.Lease, emi
 	case "inspect":
 		var result map[string]any
 		var err error
-		if sourceType := stringValue(lease.Payload, "source_type"); sourceType != "" && sourceType != "local" {
+		if sourceType := stringValue(lease.Payload, "source_type"); sourceType == "starter" {
+			result, err = prepareStarterDataset(ctx, lease.Payload, executor.outputRoot)
+		} else if sourceType != "" && sourceType != "local" {
 			result, err = executor.prepareAndInspect(ctx, lease, emit)
 		} else {
 			result, err = inspectDataset(lease.Payload, executor.dataRoot, executor.outputRoot)
