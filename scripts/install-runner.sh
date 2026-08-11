@@ -291,6 +291,19 @@ else
   TORCH_WHEEL_PATH="$INSTALL_ROOT/source/runtime/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl"
   TORCH_WHEEL_DOWNLOAD="$TORCH_WHEEL_PATH.download"
   TORCH_WHEEL_SHA256="cb06175284673a581dd91fb1965662ae4ecaba6e5c357aa0ea7bb8b84b6b7eeb"
+  PYTHON_WHEELS_PATH="$INSTALL_ROOT/source/runtime/python-wheels"
+  mkdir -p "$PYTHON_WHEELS_PATH"
+  download_python_wheel() {
+    local filename="$1"
+    local url="$2"
+    local expected_sha256="$3"
+    local target="$PYTHON_WHEELS_PATH/$filename"
+    if ! printf '%s  %s\n' "$expected_sha256" "$target" | sha256sum -c - >/dev/null 2>&1; then
+      curl -fL --retry 3 --retry-all-errors "$url" -o "$target.download"
+      printf '%s  %s\n' "$expected_sha256" "$target.download" | sha256sum -c -
+      mv "$target.download" "$target"
+    fi
+  }
   record_install_stage "runtime_asset"
   if ! printf '%s  %s\n' "$TORCH_WHEEL_SHA256" "$TORCH_WHEEL_PATH" | sha256sum -c - >/dev/null 2>&1; then
     curl -fL -C - --retry 3 --retry-all-errors "$TORCH_WHEEL_URL" -o "$TORCH_WHEEL_DOWNLOAD"
@@ -305,6 +318,33 @@ else
     [[ -f "$NANOGPT_SOURCE_PATH/model.py" && -f "$NANOGPT_SOURCE_PATH/train.py" ]] \
       || fail "训练项目源码没有准备完整"
   fi
+  download_python_wheel "filelock-3.20.3-py3-none-any.whl" \
+    "${LLMWEB_FILELOCK_WHEEL_URL:-https://files.pythonhosted.org/packages/b5/36/7fb70f04bf00bc646cd5bb45aa9eddb15e19437a28b8fb2b4a5249fac770/filelock-3.20.3-py3-none-any.whl}" \
+    "4b0dda527ee31078689fc205ec4f1c1bf7d56cf88b6dc9426c4f230e46c2dce1"
+  download_python_wheel "typing_extensions-4.14.1-py3-none-any.whl" \
+    "${LLMWEB_TYPING_EXTENSIONS_WHEEL_URL:-https://files.pythonhosted.org/packages/b5/00/d631e67a838026495268c2f6884f3711a15a9a2a96cd244fdaea53b823fb/typing_extensions-4.14.1-py3-none-any.whl}" \
+    "d1e1e3b58374dc93031d6eda2420a48ea44a36c2b4766a4fdeb3710755731d76"
+  download_python_wheel "setuptools-80.9.0-py3-none-any.whl" \
+    "${LLMWEB_SETUPTOOLS_WHEEL_URL:-https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl}" \
+    "062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922"
+  download_python_wheel "sympy-1.14.0-py3-none-any.whl" \
+    "${LLMWEB_SYMPY_WHEEL_URL:-https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl}" \
+    "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5"
+  download_python_wheel "networkx-3.5-py3-none-any.whl" \
+    "${LLMWEB_NETWORKX_WHEEL_URL:-https://files.pythonhosted.org/packages/eb/8d/776adee7bbf76365fdd7f2552710282c79a4ead5d2a46408c9043a2b70ba/networkx-3.5-py3-none-any.whl}" \
+    "0030d386a9a06dee3565298b4a734b68589749a544acbb6c412dc9e2489ec6ec"
+  download_python_wheel "jinja2-3.1.6-py3-none-any.whl" \
+    "${LLMWEB_JINJA2_WHEEL_URL:-https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl}" \
+    "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"
+  download_python_wheel "fsspec-2025.7.0-py3-none-any.whl" \
+    "${LLMWEB_FSSPEC_WHEEL_URL:-https://files.pythonhosted.org/packages/2f/e0/014d5d9d7a4564cf1c40b5039bc882db69fd881111e03ab3657ac0b218e2/fsspec-2025.7.0-py3-none-any.whl}" \
+    "8b012e39f63c7d5f10474de957f3ab793b47b45ae7d39f2fb735f8bbe25c0e21"
+  download_python_wheel "mpmath-1.3.0-py3-none-any.whl" \
+    "${LLMWEB_MPMATH_WHEEL_URL:-https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl}" \
+    "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
+  download_python_wheel "MarkupSafe-3.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl" \
+    "${LLMWEB_MARKUPSAFE_WHEEL_URL:-https://files.pythonhosted.org/packages/f1/a4/aefb044a2cd8d7334c8a47d3fb2c9f328ac48cb349468cc31c20b539305f/MarkupSafe-3.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl}" \
+    "a123e330ef0853c6e822384873bef7507557d8e4a082961e1defa947aa59ba84"
   record_install_stage "runtime_image"
   docker build --platform "$PLATFORM" \
     -t "$CPU_RUNTIME_IMAGE" \
