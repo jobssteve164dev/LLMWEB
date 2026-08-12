@@ -79,6 +79,32 @@ def test_complete_local_training_workflow() -> None:
         runner_id = pair_response.json()["runner_id"]
         runner_headers = {"Authorization": f"Bearer {pair_response.json()['device_token']}"}
 
+        upgrade_pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
+        upgrade_response = client.post(
+            "/v1/runners/upgrade-authorization",
+            headers=runner_headers,
+            json={"code": upgrade_pairing["code"]},
+        )
+        assert upgrade_response.status_code == 200
+        assert upgrade_response.json() == {"authorized": True}
+        assert client.post(
+            "/v1/runners/upgrade-authorization",
+            headers=runner_headers,
+            json={"code": upgrade_pairing["code"]},
+        ).status_code == 400
+
+        foreign_pairing = client.post(
+            "/v1/runners/pairing",
+            headers=web_headers(user_id="passport-user-2", email="other@example.com"),
+        ).json()
+        foreign_upgrade = client.post(
+            "/v1/runners/upgrade-authorization",
+            headers=runner_headers,
+            json={"code": foreign_pairing["code"]},
+        )
+        assert foreign_upgrade.status_code == 409
+        assert foreign_upgrade.json()["detail"] == "这台电脑属于另一个训练工作区"
+
         dataset_response = client.post(
             "/v1/datasets",
             headers=WEB_HEADERS,

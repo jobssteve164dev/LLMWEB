@@ -18,6 +18,7 @@ assert.match(installer, /api\/training-environment\/assets/);
 assert.match(installer, /docker load -i/);
 assert.match(installer, /EXPECTED_IMAGE_ID/);
 assert.match(installer, /已经连接到另一个训练工作区/);
+assert.match(installer, /runners\/upgrade-authorization/);
 assert.match(releaseWorkflow, /Generate SBOM/);
 assert.match(releaseWorkflow, /severity-cutoff: high/);
 assert.match(compose, /https:\/\/llmweb\.szlk\.ai\/install-runner\.sh/);

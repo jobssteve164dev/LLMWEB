@@ -16,6 +16,10 @@ class PairRequest(BaseModel):
     capabilities: dict[str, Any]
 
 
+class RunnerUpgradeAuthorization(BaseModel):
+    code: str = Field(min_length=4, max_length=64)
+
+
 class HeartbeatRequest(BaseModel):
     capabilities: dict[str, Any]
     active_job_id: str | None = None

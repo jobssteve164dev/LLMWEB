@@ -174,6 +174,7 @@ command -v tar >/dev/null 2>&1 || fail "缺少 tar，无法解压安装文件"
 command -v sha256sum >/dev/null 2>&1 || fail "缺少 sha256sum，无法校验连接程序工具链"
 command -v python3 >/dev/null 2>&1 || fail "缺少 Python 3，无法读取训练环境清单"
 mkdir -p "$INSTALL_ROOT/bin" "$INSTALL_ROOT/source" "$STATE_ROOT"
+UPGRADE_EXISTING=0
 if [[ -s "$STATE_ROOT/state.json" ]] && python3 - "$STATE_ROOT/state.json" <<'PY'
 import json
 import sys
@@ -182,7 +183,24 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 raise SystemExit(0 if state.get("device_token") else 1)
 PY
 then
-  fail "这台电脑已经连接到另一个训练工作区，请先在原工作区完成正式解除连接"
+  EXISTING_DEVICE_TOKEN="$(python3 - "$STATE_ROOT/state.json" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    print(json.load(handle)["device_token"])
+PY
+)"
+  UPGRADE_PAYLOAD="$(python3 - "$REGISTRATION_CODE" <<'PY'
+import json
+import sys
+print(json.dumps({"code": sys.argv[1]}))
+PY
+)"
+  if ! curl -fsS -H "Authorization: Bearer $EXISTING_DEVICE_TOKEN" -H "Content-Type: application/json" \
+    --data "$UPGRADE_PAYLOAD" "$CONTROL_URL/v1/runners/upgrade-authorization" >/dev/null; then
+    fail "这台电脑已经连接到另一个训练工作区，请回到原工作区生成连接命令；如需转移，请先正式解除原连接"
+  fi
+  UPGRADE_EXISTING=1
 fi
 INSTALL_STAGE_FILE="$STATE_ROOT/install-stage"
 CURRENT_INSTALL_STAGE="base_runtime"
@@ -374,15 +392,19 @@ else
     || fail "普通电脑训练环境没有通过自检"
 fi
 
-say "正在注册这台训练主机"
-record_install_stage "runner_register"
-LLMWEB_TRAINING_ENVIRONMENT_VERSION="${TRAINING_ENVIRONMENT_VERSION:-legacy-0.1.0}" \
-  "$INSTALL_ROOT/bin/llmweb-runner" register \
-    --url "$CONTROL_URL" \
-    --code "$REGISTRATION_CODE" \
-    --data-root "$DATA_ROOT" \
-    --output-root "$OUTPUT_ROOT" \
-    --state-dir "$STATE_ROOT"
+if [[ "$UPGRADE_EXISTING" -eq 0 ]]; then
+  say "正在注册这台训练主机"
+  record_install_stage "runner_register"
+  LLMWEB_TRAINING_ENVIRONMENT_VERSION="${TRAINING_ENVIRONMENT_VERSION:-legacy-0.1.0}" \
+    "$INSTALL_ROOT/bin/llmweb-runner" register \
+      --url "$CONTROL_URL" \
+      --code "$REGISTRATION_CODE" \
+      --data-root "$DATA_ROOT" \
+      --output-root "$OUTPUT_ROOT" \
+      --state-dir "$STATE_ROOT"
+else
+  say "已确认原工作区，正在升级训练环境"
+fi
 
 command -v systemctl >/dev/null 2>&1 || fail "当前系统不支持 systemd，无法安装后台连接服务"
 [[ -d /run/systemd/system ]] || fail "systemd 当前未运行，无法安装后台连接服务"
@@ -410,7 +432,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now llmweb-runner
+systemctl enable llmweb-runner
+systemctl restart llmweb-runner
 systemctl is-active --quiet llmweb-runner || fail "后台连接服务未能启动，请运行 systemctl status llmweb-runner 查看原因"
 record_install_stage "ready"
 trap - EXIT

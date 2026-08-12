@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
 from .models import Dataset, Experiment, Job, JobEvent, PairingCode, Project, Runner, Workspace, new_id, utc_now
-from .schemas import CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate
+from .schemas import CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate, RunnerUpgradeAuthorization
 from .security import WebIdentity, digest_secret, require_runner, require_web
 from .settings import get_settings
 
@@ -369,6 +369,26 @@ def pair_runner(body: PairRequest, db: Db) -> dict[str, str]:
     db.add(runner)
     db.commit()
     return {"runner_id": runner.id, "device_token": token}
+
+
+@app.post("/v1/runners/upgrade-authorization", tags=["runner"])
+def authorize_runner_upgrade(
+    body: RunnerUpgradeAuthorization,
+    db: Db,
+    authorization: Annotated[str | None, Header()] = None,
+) -> dict[str, bool]:
+    runner = require_runner(db, authorization)
+    pairing = db.scalar(select(PairingCode).where(PairingCode.code_hash == digest_secret(body.code)))
+    if pairing is None or pairing.used_at is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="配对码无效或已经使用")
+    expires_at = pairing.expires_at.replace(tzinfo=pairing.expires_at.tzinfo or timezone.utc)
+    if expires_at <= utc_now():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="配对码已过期，请在网页重新生成")
+    if pairing.workspace_id != runner.workspace_id:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="这台电脑属于另一个训练工作区")
+    pairing.used_at = utc_now()
+    db.commit()
+    return {"authorized": True}
 
 
 @app.post("/v1/runners/heartbeat", tags=["runner"])
