@@ -279,7 +279,10 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
             json={
                 "code": pairing["code"],
                 "name": "4 核 8G 普通电脑",
-                "capabilities": {"ready": True, "backend": "docker_cpu", "cpu_cores": 4, "memory_total_mb": 8192},
+                "capabilities": {
+                    "ready": True, "backend": "docker_cpu", "cpu_cores": 4,
+                    "memory_total_mb": 8192, "disk_free_mb": 10 * 1024,
+                },
             },
         )
         runner_id = pair_response.json()["runner_id"]
@@ -298,14 +301,22 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
         assert inspect_lease["payload"]["source_type"] == "starter"
         complete_job(client, runner_headers, inspect_lease, {"version_hash": "sha256:starter", "statistics": {"characters": 1000}})
 
+        experiment_payload = {
+            "project_id": project_id, "runner_id": runner_id, "dataset_id": dataset_id,
+            "name": "入门训练", "model_id": "karpathy/nanoGPT", "method": "starter",
+            "export_formats": ["model"], "license_confirmed": True,
+        }
+        insufficient_disk = client.post("/v1/experiments", headers=WEB_HEADERS, json=experiment_payload)
+        assert insufficient_disk.status_code == 409
+        assert "不足 20GB" in insufficient_disk.json()["detail"]
+        client.post(
+            "/v1/runners/heartbeat", headers=runner_headers,
+            json={"capabilities": {"ready": True, "backend": "docker_cpu", "disk_free_mb": 80 * 1024}},
+        )
         experiment_response = client.post(
             "/v1/experiments",
             headers=WEB_HEADERS,
-            json={
-                "project_id": project_id, "runner_id": runner_id, "dataset_id": dataset_id,
-                "name": "入门训练", "model_id": "karpathy/nanoGPT", "method": "starter",
-                "export_formats": ["model"], "license_confirmed": True,
-            },
+            json=experiment_payload,
         )
         assert experiment_response.status_code == 201, experiment_response.text
         baseline = client.post("/v1/runners/jobs/lease", headers=runner_headers).json()

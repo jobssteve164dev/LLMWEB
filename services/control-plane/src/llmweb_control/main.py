@@ -468,6 +468,9 @@ def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict
     if backend == "docker_cpu":
         if body.method != "starter" or body.model_id != "karpathy/nanoGPT" or dataset.source_type != "starter":
             raise HTTPException(status_code=400, detail="这台普通电脑使用入门训练方案；模型、练习数据和训练设置会由系统自动匹配")
+        disk_free_mb = runner.capabilities.get("disk_free_mb")
+        if isinstance(disk_free_mb, (int, float)) and disk_free_mb < 20 * 1024:
+            raise HTTPException(status_code=409, detail="这台电脑的可用空间不足 20GB，请先扩充或腾出空间再开始训练")
         if body.output_destination != "local":
             raise HTTPException(status_code=400, detail="入门训练结果会先保存在这台电脑，完成后可从模型页查看")
     elif body.method == "starter":

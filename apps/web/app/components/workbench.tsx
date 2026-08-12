@@ -82,7 +82,7 @@ class SessionRequiredError extends Error {}
 
 function deriveStep(state: WorkspaceState): Step {
   if (!state.current_project_id) return "project";
-  if (state.experiments[0]?.status === "completed") return "model";
+  if (state.experiments[0]?.status === "completed") return "monitor";
   if (state.experiments.length > 0) return "monitor";
   if (!state.runners.some((runner) => runner.status !== "offline")) return "compute";
   if (!state.datasets.some((dataset) => dataset.status === "ready")) return "data";
@@ -305,13 +305,13 @@ function ComputeStep({ runner, busy, perform }: { runner: Runner | null; busy: b
     const isCPU = runner.capabilities.backend === "docker_cpu";
     const deviceName = isCPU ? "普通电脑入门训练" : gpu?.name ?? (isAppleSilicon ? "Apple Silicon GPU" : "NVIDIA GPU");
     const deviceDetail = isCPU
-      ? `${runner.capabilities.cpu_cores ?? "—"} 核处理器 · ${runner.capabilities.memory_total_mb ? `${(runner.capabilities.memory_total_mb / 1024).toFixed(0)} GB 内存` : "内存信息同步中"}`
+      ? `${runner.capabilities.cpu_cores ?? "—"} 核处理器 · ${runner.capabilities.memory_total_mb ? `${(runner.capabilities.memory_total_mb / 1024).toFixed(0)} GB 内存` : "内存信息同步中"}${typeof runner.capabilities.disk_free_mb === "number" ? ` · ${(runner.capabilities.disk_free_mb / 1024).toFixed(0)} GB 可用空间` : ""}`
       : gpu ? `${isAppleSilicon ? "Metal / MPS" : `${runner.capabilities.gpus?.length ?? 1} 张 GPU`} · ${(gpu.memory_total_mb / 1024).toFixed(0)} GB ${gpu.shared_memory ? "统一内存" : "显存"}` : "能力信息正在同步";
     return <><SectionIntro eyebrow="算力已连接" title={runner.name} description="这台机器已经可以接收数据检查、训练和评测任务。" />
       <div className="computeCard ready"><div className="computeIcon">✓</div><div><span>当前可用</span><h2>{deviceName}</h2><p>{deviceDetail}</p></div><span className="statusBadge">在线</span></div>
       <div className="privacyCallout"><strong>数据边界保持不变</strong><p>网页只接收统计、进度和你主动授权的少量预览；原始文件和训练结果都留在这台机器。</p></div></>;
   }
-  return <><SectionIntro eyebrow="第二步" title="连接一台你控制的电脑。" description="4 核 8G 的 Ubuntu 普通电脑就能完成入门训练；有 GPU 时系统也会自动使用。" />
+  return <><SectionIntro eyebrow="第二步" title="连接一台你控制的电脑。" description="4 核 8G、至少 20GB 可用空间的 Ubuntu 普通电脑就能完成入门训练；有 GPU 时系统也会自动使用。" />
     {!pairing ? <div className="connectionStart"><div className="computeIllustration" aria-hidden="true"><span>电脑</span><i /></div><h2>准备一台 Ubuntu 电脑</h2><p>只需运行一次安装命令。系统会检查机器并选择适合它的训练方式。</p><button className="primaryButton" disabled={busy} type="button" onClick={() => void perform(async () => setPairing(await api("runners/pairing", { method: "POST", body: "{}" })), "安装命令已生成，复制到要用于训练的电脑运行即可。")}>{busy ? "正在生成…" : "生成连接命令"}</button></div> :
       <div className="pairingCard"><div className="pairingHeader"><div><span>在训练电脑运行一次</span><strong>复制下面的命令</strong></div><small>{new Date(pairing.expires_at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })} 前开始运行</small></div>
         <div className="connectionCommand"><p>命令会自动安装环境、注册这台机器并保持连接，过程可能需要几分钟。</p><pre>{pairing.command}</pre><button className="primaryButton" type="button" onClick={async () => { await navigator.clipboard.writeText(pairing.command); setCopied(true); }}>{copied ? "命令已复制" : "复制安装命令"}</button></div>
@@ -363,6 +363,8 @@ function TrainStep({ project, runner, dataset, busy, perform, moveTo }: { projec
   const isAppleSilicon = runner.capabilities.backend === "native_mps";
   const isCPU = runner.capabilities.backend === "docker_cpu";
   if (isCPU) {
+    const diskFreeGB = typeof runner.capabilities.disk_free_mb === "number" ? runner.capabilities.disk_free_mb / 1024 : null;
+    const hasEnoughDisk = diskFreeGB === null || diskFreeGB >= 20;
     const starterProfiles = [
       ["fast", "快速体验", "约 2–4 分钟", "先完整跑通一次"],
       ["balanced", "推荐", "约 4–8 分钟", "时间与效果更均衡"],
@@ -370,12 +372,13 @@ function TrainStep({ project, runner, dataset, busy, perform, moveTo }: { projec
     ];
     const profileLabel = starterProfiles.find(([value]) => value === profile)?.[1] ?? "推荐";
     return <><SectionIntro eyebrow="第四步" title="选择愿意等待多久，然后开始。" description="模型和训练设置已经按这台电脑匹配好。你只需要选择时长，剩下的步骤由系统依次完成。" />
+      {!hasEnoughDisk ? <div className="inlineError"><strong>这台电脑的可用空间不足 20GB</strong><br />先扩充或腾出空间，再开始训练，已经准备好的练习数据不会丢失。</div> : null}
       <form className="formCard starterTraining" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); const epochs = profile === "fast" ? 1 : profile === "thorough" ? 5 : 3; void perform(() => api("experiments", { method: "POST", body: JSON.stringify({ project_id: project.id, runner_id: runner.id, dataset_id: dataset.id, name: form.get("name"), model_id: "karpathy/nanoGPT", method: "starter", epochs, learning_rate: 0.001, max_length: 128, batch_size: 12, gradient_accumulation: 1, export_formats: ["model"], evaluation_preview_allowed: true, output_destination: "local", license_confirmed: form.get("license_confirmed") === "on" }) }), "训练已开始。网页可以关闭，电脑会继续完成。") }}>
         <label><span>给这次训练起个名字</span><input name="name" required defaultValue={`${project.name} · 第一次训练`} /></label>
         <fieldset className="choiceField"><legend>我愿意等待</legend><div className="profileChoices starterProfiles">{starterProfiles.map(([value, name, time, description]) => <label key={value} className={profile === value ? "selected" : ""}><input type="radio" name="profile" value={value} checked={profile === value} onChange={() => setProfile(value)} /><strong>{name}</strong><small>{time}</small><em>{description}</em></label>)}</div></fieldset>
-        <div className="runSummary starterSummary"><div><span>系统将自动完成</span><strong>先考试 → 学习文本 → 选择最好结果 → 再考试 → 保存模型</strong></div><div><span>当前选择</span><strong>{profileLabel}</strong></div><div><span>保存位置</span><strong>{runner.name}</strong></div></div>
+        <div className="runSummary starterSummary"><div><span>系统将自动完成</span><strong>先考试 → 学习文本 → 选择最好结果 → 再考试 → 保存模型</strong></div><div><span>当前选择</span><strong>{profileLabel}</strong></div><div><span>保存位置</span><strong>{runner.name}</strong></div>{diskFreeGB !== null ? <div><span>当前可用空间</span><strong>{diskFreeGB.toFixed(0)} GB</strong></div> : null}</div>
         <label className="consentRow"><input type="checkbox" name="license_confirmed" required /><span>我同意使用内置公开练习材料完成这次入门训练</span></label>
-        <div className="formActions"><button className="primaryButton" disabled={busy} type="submit">{busy ? "正在启动…" : "开始第一次训练"}</button></div>
+        <div className="formActions"><button className="primaryButton" disabled={busy || !hasEnoughDisk} type="submit">{busy ? "正在启动…" : "开始第一次训练"}</button></div>
       </form></>;
   }
   const estimate = trainingEstimate(selectedModel, profile, dataset.statistics?.valid_rows ?? 0);
@@ -409,7 +412,7 @@ function MonitorStep({ experiment, jobs, runner, busy, perform, moveTo }: { expe
     {(experiment.baseline_metrics || experiment.tuned_metrics) ? <><Comparison baseline={experiment.baseline_metrics} tuned={experiment.tuned_metrics} /><Performance metrics={experiment.tuned_metrics ?? experiment.baseline_metrics} /></> : null}
     {experiment.evaluation_samples?.baseline?.length && experiment.evaluation_samples?.tuned?.length ? <BlindReview baseline={experiment.evaluation_samples.baseline} tuned={experiment.evaluation_samples.tuned} /> : null}
     <details className="logPanel"><summary>查看运行记录</summary><div>{logs.length ? logs.map((event) => <p key={event.id}><span>{jobLabels[event.job as Job["kind"]]}</span>{event.message}</p>) : <p>正在等待第一条运行记录…</p>}</div></details>
-    {experiment.status === "completed" ? <div className="formActions"><button className="primaryButton" type="button" onClick={() => moveTo("model")}>查看模型产物</button></div> : null}</>;
+    {experiment.status === "completed" ? <div className="formActions"><button className="primaryButton" type="button" onClick={() => moveTo("model")}>确认效果，取得模型</button></div> : null}</>;
 }
 
 function Comparison({ baseline, tuned }: { baseline: Metrics | null; tuned: Metrics | null }) {
@@ -460,12 +463,12 @@ function BlindReview({ baseline, tuned }: { baseline: EvaluationSample[]; tuned:
 
 function ModelStep({ experiment, moveTo }: { experiment: Experiment | null; moveTo: (step: Step) => void }) {
   if (!experiment || experiment.status !== "completed" || !experiment.artifacts?.length) return <Prerequisite title="模型还没有准备好" text="训练、同集复测和导出全部完成后，产物会出现在这里。" action="查看训练进度" onClick={() => moveTo("monitor")} />;
-  return <><SectionIntro eyebrow="最后一步" title="模型已经留在你的环境。" description="下面是相对于你设置的结果目录的位置；平台没有复制或托管模型文件。" />
-    <div className="artifactList">{experiment.artifacts.map((artifact) => <article key={artifact.format}><span className="artifactIcon">{artifact.format === "gguf" ? "G" : artifact.format === "huggingface" ? "HF" : artifact.format === "model" ? "M" : "A"}</span><div><strong>{artifactLabel(artifact.format)}</strong><code>{artifact.reference}</code></div><span className="readyLabel">已生成</span></article>)}</div>
+  return <><SectionIntro eyebrow="最后一步" title="模型已经留在你的训练电脑。" description="训练结果已保存好，需要使用或移动文件时再展开查看位置。" />
+    <div className="artifactList">{experiment.artifacts.map((artifact) => <article key={artifact.format}><span className="artifactIcon">{artifact.format === "gguf" ? "G" : artifact.format === "huggingface" ? "HF" : artifact.format === "model" ? "M" : "A"}</span><div><strong>{artifactLabel(artifact.format)}</strong><small>保存在训练电脑</small><details className="artifactLocation"><summary>查看文件位置</summary><code>{artifact.reference}</code></details></div><span className="readyLabel">已生成</span></article>)}</div>
     <Comparison baseline={experiment.baseline_metrics} tuned={experiment.tuned_metrics} />
     <Performance metrics={experiment.tuned_metrics} />
     {experiment.evaluation_samples?.baseline?.length && experiment.evaluation_samples?.tuned?.length ? <BlindReview baseline={experiment.evaluation_samples.baseline} tuned={experiment.evaluation_samples.tuned} /> : null}
-    <div className="resultNote"><strong>这次结果可核验</strong><p>产物绑定了数据版本、基础模型、训练设置和同一测试集上的前后指标。只有这些证据完成后，LLMWEB 才把实验标记为完成。</p></div></>;
+    <div className="resultNote"><strong>这份模型可以放心留作本次练习结果</strong><p>它已通过同一份考试文本的训练前后对比；数据、设置和成绩也都随本次训练保留。</p></div></>;
 }
 
 function ProgressPanel({ label, progress }: { label: string; progress: number }) { return <div className="progressPanel"><div><strong>{label}</strong><span>{progress}%</span></div><i><b style={{ width: `${Math.max(3, progress)}%` }} /></i></div>; }

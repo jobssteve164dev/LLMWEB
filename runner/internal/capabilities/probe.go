@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 type GPU struct {
@@ -26,6 +27,8 @@ type Report struct {
 	Backend         string `json:"backend"`
 	CPUCores        int    `json:"cpu_cores"`
 	MemoryTotalMB   int    `json:"memory_total_mb"`
+	DiskTotalMB     int    `json:"disk_total_mb"`
+	DiskFreeMB      int    `json:"disk_free_mb"`
 	DockerAvailable bool   `json:"docker_available"`
 	NvidiaAvailable bool   `json:"nvidia_available"`
 	MPSAvailable    bool   `json:"mps_available"`
@@ -38,6 +41,7 @@ func Probe(ctx context.Context) Report {
 	report := probe(exec.LookPath)
 	report.CPUCores = runtime.NumCPU()
 	report.MemoryTotalMB = probeMemoryTotalMB()
+	report.DiskTotalMB, report.DiskFreeMB = probeDiskMB("/")
 	if report.DockerAvailable {
 		command := exec.CommandContext(ctx, "docker", "info", "--format", "{{.ServerVersion}}")
 		report.DockerAvailable = command.Run() == nil
@@ -55,6 +59,14 @@ func Probe(ctx context.Context) Report {
 		}
 	}
 	return report
+}
+
+func probeDiskMB(path string) (int, int) {
+	var stats syscall.Statfs_t
+	if err := syscall.Statfs(path, &stats); err != nil {
+		return 0, 0
+	}
+	return int(uint64(stats.Blocks) * uint64(stats.Bsize) / 1024 / 1024), int(uint64(stats.Bavail) * uint64(stats.Bsize) / 1024 / 1024)
 }
 
 func probeMemoryTotalMB() int {

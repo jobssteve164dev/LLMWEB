@@ -16,6 +16,8 @@ export type Runner = {
     backend?: "docker_cuda" | "docker_cpu" | "native_mps";
     cpu_cores?: number;
     memory_total_mb?: number;
+    disk_total_mb?: number;
+    disk_free_mb?: number;
     mps_available?: boolean;
     gpus?: Array<{ name: string; memory_total_mb: number; memory_free_mb: number; utilization_percent?: number; temperature_c?: number; shared_memory?: boolean }>;
   };

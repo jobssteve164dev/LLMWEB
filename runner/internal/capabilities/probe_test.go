@@ -68,3 +68,10 @@ func TestLinuxWithoutNvidiaUsesCPUTraining(t *testing.T) {
 		t.Fatal("expected Linux amd64 with Docker to be ready for CPU starter training")
 	}
 }
+
+func TestProbeDiskMB(t *testing.T) {
+	total, free := probeDiskMB("/")
+	if total <= 0 || free <= 0 || free > total {
+		t.Fatalf("expected valid disk capacity, got total=%d free=%d", total, free)
+	}
+}
