@@ -34,12 +34,12 @@ jobs:
           image: llmweb/runtime-cpu:${{ inputs.version }}
           format: spdx-json
           output-file: ${{ runner.temp }}/release/llmweb-runtime-cpu-${{ inputs.version }}.spdx.json
-      - name: Scan runtime image
-        uses: anchore/scan-action@v7
+      - name: Install image scanner
+        uses: anchore/scan-action/download-grype@v7
         with:
-          image: llmweb/runtime-cpu:${{ inputs.version }}
-          fail-build: true
-          severity-cutoff: high
+          grype-version: v0.110.0
+      - name: Scan runtime image
+        run: grype "llmweb/runtime-cpu:${{ inputs.version }}" --fail-on high
       - name: Validate final release files
         run: |
           python -m pip install check-jsonschema==0.35.0
