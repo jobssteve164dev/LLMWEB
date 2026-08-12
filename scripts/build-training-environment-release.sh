@@ -13,8 +13,8 @@ RUNTIME_DIRECTORY="$REPOSITORY_ROOT/runtime"
 IMAGE="llmweb/runtime-cpu:$VERSION"
 DOCKER_STATIC_VERSION="27.5.1"
 NANOGPT_REF="3adf61e154c3fe3fca428ad6bc3818b27a3b8291"
-TORCH_WHEEL="torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl"
-TORCH_SHA256="cb06175284673a581dd91fb1965662ae4ecaba6e5c357aa0ea7bb8b84b6b7eeb"
+TORCH_WHEEL="torch-2.10.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl"
+TORCH_SHA256="8d316e5bf121f1eab1147e49ad0511a9d92e4c45cc357d1ab0bee440da71a095"
 
 mkdir -p "$OUTPUT_DIRECTORY" "$RUNTIME_DIRECTORY/python-wheels" "$RUNTIME_DIRECTORY/nanogpt-$NANOGPT_REF"
 
@@ -28,7 +28,7 @@ download() {
   mv "$target.download" "$target"
 }
 
-download "https://download-r2.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl" "$RUNTIME_DIRECTORY/$TORCH_WHEEL" "$TORCH_SHA256"
+download "https://download-r2.pytorch.org/whl/cpu/torch-2.10.0%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl" "$RUNTIME_DIRECTORY/$TORCH_WHEEL" "$TORCH_SHA256"
 curl -fL --retry 3 --retry-all-errors \
   "https://download.docker.com/linux/static/stable/x86_64/docker-$DOCKER_STATIC_VERSION.tgz" \
   -o "$OUTPUT_DIRECTORY/docker-static-linux-amd64-$DOCKER_STATIC_VERSION.tgz"
@@ -41,7 +41,7 @@ if [[ ! -f "$RUNTIME_DIRECTORY/nanogpt-$NANOGPT_REF/model.py" ]]; then
 fi
 
 python3 -m pip download --only-binary=:all: --no-deps --platform manylinux2014_x86_64 \
-  --python-version 311 --implementation cp --abi cp311 --dest "$RUNTIME_DIRECTORY/python-wheels" \
+  --python-version 313 --implementation cp --abi cp313 --dest "$RUNTIME_DIRECTORY/python-wheels" \
   filelock==3.20.3 typing_extensions==4.14.1 setuptools==80.9.0 sympy==1.14.0 \
   networkx==3.5 jinja2==3.1.6 fsspec==2025.7.0 mpmath==1.3.0 MarkupSafe==3.0.2
 (cd "$RUNTIME_DIRECTORY/python-wheels" && sha256sum -c ../python-wheels.sha256)

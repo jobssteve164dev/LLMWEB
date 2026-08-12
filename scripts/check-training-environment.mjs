@@ -21,6 +21,7 @@ assert.match(installer, /已经连接到另一个训练工作区/);
 assert.match(installer, /runners\/upgrade-authorization/);
 assert.match(releaseWorkflow, /Generate SBOM/);
 assert.match(releaseWorkflow, /severity-cutoff: high/);
+assert.match(releaseWorkflow, /only-fixed: true/);
 assert.match(releaseWorkflow, /output-format: table/);
 assert.match(compose, /https:\/\/llmweb\.szlk\.ai\/install-runner\.sh/);
 assert.match(webDockerfile, /COPY scripts\/install-runner\.sh \/app\/scripts\/install-runner\.sh/);

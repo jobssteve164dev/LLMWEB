@@ -1,24 +1,25 @@
-ARG PYTHON_BASE_IMAGE=python:3.11-slim-trixie
+ARG PYTHON_BASE_IMAGE=python:3.13-slim-trixie
 FROM ${PYTHON_BASE_IMAGE}
 
 ARG NANOGPT_REF=3adf61e154c3fe3fca428ad6bc3818b27a3b8291
-ARG TORCH_WHEEL_SHA256=cb06175284673a581dd91fb1965662ae4ecaba6e5c357aa0ea7bb8b84b6b7eeb
+ARG TORCH_WHEEL_SHA256=8d316e5bf121f1eab1147e49ad0511a9d92e4c45cc357d1ab0bee440da71a095
 
 LABEL ai.szlk.llmweb.nanogpt-ref="$NANOGPT_REF"
 
 ENV PIP_ROOT_USER_ACTION=ignore \
     PYTHONUNBUFFERED=1
 
-COPY runtime/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl /tmp/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl
+COPY runtime/torch-2.10.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl /tmp/torch-2.10.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl
 COPY runtime/nanogpt-3adf61e154c3fe3fca428ad6bc3818b27a3b8291/ /opt/nanogpt/
 COPY runtime/python-wheels/ /tmp/wheels/
 COPY runtime/python-wheels.sha256 /tmp/wheels.sha256
 
-RUN printf '%s  %s\n' "$TORCH_WHEEL_SHA256" /tmp/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl | sha256sum -c - \
+RUN printf '%s  %s\n' "$TORCH_WHEEL_SHA256" /tmp/torch-2.10.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl | sha256sum -c - \
     && cd /tmp/wheels \
     && sha256sum -c /tmp/wheels.sha256 \
-    && pip install --no-cache-dir --no-index --find-links /tmp/wheels /tmp/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl \
-    && rm -f /tmp/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl /tmp/wheels/*.whl
+    && pip install --no-cache-dir --no-index --find-links /tmp/wheels /tmp/torch-2.10.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl \
+    && pip uninstall --yes pip setuptools wheel \
+    && rm -f /tmp/torch-2.10.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl /tmp/wheels/*.whl
 
 COPY runtime/cpu_starter.py /opt/llmweb/cpu_starter.py
 
