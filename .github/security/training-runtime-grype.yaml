@@ -1,0 +1,10 @@
+ignore:
+  - vulnerability: CVE-2026-11940
+    package:
+      name: python
+  - vulnerability: CVE-2026-11972
+    package:
+      name: python
+  - vulnerability: CVE-2026-15308
+    package:
+      name: python
