@@ -32,25 +32,27 @@ var approvedModels = map[string]string{
 }
 
 type runtimeSpec struct {
-	ExperimentID string
-	DatasetID    string
-	ModelID      string
-	Revision     string
-	Template     string
-	Method       string
-	Epochs       float64
-	LearningRate float64
-	MaxLength    int
-	BatchSize    int
-	Accumulation int
-	Iterations   int
-	Formats      []string
-	Image        string
-	Preview      bool
-	Checkpoint   string
-	Destination  string
-	S3URI        string
-	S3Endpoint   string
+	ExperimentID       string
+	DatasetID          string
+	ModelID            string
+	Revision           string
+	Template           string
+	Method             string
+	Epochs             float64
+	LearningRate       float64
+	MaxLength          int
+	BatchSize          int
+	Accumulation       int
+	Iterations         int
+	Formats            []string
+	Image              string
+	EnvironmentVersion string
+	EnvironmentBackend string
+	Preview            bool
+	Checkpoint         string
+	Destination        string
+	S3URI              string
+	S3Endpoint         string
 }
 
 type runtimePaths struct {
@@ -68,10 +70,21 @@ func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lea
 	if err != nil {
 		return nil, err
 	}
-	if spec.Image != approvedRuntimeImage && spec.Image != approvedCPURuntimeImage {
+	installedEnvironmentVersion := os.Getenv("LLMWEB_TRAINING_ENVIRONMENT_VERSION")
+	approvedCPUImage := approvedCPURuntimeImage
+	if installedEnvironmentVersion != "" && installedEnvironmentVersion != "legacy-0.1.0" {
+		approvedCPUImage = "llmweb/runtime-cpu:" + installedEnvironmentVersion
+	}
+	if spec.Image != approvedRuntimeImage && spec.Image != approvedCPURuntimeImage && spec.Image != approvedCPUImage {
 		return nil, fmt.Errorf("训练镜像不在首版批准范围内")
 	}
-	if executor.backend == "docker_cpu" && (spec.Image != approvedCPURuntimeImage || spec.Method != "starter") {
+	if spec.EnvironmentVersion != "" && installedEnvironmentVersion != "" && spec.EnvironmentVersion != installedEnvironmentVersion {
+		return nil, fmt.Errorf("训练任务要求环境 %s，当前电脑已验证环境为 %s", spec.EnvironmentVersion, installedEnvironmentVersion)
+	}
+	if spec.EnvironmentBackend != "" && spec.EnvironmentBackend != environmentBackend(executor.backend) {
+		return nil, fmt.Errorf("训练任务与当前电脑的执行环境不匹配")
+	}
+	if executor.backend == "docker_cpu" && (spec.Image != approvedCPUImage || spec.Method != "starter") {
 		return nil, fmt.Errorf("CPU 算力只接受固定的入门训练方案")
 	}
 	if executor.backend != "docker_cpu" && spec.Image == approvedCPURuntimeImage {
@@ -181,6 +194,19 @@ func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lea
 		return map[string]any{"artifacts": artifacts}, nil
 	}
 	return map[string]any{}, nil
+}
+
+func environmentBackend(backend string) string {
+	switch backend {
+	case "docker_cpu":
+		return "linux-amd64-cpu"
+	case "docker_cuda":
+		return "linux-amd64-cuda"
+	case "native_mps":
+		return "darwin-arm64-mps"
+	default:
+		return backend
+	}
 }
 
 func buildCPUStarterCommand(kind string, spec runtimeSpec, paths runtimePaths) (string, []string, bool, error) {
@@ -465,27 +491,30 @@ func parseRuntimeSpec(payload map[string]any) (runtimeSpec, error) {
 	model := anyMap(payload["model"])
 	training := anyMap(payload["training"])
 	runtime := anyMap(payload["runtime"])
+	environment := anyMap(payload["environment"])
 	output := anyMap(payload["output"])
 	spec := runtimeSpec{
-		ExperimentID: stringValue(payload, "experiment_id"),
-		DatasetID:    stringValue(payload, "dataset_id"),
-		ModelID:      stringValue(model, "id"),
-		Revision:     stringValue(model, "revision"),
-		Template:     stringValue(model, "template"),
-		Method:       stringValue(training, "method"),
-		Epochs:       numberValue(training, "epochs", 3),
-		LearningRate: numberValue(training, "learning_rate", 0.0002),
-		MaxLength:    int(numberValue(training, "max_length", 2048)),
-		BatchSize:    int(numberValue(training, "batch_size", 1)),
-		Accumulation: int(numberValue(training, "gradient_accumulation", 8)),
-		Iterations:   int(numberValue(training, "iterations", 500)),
-		Formats:      stringSlice(output["formats"]),
-		Image:        stringValue(runtime, "image"),
-		Preview:      boolValue(output, "preview_allowed"),
-		Checkpoint:   stringValue(payload, "selected_checkpoint"),
-		Destination:  stringValue(output, "destination"),
-		S3URI:        stringValue(output, "s3_uri"),
-		S3Endpoint:   stringValue(output, "s3_endpoint"),
+		ExperimentID:       stringValue(payload, "experiment_id"),
+		DatasetID:          stringValue(payload, "dataset_id"),
+		ModelID:            stringValue(model, "id"),
+		Revision:           stringValue(model, "revision"),
+		Template:           stringValue(model, "template"),
+		Method:             stringValue(training, "method"),
+		Epochs:             numberValue(training, "epochs", 3),
+		LearningRate:       numberValue(training, "learning_rate", 0.0002),
+		MaxLength:          int(numberValue(training, "max_length", 2048)),
+		BatchSize:          int(numberValue(training, "batch_size", 1)),
+		Accumulation:       int(numberValue(training, "gradient_accumulation", 8)),
+		Iterations:         int(numberValue(training, "iterations", 500)),
+		Formats:            stringSlice(output["formats"]),
+		Image:              stringValue(runtime, "image"),
+		EnvironmentVersion: stringValue(environment, "version"),
+		EnvironmentBackend: stringValue(environment, "backend"),
+		Preview:            boolValue(output, "preview_allowed"),
+		Checkpoint:         stringValue(payload, "selected_checkpoint"),
+		Destination:        stringValue(output, "destination"),
+		S3URI:              stringValue(output, "s3_uri"),
+		S3Endpoint:         stringValue(output, "s3_endpoint"),
 	}
 	if spec.ExperimentID == "" || spec.DatasetID == "" || spec.ModelID == "" {
 		return runtimeSpec{}, errors.New("训练任务缺少实验、数据或模型信息")

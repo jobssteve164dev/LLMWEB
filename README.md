@@ -1,6 +1,6 @@
 # LLMWEB
 
-LLMWEB 是一个面向个人开发者和小团队的网页训练工作台。用户连接自己控制的 GPU，在同一套网页体验中完成数据检查、模型微调、训练监控、效果评测和模型导出；原始训练数据默认且必须留在用户环境。
+LLMWEB 是一个面向个人开发者和小团队的网页训练工作台。用户连接自己控制的电脑，在同一套网页体验中完成数据检查、模型训练、训练监控、效果评测和模型导出；原始训练数据默认且必须留在用户环境。
 
 ## 首版范围
 
@@ -43,9 +43,11 @@ make web-service
 
 生产部署使用根目录 `compose.yaml`，只运行网页和控制面，并通过 `LLMWEB_DATABASE_URL` 连接部署平台治理的 PostgreSQL。用于本地开发的一体化 PostgreSQL 单独定义在 `compose.local.yaml`，不会作为生产业务服务发布。
 
-## 连接 GPU 主机
+## 连接训练电脑
 
-GPU 主机可以是带可用 NVIDIA 驱动的 Linux x86_64 主机，也可以是 Apple Silicon Mac（包括 M1 Max）。在网页“连接算力”步骤生成一次性安装命令并执行后，脚本会自动识别平台：Linux 使用 Docker/CUDA，Apple Silicon 使用原生 Metal/MPS；随后安装受控训练环境、注册一次性身份并启动后台 Runner，无需先克隆仓库或手动替换目录。
+训练电脑可以是普通 Linux x86_64 CPU 主机、带可用 NVIDIA 驱动的 Linux x86_64 主机，也可以是 Apple Silicon Mac（包括 M1 Max）。在网页“连接算力”步骤生成一次性安装命令并执行后，系统会读取统一训练环境清单，自动选择、下载和验证对应环境，随后注册一次性身份并启动后台 Runner，无需克隆仓库或现场构建训练镜像。
+
+CloudMCP 管理的 GitOps 节点与外部用户电脑消费同一环境版本和内容摘要；中国网络的传输代理属于安装实现，不会成为用户需要配置的第二套流程。发行边界见 [统一训练环境发行与分发](docs/architecture/training-environment-release.md)。
 
 Apple Silicon 当前使用 SFT/LoRA；4 位 QLoRA 依赖 CUDA 量化后端，仅在 Linux NVIDIA GPU 上提供。
 

@@ -5,8 +5,8 @@ CONTROL_URL=""
 REGISTRATION_CODE=""
 SOURCE_REF="main"
 REPOSITORY="jobssteve164dev/LLMWEB"
-INSTALL_ROOT="/opt/llmweb"
-STATE_ROOT="/var/lib/llmweb/state"
+INSTALL_ROOT="${LLMWEB_INSTALL_ROOT:-/opt/llmweb}"
+STATE_ROOT="${LLMWEB_STATE_ROOT:-/var/lib/llmweb/state}"
 RUNTIME_IMAGE="llmweb/runtime:0.1.0"
 CPU_RUNTIME_IMAGE="llmweb/runtime-cpu:0.1.0"
 
@@ -172,7 +172,18 @@ esac
 command -v curl >/dev/null 2>&1 || fail "缺少 curl，无法下载安装文件"
 command -v tar >/dev/null 2>&1 || fail "缺少 tar，无法解压安装文件"
 command -v sha256sum >/dev/null 2>&1 || fail "缺少 sha256sum，无法校验连接程序工具链"
+command -v python3 >/dev/null 2>&1 || fail "缺少 Python 3，无法读取训练环境清单"
 mkdir -p "$INSTALL_ROOT/bin" "$INSTALL_ROOT/source" "$STATE_ROOT"
+if [[ -s "$STATE_ROOT/state.json" ]] && python3 - "$STATE_ROOT/state.json" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    state = json.load(handle)
+raise SystemExit(0 if state.get("device_token") else 1)
+PY
+then
+  fail "这台电脑已经连接到另一个训练工作区，请先在原工作区完成正式解除连接"
+fi
 INSTALL_STAGE_FILE="$STATE_ROOT/install-stage"
 CURRENT_INSTALL_STAGE="base_runtime"
 record_install_stage() {
@@ -191,36 +202,84 @@ start_docker() {
   docker info >/dev/null 2>&1 || fail "Docker 服务未能启动"
 }
 
-if ! command -v docker >/dev/null 2>&1; then
-  say "正在安装 Docker"
-  curl -fsSL https://get.docker.com -o "$INSTALL_ROOT/get-docker.sh"
-  sh "$INSTALL_ROOT/get-docker.sh"
-fi
-start_docker
-
 HAS_NVIDIA=0
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
   HAS_NVIDIA=1
 fi
 
-say "正在下载与 ${PLATFORM} 匹配的连接程序"
-record_install_stage "source_download"
-SOURCE_ARCHIVE_URL="${LLMWEB_SOURCE_ARCHIVE_URL:-https://github.com/${REPOSITORY}/archive/${SOURCE_REF}.tar.gz}"
-curl -fL --retry 3 --retry-all-errors \
-  "$SOURCE_ARCHIVE_URL" \
-  -o "$INSTALL_ROOT/source.tar.gz.download"
-mv "$INSTALL_ROOT/source.tar.gz.download" "$INSTALL_ROOT/source.tar.gz"
-tar -xzf "$INSTALL_ROOT/source.tar.gz" --strip-components=1 -C "$INSTALL_ROOT/source"
+if [[ "$HAS_NVIDIA" -eq 0 ]]; then
+  MANIFEST_URL="${LLMWEB_TRAINING_ENVIRONMENT_MANIFEST_URL:-$CONTROL_URL/api/training-environment/manifest}"
+  MANIFEST_PATH="$INSTALL_ROOT/training-environment.json"
+  record_install_stage "environment_manifest"
+  curl -fL --retry 3 --retry-all-errors "$MANIFEST_URL" -o "$MANIFEST_PATH.download"
+  mv "$MANIFEST_PATH.download" "$MANIFEST_PATH"
+  manifest_value() {
+    python3 - "$MANIFEST_PATH" "$1" <<'PY'
+import json
+import sys
+with open(sys.argv[1], encoding="utf-8") as handle:
+    value = json.load(handle)
+for key in sys.argv[2].split("."):
+    value = value[key]
+print(value)
+PY
+  }
+fi
 
-RUNNER_BINARY_URL="${LLMWEB_RUNNER_BINARY_URL:-https://github.com/${REPOSITORY}/releases/download/llmweb-runner-bec5876f/llmweb-runner-linux-amd64}"
-RUNNER_BINARY_SHA256="5b647a97c9403d443c58415c56e5d3b8217fb0cd28a8ec0d0d6e231353fbb76b"
-say "正在下载已校验的连接程序"
-record_install_stage "runner_download"
-curl -fL --retry 3 --retry-all-errors "$RUNNER_BINARY_URL" \
-  -o "$INSTALL_ROOT/bin/llmweb-runner.download"
-printf '%s  %s\n' "$RUNNER_BINARY_SHA256" "$INSTALL_ROOT/bin/llmweb-runner.download" | sha256sum -c -
-mv "$INSTALL_ROOT/bin/llmweb-runner.download" "$INSTALL_ROOT/bin/llmweb-runner"
-chmod 0755 "$INSTALL_ROOT/bin/llmweb-runner"
+if ! command -v docker >/dev/null 2>&1; then
+  say "正在安装容器运行环境"
+  if [[ "$HAS_NVIDIA" -eq 1 ]]; then
+    curl -fsSL https://get.docker.com -o "$INSTALL_ROOT/get-docker.sh"
+    sh "$INSTALL_ROOT/get-docker.sh"
+  else
+    HOST_RUNTIME_ASSET="$(manifest_value linux_host_runtime.asset)"
+    HOST_RUNTIME_SHA256="$(manifest_value linux_host_runtime.sha256)"
+    GATEWAY_BASE="${LLMWEB_TRAINING_ENVIRONMENT_ASSET_BASE_URL:-$CONTROL_URL/api/training-environment/assets}"
+    HOST_RUNTIME_ARCHIVE="$INSTALL_ROOT/$HOST_RUNTIME_ASSET"
+    record_install_stage "host_runtime"
+    curl -fL -C - --retry 3 --retry-all-errors "$GATEWAY_BASE/$HOST_RUNTIME_ASSET" -o "$HOST_RUNTIME_ARCHIVE.download"
+    printf '%s  %s\n' "$HOST_RUNTIME_SHA256" "$HOST_RUNTIME_ARCHIVE.download" | sha256sum -c -
+    mv "$HOST_RUNTIME_ARCHIVE.download" "$HOST_RUNTIME_ARCHIVE"
+    tar -xzf "$HOST_RUNTIME_ARCHIVE" --strip-components=1 -C /usr/local/bin
+    cat > /etc/systemd/system/docker.service <<'EOF'
+[Unit]
+Description=Docker Application Container Engine
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/dockerd --host=unix:///var/run/docker.sock
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+  fi
+fi
+start_docker
+
+if [[ "$HAS_NVIDIA" -eq 1 ]]; then
+  say "正在下载与 ${PLATFORM} 匹配的连接程序"
+  record_install_stage "source_download"
+  SOURCE_ARCHIVE_URL="${LLMWEB_SOURCE_ARCHIVE_URL:-https://github.com/${REPOSITORY}/archive/${SOURCE_REF}.tar.gz}"
+  curl -fL --retry 3 --retry-all-errors \
+    "$SOURCE_ARCHIVE_URL" \
+    -o "$INSTALL_ROOT/source.tar.gz.download"
+  mv "$INSTALL_ROOT/source.tar.gz.download" "$INSTALL_ROOT/source.tar.gz"
+  tar -xzf "$INSTALL_ROOT/source.tar.gz" --strip-components=1 -C "$INSTALL_ROOT/source"
+
+  RUNNER_BINARY_URL="${LLMWEB_RUNNER_BINARY_URL:-https://github.com/${REPOSITORY}/releases/download/llmweb-runner-bec5876f/llmweb-runner-linux-amd64}"
+  RUNNER_BINARY_SHA256="5b647a97c9403d443c58415c56e5d3b8217fb0cd28a8ec0d0d6e231353fbb76b"
+  say "正在下载已校验的连接程序"
+  record_install_stage "runner_download"
+  curl -fL --retry 3 --retry-all-errors "$RUNNER_BINARY_URL" \
+    -o "$INSTALL_ROOT/bin/llmweb-runner.download"
+  printf '%s  %s\n' "$RUNNER_BINARY_SHA256" "$INSTALL_ROOT/bin/llmweb-runner.download" | sha256sum -c -
+  mv "$INSTALL_ROOT/bin/llmweb-runner.download" "$INSTALL_ROOT/bin/llmweb-runner"
+  chmod 0755 "$INSTALL_ROOT/bin/llmweb-runner"
+fi
 
 TARGET_USER="${SUDO_USER:-root}"
 TARGET_HOME="$(getent passwd "$TARGET_USER" 2>/dev/null | cut -d: -f6 || true)"
@@ -231,15 +290,6 @@ mkdir -p "$DATA_ROOT" "$OUTPUT_ROOT"
 if [[ "$TARGET_USER" != "root" ]]; then
   chown "$TARGET_USER":"$TARGET_USER" "$DATA_ROOT" "$OUTPUT_ROOT"
 fi
-
-say "正在注册这台训练主机"
-record_install_stage "runner_register"
-"$INSTALL_ROOT/bin/llmweb-runner" register \
-  --url "$CONTROL_URL" \
-  --code "$REGISTRATION_CODE" \
-  --data-root "$DATA_ROOT" \
-  --output-root "$OUTPUT_ROOT" \
-  --state-dir "$STATE_ROOT"
 
 install_nvidia_toolkit() {
   say "正在安装 NVIDIA 容器运行环境"
@@ -283,83 +333,64 @@ if [[ "$HAS_NVIDIA" -eq 1 ]]; then
   docker run --rm --gpus all "$RUNTIME_IMAGE" nvidia-smi >/dev/null \
     || fail "训练环境无法使用 NVIDIA GPU，请检查驱动与 NVIDIA Container Toolkit"
 else
-  NANOGPT_SOURCE_URL="${LLMWEB_NANOGPT_SOURCE_URL:-https://github.com/karpathy/nanoGPT/archive/3adf61e154c3fe3fca428ad6bc3818b27a3b8291.tar.gz}"
-  NANOGPT_REF="3adf61e154c3fe3fca428ad6bc3818b27a3b8291"
-  NANOGPT_SOURCE_PATH="$INSTALL_ROOT/source/runtime/nanogpt-$NANOGPT_REF"
-  NANOGPT_ARCHIVE_PATH="$INSTALL_ROOT/source/runtime/nanogpt-$NANOGPT_REF.tar.gz"
-  TORCH_WHEEL_URL="${LLMWEB_TORCH_WHEEL_URL:-https://download-r2.pytorch.org/whl/cpu/torch-2.8.0%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl}"
-  TORCH_WHEEL_PATH="$INSTALL_ROOT/source/runtime/torch-2.8.0+cpu-cp311-cp311-manylinux_2_28_x86_64.whl"
-  TORCH_WHEEL_DOWNLOAD="$TORCH_WHEEL_PATH.download"
-  TORCH_WHEEL_SHA256="cb06175284673a581dd91fb1965662ae4ecaba6e5c357aa0ea7bb8b84b6b7eeb"
-  PYTHON_WHEELS_PATH="$INSTALL_ROOT/source/runtime/python-wheels"
-  mkdir -p "$PYTHON_WHEELS_PATH"
-  download_python_wheel() {
-    local filename="$1"
-    local url="$2"
-    local expected_sha256="$3"
-    local target="$PYTHON_WHEELS_PATH/$filename"
-    if ! printf '%s  %s\n' "$expected_sha256" "$target" | sha256sum -c - >/dev/null 2>&1; then
-      curl -fL --retry 3 --retry-all-errors "$url" -o "$target.download"
-      printf '%s  %s\n' "$expected_sha256" "$target.download" | sha256sum -c -
-      mv "$target.download" "$target"
-    fi
-  }
+  TRAINING_ENVIRONMENT_VERSION="$(manifest_value version)"
+  [[ "$(manifest_value variants.linux-amd64-cpu.status)" == "available" ]] || fail "当前训练环境暂不支持这台普通电脑"
+  MINIMUM_CPU_CORES="$(manifest_value variants.linux-amd64-cpu.minimum.cpu_cores)"
+  MINIMUM_MEMORY_MB="$(manifest_value variants.linux-amd64-cpu.minimum.memory_mb)"
+  MINIMUM_DISK_MB="$(manifest_value variants.linux-amd64-cpu.minimum.disk_free_mb)"
+  CURRENT_CPU_CORES="$(getconf _NPROCESSORS_ONLN)"
+  CURRENT_MEMORY_MB="$(awk '/MemTotal:/ { print int($2 / 1024) }' /proc/meminfo)"
+  CURRENT_DISK_MB="$(df -Pm / | awk 'NR == 2 { print $4 }')"
+  (( CURRENT_CPU_CORES >= MINIMUM_CPU_CORES )) || fail "这台电脑至少需要 ${MINIMUM_CPU_CORES} 核处理器"
+  (( CURRENT_MEMORY_MB >= MINIMUM_MEMORY_MB )) || fail "这台电脑至少需要约 8GB 内存"
+  (( CURRENT_DISK_MB >= MINIMUM_DISK_MB )) || fail "这台电脑至少需要 20GB 可用空间"
+
+  RUNNER_ASSET="$(manifest_value runner.asset)"
+  RUNNER_BINARY_SHA256="$(manifest_value runner.sha256)"
+  RUNTIME_ASSET="$(manifest_value variants.linux-amd64-cpu.artifact.asset)"
+  RUNTIME_SHA256="$(manifest_value variants.linux-amd64-cpu.artifact.sha256)"
+  CPU_RUNTIME_IMAGE="$(manifest_value variants.linux-amd64-cpu.image)"
+  EXPECTED_IMAGE_ID="$(manifest_value variants.linux-amd64-cpu.image_id)"
+  GATEWAY_BASE="${LLMWEB_TRAINING_ENVIRONMENT_ASSET_BASE_URL:-$CONTROL_URL/api/training-environment/assets}"
+
+  say "正在下载已校验的连接程序"
+  record_install_stage "runner_download"
+  curl -fL -C - --retry 3 --retry-all-errors "$GATEWAY_BASE/$RUNNER_ASSET" -o "$INSTALL_ROOT/bin/llmweb-runner.download"
+  printf '%s  %s\n' "$RUNNER_BINARY_SHA256" "$INSTALL_ROOT/bin/llmweb-runner.download" | sha256sum -c -
+  mv "$INSTALL_ROOT/bin/llmweb-runner.download" "$INSTALL_ROOT/bin/llmweb-runner"
+  chmod 0755 "$INSTALL_ROOT/bin/llmweb-runner"
+
+  say "正在下载统一训练环境"
   record_install_stage "runtime_asset"
-  if ! printf '%s  %s\n' "$TORCH_WHEEL_SHA256" "$TORCH_WHEEL_PATH" | sha256sum -c - >/dev/null 2>&1; then
-    curl -fL -C - --retry 3 --retry-all-errors "$TORCH_WHEEL_URL" -o "$TORCH_WHEEL_DOWNLOAD"
-    printf '%s  %s\n' "$TORCH_WHEEL_SHA256" "$TORCH_WHEEL_DOWNLOAD" | sha256sum -c -
-    mv "$TORCH_WHEEL_DOWNLOAD" "$TORCH_WHEEL_PATH"
-  fi
-  if [[ ! -f "$NANOGPT_SOURCE_PATH/model.py" || ! -f "$NANOGPT_SOURCE_PATH/train.py" ]]; then
-    curl -fL --retry 3 --retry-all-errors "$NANOGPT_SOURCE_URL" -o "$NANOGPT_ARCHIVE_PATH.download"
-    mv "$NANOGPT_ARCHIVE_PATH.download" "$NANOGPT_ARCHIVE_PATH"
-    mkdir -p "$NANOGPT_SOURCE_PATH"
-    tar -xzf "$NANOGPT_ARCHIVE_PATH" --strip-components=1 -C "$NANOGPT_SOURCE_PATH"
-    [[ -f "$NANOGPT_SOURCE_PATH/model.py" && -f "$NANOGPT_SOURCE_PATH/train.py" ]] \
-      || fail "训练项目源码没有准备完整"
-  fi
-  download_python_wheel "filelock-3.20.3-py3-none-any.whl" \
-    "${LLMWEB_FILELOCK_WHEEL_URL:-https://files.pythonhosted.org/packages/b5/36/7fb70f04bf00bc646cd5bb45aa9eddb15e19437a28b8fb2b4a5249fac770/filelock-3.20.3-py3-none-any.whl}" \
-    "4b0dda527ee31078689fc205ec4f1c1bf7d56cf88b6dc9426c4f230e46c2dce1"
-  download_python_wheel "typing_extensions-4.14.1-py3-none-any.whl" \
-    "${LLMWEB_TYPING_EXTENSIONS_WHEEL_URL:-https://files.pythonhosted.org/packages/b5/00/d631e67a838026495268c2f6884f3711a15a9a2a96cd244fdaea53b823fb/typing_extensions-4.14.1-py3-none-any.whl}" \
-    "d1e1e3b58374dc93031d6eda2420a48ea44a36c2b4766a4fdeb3710755731d76"
-  download_python_wheel "setuptools-80.9.0-py3-none-any.whl" \
-    "${LLMWEB_SETUPTOOLS_WHEEL_URL:-https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl}" \
-    "062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922"
-  download_python_wheel "sympy-1.14.0-py3-none-any.whl" \
-    "${LLMWEB_SYMPY_WHEEL_URL:-https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl}" \
-    "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5"
-  download_python_wheel "networkx-3.5-py3-none-any.whl" \
-    "${LLMWEB_NETWORKX_WHEEL_URL:-https://files.pythonhosted.org/packages/eb/8d/776adee7bbf76365fdd7f2552710282c79a4ead5d2a46408c9043a2b70ba/networkx-3.5-py3-none-any.whl}" \
-    "0030d386a9a06dee3565298b4a734b68589749a544acbb6c412dc9e2489ec6ec"
-  download_python_wheel "jinja2-3.1.6-py3-none-any.whl" \
-    "${LLMWEB_JINJA2_WHEEL_URL:-https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl}" \
-    "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"
-  download_python_wheel "fsspec-2025.7.0-py3-none-any.whl" \
-    "${LLMWEB_FSSPEC_WHEEL_URL:-https://files.pythonhosted.org/packages/2f/e0/014d5d9d7a4564cf1c40b5039bc882db69fd881111e03ab3657ac0b218e2/fsspec-2025.7.0-py3-none-any.whl}" \
-    "8b012e39f63c7d5f10474de957f3ab793b47b45ae7d39f2fb735f8bbe25c0e21"
-  download_python_wheel "mpmath-1.3.0-py3-none-any.whl" \
-    "${LLMWEB_MPMATH_WHEEL_URL:-https://files.pythonhosted.org/packages/43/e3/7d92a15f894aa0c9c4b49b8ee9ac9850d6e63b03c9c32c0367a13ae62209/mpmath-1.3.0-py3-none-any.whl}" \
-    "a0b2b9fe80bbcd81a6647ff13108738cfb482d481d826cc0e02f5b35e5c88d2c"
-  download_python_wheel "MarkupSafe-3.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl" \
-    "${LLMWEB_MARKUPSAFE_WHEEL_URL:-https://files.pythonhosted.org/packages/f1/a4/aefb044a2cd8d7334c8a47d3fb2c9f328ac48cb349468cc31c20b539305f/MarkupSafe-3.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl}" \
-    "a123e330ef0853c6e822384873bef7507557d8e4a082961e1defa947aa59ba84"
-  record_install_stage "runtime_image"
-  docker build --platform "$PLATFORM" \
-    -t "$CPU_RUNTIME_IMAGE" \
-    -f "$INSTALL_ROOT/source/runtime/Dockerfile.cpu" \
-    "$INSTALL_ROOT/source"
+  RUNTIME_ARCHIVE="$INSTALL_ROOT/$RUNTIME_ASSET"
+  curl -fL -C - --retry 3 --retry-all-errors "$GATEWAY_BASE/$RUNTIME_ASSET" -o "$RUNTIME_ARCHIVE.download"
+  printf '%s  %s\n' "$RUNTIME_SHA256" "$RUNTIME_ARCHIVE.download" | sha256sum -c -
+  mv "$RUNTIME_ARCHIVE.download" "$RUNTIME_ARCHIVE"
+  record_install_stage "runtime_load"
+  docker load -i "$RUNTIME_ARCHIVE" >/dev/null
+  ACTUAL_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CPU_RUNTIME_IMAGE")"
+  [[ "$ACTUAL_IMAGE_ID" == "$EXPECTED_IMAGE_ID" ]] || fail "训练环境内容校验失败"
   docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/null \
     || fail "普通电脑训练环境没有通过自检"
 fi
+
+say "正在注册这台训练主机"
+record_install_stage "runner_register"
+LLMWEB_TRAINING_ENVIRONMENT_VERSION="${TRAINING_ENVIRONMENT_VERSION:-legacy-0.1.0}" \
+  "$INSTALL_ROOT/bin/llmweb-runner" register \
+    --url "$CONTROL_URL" \
+    --code "$REGISTRATION_CODE" \
+    --data-root "$DATA_ROOT" \
+    --output-root "$OUTPUT_ROOT" \
+    --state-dir "$STATE_ROOT"
 
 command -v systemctl >/dev/null 2>&1 || fail "当前系统不支持 systemd，无法安装后台连接服务"
 [[ -d /run/systemd/system ]] || fail "systemd 当前未运行，无法安装后台连接服务"
 
 say "正在启动后台连接服务"
 record_install_stage "service_install"
-cat > /etc/systemd/system/llmweb-runner.service <<EOF
+SYSTEMD_UNIT_PATH="${LLMWEB_SYSTEMD_UNIT_PATH:-/etc/systemd/system/llmweb-runner.service}"
+cat > "$SYSTEMD_UNIT_PATH" <<EOF
 [Unit]
 Description=LLMWEB Training Runner
 After=docker.service network-online.target
@@ -368,6 +399,7 @@ Requires=docker.service
 
 [Service]
 Type=simple
+Environment=LLMWEB_TRAINING_ENVIRONMENT_VERSION=${TRAINING_ENVIRONMENT_VERSION:-legacy-0.1.0}
 ExecStart=$INSTALL_ROOT/bin/llmweb-runner connect --state-dir $STATE_ROOT
 Restart=always
 RestartSec=5

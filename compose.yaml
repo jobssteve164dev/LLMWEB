@@ -9,7 +9,7 @@ services:
       LLMWEB_WEB_TOKEN: ${LLMWEB_WEB_TOKEN:-local-dev-token}
       LLMWEB_LEGACY_OWNER_EMAIL: ${LLMWEB_LEGACY_OWNER_EMAIL:-}
       LLMWEB_PUBLIC_URL: ${LLMWEB_PUBLIC_URL:-http://localhost:8000}
-      LLMWEB_RUNNER_INSTALLER_URL: ${LLMWEB_RUNNER_INSTALLER_URL:-https://raw.githubusercontent.com/jobssteve164dev/LLMWEB/main/scripts/install-runner.sh}
+      LLMWEB_RUNNER_INSTALLER_URL: ${LLMWEB_RUNNER_INSTALLER_URL:-https://llmweb.szlk.ai/install-runner.sh}
       LLMWEB_RUNNER_SOURCE_REF: ${LLMWEB_RUNNER_SOURCE_REF:-main}
       LLMWEB_CLOUDMCP_BRIDGE_CLIENT_ID: ${LLMWEB_CLOUDMCP_BRIDGE_CLIENT_ID:-}
       LLMWEB_CLOUDMCP_BRIDGE_CLIENT_SECRET: ${LLMWEB_CLOUDMCP_BRIDGE_CLIENT_SECRET:-}
@@ -43,6 +43,7 @@ services:
       PASSPORT_PRODUCT: ${PASSPORT_PRODUCT:-llmweb}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
       SZLKLAWS_BASE_URL: ${SZLKLAWS_BASE_URL:-https://laws.szlk.ai}
+      LLMWEB_TRAINING_ENVIRONMENT_VERSION: ${LLMWEB_TRAINING_ENVIRONMENT_VERSION:-0.2.0}
     depends_on:
       - control-plane
     ports:

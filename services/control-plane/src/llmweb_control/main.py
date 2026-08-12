@@ -479,6 +479,14 @@ def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict
         raise HTTPException(status_code=400, detail="Apple Silicon 当前使用 Metal/MPS LoRA；4 位 QLoRA 需要 CUDA 量化后端")
 
     is_starter = body.method == "starter"
+    installed_environment_version = runner.capabilities.get("training_environment_version")
+    if not isinstance(installed_environment_version, str) or not installed_environment_version:
+        installed_environment_version = "legacy-0.1.0"
+    environment_backend = {
+        "docker_cpu": "linux-amd64-cpu",
+        "docker_cuda": "linux-amd64-cuda",
+        "native_mps": "darwin-arm64-mps",
+    }.get(backend, backend or "unknown")
     model = {
         "source": "github" if is_starter else "huggingface",
         "id": body.model_id,
@@ -522,8 +530,13 @@ def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict
         "training": training,
         "runtime": {
             "engine": "nanogpt" if is_starter else "llamafactory",
-            "image": "llmweb/runtime-cpu:0.1.0" if is_starter else "llmweb/runtime:0.1.0",
+            "image": (
+                f"llmweb/runtime-cpu:{installed_environment_version}"
+                if is_starter and installed_environment_version != "legacy-0.1.0"
+                else "llmweb/runtime-cpu:0.1.0" if is_starter else "llmweb/runtime:0.1.0"
+            ),
         },
+        "environment": {"version": installed_environment_version, "backend": environment_backend},
     }
     jobs = []
     for sequence, kind in enumerate(("baseline", "train", "evaluate", "export")):

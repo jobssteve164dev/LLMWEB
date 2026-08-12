@@ -8,6 +8,7 @@
     "lint:web": "pnpm --filter @llmweb/web lint",
     "typecheck:web": "pnpm --filter @llmweb/web typecheck",
     "check:plan-single-track": "node scripts/check-plan-single-track.mjs",
-    "check": "pnpm check:plan-single-track && pnpm lint:web && pnpm typecheck:web && pnpm build:web"
+    "check:training-environment": "bash -n scripts/install-runner.sh scripts/build-training-environment-release.sh && node scripts/check-training-environment.mjs",
+    "check": "pnpm check:plan-single-track && pnpm check:training-environment && pnpm lint:web && pnpm typecheck:web && pnpm build:web"
   }
 }

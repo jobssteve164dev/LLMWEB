@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     web_token: str = "local-dev-token"
     legacy_owner_email: str | None = None
     public_url: str = "http://localhost:8000"
-    runner_installer_url: str = "https://raw.githubusercontent.com/jobssteve164dev/LLMWEB/main/scripts/install-runner.sh"
+    runner_installer_url: str = "https://llmweb.szlk.ai/install-runner.sh"
     runner_source_ref: str = "main"
     pairing_ttl_minutes: int = 120
     runner_offline_seconds: int = 45

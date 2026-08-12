@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://llmweb.local/contracts/training-environment.schema.json",
+  "title": "LLMWEB Training Environment Release",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "version", "source_revision", "runner", "linux_host_runtime", "variants"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "source_revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "runner": { "$ref": "#/$defs/artifact" },
+    "linux_host_runtime": { "$ref": "#/$defs/artifact" },
+    "variants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["linux-amd64-cpu", "linux-amd64-cuda", "darwin-arm64-mps"],
+      "properties": {
+        "linux-amd64-cpu": { "$ref": "#/$defs/variant" },
+        "linux-amd64-cuda": { "$ref": "#/$defs/variant" },
+        "darwin-arm64-mps": { "$ref": "#/$defs/variant" }
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset", "sha256"],
+      "properties": {
+        "asset": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "minimum"],
+      "properties": {
+        "status": { "enum": ["available", "unavailable"] },
+        "minimum": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cpu_cores", "memory_mb", "disk_free_mb"],
+          "properties": {
+            "cpu_cores": { "type": "integer", "minimum": 1 },
+            "memory_mb": { "type": "integer", "minimum": 1 },
+            "disk_free_mb": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "image": { "type": "string", "minLength": 1 },
+        "image_id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "available" } } },
+          "then": { "required": ["artifact", "image", "image_id"] },
+          "else": { "required": ["reason"] }
+        }
+      ]
+    }
+  }
+}

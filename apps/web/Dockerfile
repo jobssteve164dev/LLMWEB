@@ -17,6 +17,7 @@ FROM base AS builder
 COPY --from=deps /app /app
 COPY apps/web /app/apps/web
 COPY packages/passport-client /app/packages/passport-client
+COPY scripts/install-runner.sh /app/scripts/install-runner.sh
 RUN pnpm build:web
 
 FROM --platform=$TARGETPLATFORM node:22-bookworm-slim AS runner
@@ -29,6 +30,7 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY --from=builder /app/apps/web/.next/standalone ./
 COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
 
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]

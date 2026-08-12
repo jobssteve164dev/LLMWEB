@@ -20,6 +20,11 @@ coverage.out
 !.env.example
 .artifacts/
 .runner/
+/apps/web/public/install-runner.sh
+/runtime/*.whl
+/runtime/nanogpt-*.tar.gz
+/runtime/nanogpt-*/
+/runtime/python-wheels/
 
 # Editors and operating systems
 .DS_Store

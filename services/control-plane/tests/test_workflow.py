@@ -65,7 +65,7 @@ def test_complete_local_training_workflow() -> None:
         project_id = project_response.json()["id"]
 
         pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
-        assert pairing["command"].startswith("curl -fsSL https://raw.githubusercontent.com/jobssteve164dev/LLMWEB/main/scripts/install-runner.sh | sudo bash -s --")
+        assert pairing["command"].startswith("curl -fsSL https://llmweb.szlk.ai/install-runner.sh | sudo bash -s --")
         assert f"--url {get_settings().public_url} --code {pairing['code']}" in pairing["command"]
         pair_response = client.post(
             "/v1/runners/pair",
@@ -282,6 +282,7 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
                 "capabilities": {
                     "ready": True, "backend": "docker_cpu", "cpu_cores": 4,
                     "memory_total_mb": 8192, "disk_free_mb": 10 * 1024,
+                    "training_environment_version": "0.2.0",
                 },
             },
         )
@@ -311,7 +312,10 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
         assert "不足 20GB" in insufficient_disk.json()["detail"]
         client.post(
             "/v1/runners/heartbeat", headers=runner_headers,
-            json={"capabilities": {"ready": True, "backend": "docker_cpu", "disk_free_mb": 80 * 1024}},
+            json={"capabilities": {
+                "ready": True, "backend": "docker_cpu", "disk_free_mb": 80 * 1024,
+                "training_environment_version": "0.2.0",
+            }},
         )
         experiment_response = client.post(
             "/v1/experiments",
@@ -320,7 +324,8 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
         )
         assert experiment_response.status_code == 201, experiment_response.text
         baseline = client.post("/v1/runners/jobs/lease", headers=runner_headers).json()
-        assert baseline["payload"]["runtime"] == {"engine": "nanogpt", "image": "llmweb/runtime-cpu:0.1.0"}
+        assert baseline["payload"]["runtime"] == {"engine": "nanogpt", "image": "llmweb/runtime-cpu:0.2.0"}
+        assert baseline["payload"]["environment"] == {"version": "0.2.0", "backend": "linux-amd64-cpu"}
         assert baseline["payload"]["training"]["iterations"] == 500
 
 

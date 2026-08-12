@@ -65,18 +65,19 @@ func Pair(ctx context.Context, baseURL, code, name string, report capabilities.R
 
 func capabilityPayload(report capabilities.Report) map[string]any {
 	return map[string]any{
-		"ready":            report.Ready(),
-		"operating_system": report.OperatingSystem,
-		"architecture":     report.Architecture,
-		"backend":          report.Backend,
-		"cpu_cores":        report.CPUCores,
-		"memory_total_mb":  report.MemoryTotalMB,
-		"disk_total_mb":    report.DiskTotalMB,
-		"disk_free_mb":     report.DiskFreeMB,
-		"docker_available": report.DockerAvailable,
-		"nvidia_available": report.NvidiaAvailable,
-		"mps_available":    report.MPSAvailable,
-		"gpus":             report.GPUs,
+		"ready":                        report.Ready(),
+		"operating_system":             report.OperatingSystem,
+		"architecture":                 report.Architecture,
+		"backend":                      report.Backend,
+		"cpu_cores":                    report.CPUCores,
+		"memory_total_mb":              report.MemoryTotalMB,
+		"disk_total_mb":                report.DiskTotalMB,
+		"disk_free_mb":                 report.DiskFreeMB,
+		"training_environment_version": report.EnvironmentVersion,
+		"docker_available":             report.DockerAvailable,
+		"nvidia_available":             report.NvidiaAvailable,
+		"mps_available":                report.MPSAvailable,
+		"gpus":                         report.GPUs,
 	}
 }
 

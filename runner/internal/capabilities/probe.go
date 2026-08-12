@@ -22,17 +22,18 @@ type GPU struct {
 }
 
 type Report struct {
-	OperatingSystem string `json:"operating_system"`
-	Architecture    string `json:"architecture"`
-	Backend         string `json:"backend"`
-	CPUCores        int    `json:"cpu_cores"`
-	MemoryTotalMB   int    `json:"memory_total_mb"`
-	DiskTotalMB     int    `json:"disk_total_mb"`
-	DiskFreeMB      int    `json:"disk_free_mb"`
-	DockerAvailable bool   `json:"docker_available"`
-	NvidiaAvailable bool   `json:"nvidia_available"`
-	MPSAvailable    bool   `json:"mps_available"`
-	GPUs            []GPU  `json:"gpus"`
+	OperatingSystem    string `json:"operating_system"`
+	Architecture       string `json:"architecture"`
+	Backend            string `json:"backend"`
+	CPUCores           int    `json:"cpu_cores"`
+	MemoryTotalMB      int    `json:"memory_total_mb"`
+	DiskTotalMB        int    `json:"disk_total_mb"`
+	DiskFreeMB         int    `json:"disk_free_mb"`
+	EnvironmentVersion string `json:"training_environment_version,omitempty"`
+	DockerAvailable    bool   `json:"docker_available"`
+	NvidiaAvailable    bool   `json:"nvidia_available"`
+	MPSAvailable       bool   `json:"mps_available"`
+	GPUs               []GPU  `json:"gpus"`
 }
 
 type commandLookup func(string) (string, error)
@@ -42,6 +43,7 @@ func Probe(ctx context.Context) Report {
 	report.CPUCores = runtime.NumCPU()
 	report.MemoryTotalMB = probeMemoryTotalMB()
 	report.DiskTotalMB, report.DiskFreeMB = probeDiskMB("/")
+	report.EnvironmentVersion = os.Getenv("LLMWEB_TRAINING_ENVIRONMENT_VERSION")
 	if report.DockerAvailable {
 		command := exec.CommandContext(ctx, "docker", "info", "--format", "{{.ServerVersion}}")
 		report.DockerAvailable = command.Run() == nil

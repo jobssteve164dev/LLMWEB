@@ -18,6 +18,7 @@ export type Runner = {
     memory_total_mb?: number;
     disk_total_mb?: number;
     disk_free_mb?: number;
+    training_environment_version?: string;
     mps_available?: boolean;
     gpus?: Array<{ name: string; memory_total_mb: number; memory_free_mb: number; utilization_percent?: number; temperature_c?: number; shared_memory?: boolean }>;
   };
