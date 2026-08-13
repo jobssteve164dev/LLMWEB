@@ -1,3 +1,15 @@
+x-gitops:
+  public_entry:
+    service: web
+    container_port: 3000
+    healthcheck:
+      path: /api/health
+      expected_json:
+        service: llmweb-web
+  services:
+    control-plane:
+      exposure: internal
+
 services:
   control-plane:
     image: llmweb-control-plane:latest
