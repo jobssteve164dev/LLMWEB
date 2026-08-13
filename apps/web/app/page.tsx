@@ -5,14 +5,14 @@ import { getLlmwebPlanTruth } from "./lib/passport";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "用自己的 GPU 完成大语言模型微调、评测与导出",
+  title: "用自己的电脑完成第一次模型训练与进阶微调",
   description: "LLMWEB 把数据准备、SFT/LoRA/QLoRA 微调、同测试集评测和模型导出放进一个网页工作台，原始训练数据默认留在你的环境。",
   alternates: { canonical: "/" },
 };
 
 const workflow = [
   ["定义目标", "先写清模型要完成的任务，以及怎样才算成功。"],
-  ["连接算力", "用一次性命令连接 Linux NVIDIA GPU 或 Apple Silicon Mac。"],
+  ["连接算力", "用一次性命令连接普通 Ubuntu 电脑、Linux NVIDIA GPU 或 Apple Silicon Mac。"],
   ["准备数据", "在你的环境中检查格式、重复、长度、切分与泄漏风险。"],
   ["设置训练", "选择模型与速度、质量偏好，系统给出可执行方案。"],
   ["比较结果", "用同一测试集比较基础模型、checkpoint 与微调模型。"],
@@ -20,8 +20,8 @@ const workflow = [
 ] as const;
 
 const faqs = [
-  ["LLMWEB 会上传我的原始训练数据吗？", "默认不会。数据检查、训练和评测在你连接的 GPU 主机上执行；网页只接收统计、进度、指标和你主动授权的少量预览。"],
-  ["我需要准备什么环境？", "可以使用带 NVIDIA GPU 和 Docker 的 Linux x86_64 主机，也可以使用 Apple Silicon Mac。M1 Max 及其他 M 系列芯片通过原生 Metal/MPS 运行。"],
+  ["LLMWEB 会上传我的原始训练数据吗？", "默认不会。数据检查、训练和评测在你连接的电脑上执行；网页只接收统计、进度、指标和你主动授权的少量预览。"],
+  ["我需要准备什么环境？", "第一次练习可使用 4 核 8G、至少 20GB 可用空间的 Ubuntu 普通电脑；进阶微调可使用 Linux NVIDIA GPU 或 Apple Silicon Mac。"],
   ["支持哪些微调方式？", "支持文本 SFT 与 LoRA；Linux NVIDIA GPU 还支持 4 位 QLoRA。Apple Silicon 使用原生 Metal/MPS LoRA，并提供固定版本的 Qwen2.5 0.5B、1.5B 与 3B 指令模型。"],
   ["怎样判断微调真的有效？", "LLMWEB 会先建立基础模型基线，再用同一测试集复测候选模型；页面同时展示质量变化、推理性能和失败样本，避免只看一条损失曲线。"],
   ["LLMWEB 会托管训练后的模型吗？", "默认不会。模型权重、checkpoint 和导出产物保存在你的 GPU 主机或你自己的 S3 兼容存储中，平台只保留版本、指标和产物引用。"],
@@ -37,8 +37,8 @@ export default async function HomePage() {
     "@type": "SoftwareApplication",
     name: "LLMWEB",
     applicationCategory: "DeveloperApplication",
-    operatingSystem: "Web; Linux x86_64 with NVIDIA GPU and Docker; macOS on Apple Silicon",
-    description: "连接用户自己控制的 GPU，在网页中完成数据准备、大语言模型微调、同测试集评测和模型导出。",
+    operatingSystem: "Web; Linux x86_64 CPU or NVIDIA GPU with Docker; macOS on Apple Silicon",
+    description: "连接用户自己控制的电脑，在网页中完成入门训练、数据准备、大语言模型微调、同测试集评测和模型导出。",
     featureList: ["SFT、LoRA 与 QLoRA", "本地数据检查", "训练前后同测试集评测", "Adapter、Hugging Face 与 GGUF 导出"],
     ...(plan ? { offers: { "@type": "Offer", price: (plan.amountCents / 100).toFixed(2), priceCurrency: plan.currency.toUpperCase(), availability: "https://schema.org/InStock", url: "https://llmweb.szlk.ai/#pricing" } } : {}),
   };
@@ -73,14 +73,14 @@ export default async function HomePage() {
 
       <section className="landingHero">
         <div className="heroCopy">
-          <p className="landingEyebrow"><span /> 自带 GPU 的模型微调工作台</p>
+          <p className="landingEyebrow"><span /> 从普通电脑入门的模型训练工作台</p>
           <h1>把一次模型微调，<br />变成一条清晰的网页流程。</h1>
-          <p className="heroLead">连接你自己控制的 GPU，在一个网页中完成数据检查、SFT / LoRA / QLoRA 微调、训练前后评测和模型导出。原始训练数据默认留在你的环境。</p>
+          <p className="heroLead">先用一台 4 核 8G Ubuntu 电脑完成第一次模型训练；有 GPU 时，再继续进行 SFT / LoRA / QLoRA 微调。数据检查、训练前后评测和模型导出都在同一条网页流程中完成。</p>
           <div className="heroActions">
             <Link className="landingPrimary" href="/workbench/project">开始建立训练项目 <span aria-hidden="true">→</span></Link>
             <a className="landingSecondary" href="#workflow">查看完整流程</a>
           </div>
-          <p className="heroRequirement">适用于 Linux NVIDIA GPU · Apple Silicon（含 M1 Max）</p>
+          <p className="heroRequirement">入门：Ubuntu 4 核 8G · 进阶：Linux NVIDIA GPU 或 Apple Silicon</p>
         </div>
 
         <div className="productPreview" aria-label="LLMWEB 工作台流程预览">
@@ -145,12 +145,12 @@ export default async function HomePage() {
         <div className="boundaryDiagram" aria-label="LLMWEB 数据流说明">
           <article><span>网页工作台</span><strong>目标 · 状态 · 指标</strong><small>不保存原始训练数据</small></article>
           <div><i /><b>出站连接</b><i /></div>
-          <article className="local"><span>你的 GPU 环境</span><strong>数据 · 训练 · 模型</strong><small>你控制主机与存储位置</small></article>
+          <article className="local"><span>你的训练电脑</span><strong>数据 · 训练 · 模型</strong><small>你控制主机与存储位置</small></article>
         </div>
       </section>
 
       <section className="landingSection pricingSection" id="pricing">
-        <header className="landingSectionHeader compact"><p>简单透明的方案</p><h2>算力属于你，订阅只为更顺畅的训练管理。</h2><span>两个方案都使用你自己的 GPU 和存储；LLMWEB 不收取训练时长或算力费用。</span></header>
+        <header className="landingSectionHeader compact"><p>简单透明的方案</p><h2>算力属于你，订阅只为更顺畅的训练管理。</h2><span>两个方案都使用你自己的电脑和存储；LLMWEB 不收取训练时长或算力费用。</span></header>
         {plan ? <div className="pricingGrid">
           <article><span>{plan.metadata.freeTier.name.zh}</span><h3>${(plan.metadata.freeTier.amountCents / 100).toFixed(0)}</h3><p>{plan.metadata.freeTier.summary.zh}</p><strong>{plan.metadata.quotas.projects.free} 个活跃项目</strong><Link className="landingSecondary" href="/workbench/project">开始使用</Link></article>
           <article className="featuredPrice"><span>{plan.metadata.customerDisplay.zh.offerLabel}</span><h3>${(plan.amountCents / 100).toFixed(0)} <small>{plan.metadata.customerDisplay.zh.billingSuffix}</small></h3><p>{plan.metadata.customerDisplay.zh.summary}</p><strong>{plan.metadata.quotas.projects.paid} 个活跃项目</strong><Link className="landingPrimary" href="/api/billing/checkout">升级 Pro <span aria-hidden="true">→</span></Link></article>
@@ -161,8 +161,8 @@ export default async function HomePage() {
       <section className="landingSection fitSection">
         <header className="landingSectionHeader compact"><p>适用边界</p><h2>选择 LLMWEB，如果你想掌控算力与数据。</h2></header>
         <div className="fitGrid">
-          <article><span>适合</span><h3>个人开发者与小型 AI 团队</h3><ul><li>已有 Linux NVIDIA GPU 或 Apple Silicon Mac</li><li>希望减少训练框架和命令行负担</li><li>需要让团队共同查看数据质量与评测结果</li><li>希望模型产物留在自己的基础设施</li></ul></article>
-          <article className="notFit"><span>暂不适合</span><h3>需要托管算力或生产推理的平台</h3><ul><li>没有可用的受支持 GPU 主机</li><li>需要 Windows、AMD、Intel GPU 或多机训练</li><li>需要 DPO、PPO、GRPO 或多模态训练</li><li>希望平台直接托管生产推理服务</li></ul></article>
+          <article><span>适合</span><h3>个人开发者与小型 AI 团队</h3><ul><li>想先用普通 Ubuntu 电脑学会完整训练流程</li><li>已有 Linux NVIDIA GPU 或 Apple Silicon Mac</li><li>希望减少训练框架和命令行负担</li><li>希望模型产物留在自己的基础设施</li></ul></article>
+          <article className="notFit"><span>暂不适合</span><h3>需要托管算力或生产推理的平台</h3><ul><li>没有可连接的 Ubuntu、Linux GPU 或 Apple Silicon 电脑</li><li>需要 Windows、AMD、Intel GPU 或多机训练</li><li>需要 DPO、PPO、GRPO 或多模态训练</li><li>希望平台直接托管生产推理服务</li></ul></article>
         </div>
       </section>
 
@@ -172,7 +172,7 @@ export default async function HomePage() {
       </section>
 
       <section className="landingFinal">
-        <div><p>准备好开始了吗？</p><h2>用自己的 GPU，完成一次有证据的模型微调。</h2></div>
+        <div><p>准备好开始了吗？</p><h2>用自己的电脑，完成一次有证据的模型训练。</h2></div>
         <Link className="landingPrimary light" href="/workbench/project">进入工作台 <span aria-hidden="true">→</span></Link>
       </section>
 
