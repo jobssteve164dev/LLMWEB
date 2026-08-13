@@ -2,7 +2,8 @@ FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS base
 
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
-    NEXT_TELEMETRY_DISABLED=1
+    NEXT_TELEMETRY_DISABLED=1 \
+    NODE_OPTIONS=--max-old-space-size=640
 
 RUN corepack enable && corepack prepare pnpm@11.18.0 --activate
 WORKDIR /app
@@ -11,7 +12,7 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /app/
 COPY apps/web/package.json /app/apps/web/package.json
 COPY packages/passport-client/package.json /app/packages/passport-client/package.json
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --filter @llmweb/web... --network-concurrency=4 --child-concurrency=1
 
 FROM base AS builder
 COPY --from=deps /app /app
