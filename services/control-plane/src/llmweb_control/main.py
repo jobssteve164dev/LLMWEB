@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import timedelta, timezone
 import hmac
+import logging
 import secrets
 import shlex
 from typing import Annotated, Any
@@ -27,6 +28,7 @@ APPROVED_MODELS = {
 }
 CLOUDMCP_PROVIDER_ID = "llmweb_training"
 CLOUDMCP_PROVIDER_VERSION = "1.0"
+logger = logging.getLogger(__name__)
 CLOUDMCP_TOOL_CATALOG = [
     {
         "name": "list_llmweb_training_pool",
@@ -919,3 +921,6 @@ async def cloudmcp_provider_bridge(request: Request, db: Db) -> dict[str, Any]:
         return {"success": False, "error": str(error.detail), "status": error.status_code}
     except (TypeError, ValueError) as error:
         return {"success": False, "error": str(error), "status": 400}
+    except Exception:
+        logger.exception("Unexpected CloudMCP provider bridge failure for tool %s", tool)
+        return {"success": False, "error": "LLMWEB 工具暂时无法完成请求", "status": 500}
