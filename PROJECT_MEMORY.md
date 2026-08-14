@@ -22,6 +22,9 @@ This file stores stable project facts future agents should reuse. Do not paste r
 - 每个 Passport 用户映射到独立工作区，项目数据按当前选中项目隔离；免费与付费项目配额只读取 Passport catalog，`project_limit_10` access decision 只决定使用中央免费额度还是付费额度。
 - 项目配额只约束新建；权益降级时不删除或隐藏已有项目。升级前的 `ws_default` 数据只有在明确配置旧工作区归属邮箱时才会被认领。
 - 生产 PostgreSQL 由 GitOps 数据库池治理并注入控制面，根 `compose.yaml` 只定义 Web 与控制面；本地 PostgreSQL 只存在于 `compose.local.yaml`。
+- 生产 GitOps 权威节点是 `onex-nextterminal`；`onex-pmp` 不再承载 LLMWEB 运行时。公网契约固定为 `llmweb.szlk.ai:3000`，健康检查 `/api/health` 必须返回 `service=llmweb-web`。
+- 唯一正式生产数据库是 `db-llmweb-llmweb-postgresql-onex-nextterminal-migration`；`DATABASE_URL` 与 `LLMWEB_DATABASE_URL` 都必须绑定它，数据库消费者与数据库保持同节点，源库不得残留 active binding 或 managed egress。
+- 跨节点恢复验收以目标 schema、代表性行数、可回滚写读验证和目标侧可读备份为事实；若执行已完成但控制面状态陈旧，不得盲目重跑 restore，应将其作为治理记录对账缺陷处理。
 - “连接算力”只向用户提供一条带一次性注册码的安装命令；GitHub 安装脚本负责平台识别、Linux Docker/CUDA 或 Apple Silicon Metal/MPS 受控训练环境、设备注册和后台 Runner，用户不再手动构建或填写数据/结果目录。
 - 根路径是面向公开访问的产品落地页；登录工作台的六个用户动作分别使用 `/workbench/project`、`/workbench/compute`、`/workbench/data`、`/workbench/train`、`/workbench/evaluation` 和 `/workbench/models`，Tab 切换必须保留可直接访问和浏览器前进后退的路径。
 - LLMWEB 以产品 ID `llmweb` 接入 SZLKlaws：共同法律正文只展示生态共同部分，LLMWEB 特有的数据、算力、评测与产物边界只在独立 `/legal-supplement` 页面展示；中英文产品补充版本已登记并发布。
