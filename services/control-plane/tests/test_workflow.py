@@ -395,10 +395,10 @@ def test_cloudmcp_provider_bridge_exposes_governed_training_tools(monkeypatch) -
         get_settings.cache_clear()
 
 
-def test_cloudmcp_provider_bridge_compose_uses_public_environment_contract() -> None:
+def test_cloudmcp_provider_bridge_compose_delegates_governed_credentials() -> None:
     compose = (Path(__file__).parents[3] / "compose.yaml").read_text()
-    assert "CLOUDMCP_BRIDGE_CLIENT_ID:" in compose
-    assert "CLOUDMCP_BRIDGE_CLIENT_SECRET:" in compose
+    assert "CLOUDMCP_BRIDGE_CLIENT_ID:" not in compose
+    assert "CLOUDMCP_BRIDGE_CLIENT_SECRET:" not in compose
     assert "LLMWEB_CLOUDMCP_BRIDGE_CLIENT" not in compose
 
 
