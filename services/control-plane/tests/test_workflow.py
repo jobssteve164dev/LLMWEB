@@ -399,6 +399,7 @@ def test_cloudmcp_provider_bridge_compose_uses_public_environment_contract() -> 
     compose = (Path(__file__).parents[3] / "compose.yaml").read_text()
     assert "CLOUDMCP_BRIDGE_CLIENT_ID:" in compose
     assert "CLOUDMCP_BRIDGE_CLIENT_SECRET:" in compose
+    assert "LLMWEB_CLOUDMCP_BRIDGE_CLIENT" not in compose
 
 
 def test_project_limits_and_user_isolation() -> None:
