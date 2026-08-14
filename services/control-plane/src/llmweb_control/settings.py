@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,9 +16,9 @@ class Settings(BaseSettings):
     pairing_ttl_minutes: int = 120
     runner_offline_seconds: int = 45
 
-    cloudmcp_bridge_client_id: str | None = None
-    cloudmcp_bridge_client_secret: str | None = None
-    cloudmcp_bridge_client_secret_next: str | None = None
+    cloudmcp_bridge_client_id: str | None = Field(default=None, validation_alias="CLOUDMCP_BRIDGE_CLIENT_ID")
+    cloudmcp_bridge_client_secret: str | None = Field(default=None, validation_alias="CLOUDMCP_BRIDGE_CLIENT_SECRET")
+    cloudmcp_bridge_client_secret_next: str | None = Field(default=None, validation_alias="CLOUDMCP_BRIDGE_CLIENT_SECRET_NEXT")
     cloudmcp_operator_workspace_id: str = "ws_cloudmcp_operator"
 
 

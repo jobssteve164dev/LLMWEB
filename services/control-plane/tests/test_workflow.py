@@ -1,5 +1,6 @@
 import base64
 import hashlib
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -357,8 +358,8 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
 
 def test_cloudmcp_provider_bridge_exposes_governed_training_tools(monkeypatch) -> None:
     reset_database()
-    monkeypatch.setenv("LLMWEB_CLOUDMCP_BRIDGE_CLIENT_ID", "bridge-client")
-    monkeypatch.setenv("LLMWEB_CLOUDMCP_BRIDGE_CLIENT_SECRET", "bridge-secret")
+    monkeypatch.setenv("CLOUDMCP_BRIDGE_CLIENT_ID", "bridge-client")
+    monkeypatch.setenv("CLOUDMCP_BRIDGE_CLIENT_SECRET", "bridge-secret")
     get_settings.cache_clear()
     headers = {
         "Authorization": "Bearer bridge-secret",
@@ -389,9 +390,16 @@ def test_cloudmcp_provider_bridge_exposes_governed_training_tools(monkeypatch) -
             ).json()
             assert pool["result"]["projects"][0]["name"] == "我的第一次模型训练"
     finally:
-        monkeypatch.delenv("LLMWEB_CLOUDMCP_BRIDGE_CLIENT_ID")
-        monkeypatch.delenv("LLMWEB_CLOUDMCP_BRIDGE_CLIENT_SECRET")
+        monkeypatch.delenv("CLOUDMCP_BRIDGE_CLIENT_ID")
+        monkeypatch.delenv("CLOUDMCP_BRIDGE_CLIENT_SECRET")
         get_settings.cache_clear()
+
+
+def test_cloudmcp_provider_bridge_compose_uses_public_environment_contract() -> None:
+    compose = (Path(__file__).parents[3] / "compose.yaml").read_text()
+    assert "CLOUDMCP_BRIDGE_CLIENT_ID:" in compose
+    assert "CLOUDMCP_BRIDGE_CLIENT_SECRET:" in compose
+    assert "LLMWEB_CLOUDMCP_BRIDGE_CLIENT" not in compose
 
 
 def test_project_limits_and_user_isolation() -> None:
