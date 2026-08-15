@@ -29,6 +29,17 @@ def workspace_id(user_id: str = "passport-user-1") -> str:
 WEB_HEADERS = web_headers()
 
 
+def ready_capabilities() -> dict[str, object]:
+    return {
+        "ready": True,
+        "backend": "docker_cpu",
+        "cpu_cores": 4,
+        "memory_total_mb": 8192,
+        "disk_free_mb": 30 * 1024,
+        "training_environment_version": "0.2.3",
+    }
+
+
 def reset_database() -> None:
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
@@ -378,7 +389,12 @@ def test_user_api_connection_governs_provider_bridge_and_audit() -> None:
         tools_response = client.post("/api/provider-bridge", headers=headers, json={"tool": "list_tools", "params": {}})
         assert tools_response.status_code == 200
         names = {item["name"] for item in tools_response.json()["result"]}
-        assert {"create_llmweb_starter_project", "create_llmweb_runner_pairing", "start_llmweb_starter_training"}.issubset(names)
+        assert {
+            "create_llmweb_starter_project",
+            "create_llmweb_runner_pairing",
+            "revoke_llmweb_runner",
+            "start_llmweb_starter_training",
+        }.issubset(names)
         assert "command" not in str(tools_response.json())
         project_response = client.post(
             "/api/provider-bridge", headers={**headers, "X-Request-ID": "request-create-project"},
@@ -398,6 +414,90 @@ def test_user_api_connection_governs_provider_bridge_and_audit() -> None:
             "X-LLMWEB-API-Credential": credential,
         })
         assert rejected_after_revoke.status_code == 401
+
+
+def test_user_api_revokes_one_exact_idle_runner_and_blocks_its_device_identity() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
+        paired = client.post(
+            "/v1/runners/pair",
+            json={"code": pairing["code"], "name": "旧训练节点", "capabilities": ready_capabilities()},
+        )
+        assert paired.status_code == 201, paired.text
+        runner = paired.json()
+        runner_headers = {"Authorization": f"Bearer {runner['device_token']}"}
+
+        created = client.post("/v1/api-connections", headers=WEB_HEADERS, json={
+            "name": "算力治理连接",
+            "purpose": "精确撤销旧训练节点",
+            "capabilities": ["workspace:read", "runner:pair"],
+        })
+        assert created.status_code == 201, created.text
+        connection = created.json()["connection"]
+        bridge_headers = {
+            **WEB_HEADERS,
+            "X-LLMWEB-API-Connection-ID": connection["id"],
+            "X-Request-ID": "request-revoke-old-runner",
+        }
+        revoked = client.post("/api/provider-bridge", headers=bridge_headers, json={
+            "tool": "revoke_llmweb_runner",
+            "params": {"runner_id": runner["runner_id"], "confirm_runner_id": runner["runner_id"]},
+        })
+        assert revoked.status_code == 200, revoked.text
+        assert revoked.json()["result"] == {
+            "runner_id": runner["runner_id"], "revoked": True, "already_revoked": False,
+        }
+        assert client.post(
+            "/v1/runners/heartbeat", headers=runner_headers,
+            json={"capabilities": ready_capabilities(), "active_job_id": None},
+        ).status_code == 401
+        pool_response = client.post(
+            "/api/provider-bridge", headers={**bridge_headers, "X-Request-ID": "request-list-after-revoke"},
+            json={"tool": "list_llmweb_training_pool", "params": {}},
+        )
+        assert pool_response.status_code == 200, pool_response.text
+        assert pool_response.json()["success"] is True, pool_response.text
+        pool = pool_response.json()["result"]
+        assert pool["training_pool"] == []
+
+
+def test_user_api_refuses_runner_revocation_with_wrong_confirmation_or_active_work() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
+        runner = client.post(
+            "/v1/runners/pair",
+            json={"code": pairing["code"], "name": "忙碌训练节点", "capabilities": ready_capabilities()},
+        ).json()
+        created = client.post("/v1/api-connections", headers=WEB_HEADERS, json={
+            "name": "算力治理连接", "purpose": "保护运行任务", "capabilities": ["runner:pair"],
+        }).json()["connection"]
+        bridge_headers = {**WEB_HEADERS, "X-LLMWEB-API-Connection-ID": created["id"]}
+        wrong = client.post("/api/provider-bridge", headers=bridge_headers, json={
+            "tool": "revoke_llmweb_runner",
+            "params": {"runner_id": runner["runner_id"], "confirm_runner_id": "run_wrong"},
+        })
+        assert wrong.status_code == 200
+        assert wrong.json()["success"] is False
+        assert wrong.json()["status"] == 400
+
+        with Session(engine) as db:
+            db.add(Job(
+                workspace_id=DEFAULT_WORKSPACE_ID,
+                runner_id=runner["runner_id"],
+                kind="train",
+                payload={},
+                status="running",
+            ))
+            db.commit()
+        busy = client.post("/api/provider-bridge", headers=bridge_headers, json={
+            "tool": "revoke_llmweb_runner",
+            "params": {"runner_id": runner["runner_id"], "confirm_runner_id": runner["runner_id"]},
+        })
+        assert busy.status_code == 200
+        assert busy.json()["success"] is False
+        assert busy.json()["status"] == 409
 
 
 def test_cloudmcp_provider_bridge_compose_delegates_governed_credentials() -> None:

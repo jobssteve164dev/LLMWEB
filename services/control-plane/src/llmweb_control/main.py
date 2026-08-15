@@ -52,6 +52,15 @@ USER_API_TOOL_CATALOG = [
         "inputSchema": {"type": "object", "additionalProperties": False, "properties": {}},
     },
     {
+        "name": "revoke_llmweb_runner",
+        "description": "精确撤销当前账户的一台空闲训练算力，使旧设备身份立即失去心跳和领取任务权限。",
+        "inputSchema": {
+            "type": "object", "additionalProperties": False,
+            "properties": {"runner_id": {"type": "string"}, "confirm_runner_id": {"type": "string"}},
+            "required": ["runner_id", "confirm_runner_id"],
+        },
+    },
+    {
         "name": "prepare_llmweb_starter_dataset",
         "description": "在指定 CPU 训练节点准备并检查固定的入门练习数据。",
         "inputSchema": {
@@ -527,6 +536,27 @@ def heartbeat(body: HeartbeatRequest, db: Db, authorization: Annotated[str | Non
     return {"runner_id": runner.id, "controls": controls}
 
 
+def revoke_runner(db: Session, identity: WebIdentity, runner_id: str, confirm_runner_id: str) -> dict[str, Any]:
+    if not runner_id or confirm_runner_id != runner_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="confirm_runner_id 必须与 runner_id 完全一致")
+    runner = db.get(Runner, runner_id)
+    if runner is None or runner.workspace_id != identity.workspace_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="算力连接不存在")
+    if runner.revoked:
+        return {"runner_id": runner.id, "revoked": True, "already_revoked": True}
+    active_job = db.scalar(select(Job).where(
+        Job.runner_id == runner.id,
+        Job.status.in_(["blocked", "queued", "leased", "running", "paused"]),
+    ).limit(1))
+    if active_job is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="这台算力仍有未结束任务，不能撤销连接")
+    runner.revoked = True
+    runner.status = "offline"
+    runner.current_job_id = None
+    db.commit()
+    return {"runner_id": runner.id, "revoked": True, "already_revoked": False}
+
+
 @app.post("/v1/datasets", status_code=status.HTTP_201_CREATED, tags=["web"])
 def create_dataset(body: DatasetCreate, db: Db, identity: WebAuth) -> dict[str, str]:
     project = db.get(Project, body.project_id)
@@ -947,6 +977,7 @@ TOOL_CAPABILITIES = {
     "list_llmweb_training_pool": "workspace:read",
     "create_llmweb_starter_project": "project:write",
     "create_llmweb_runner_pairing": "runner:pair",
+    "revoke_llmweb_runner": "runner:pair",
     "prepare_llmweb_starter_dataset": "project:write",
     "start_llmweb_starter_training": "training:write",
     "get_llmweb_training_run": "workspace:read",
@@ -1048,6 +1079,10 @@ async def user_api_provider_bridge(
             ), db, identity)
         elif tool == "create_llmweb_runner_pairing":
             result = create_pairing(db, identity)
+        elif tool == "revoke_llmweb_runner":
+            result = revoke_runner(
+                db, identity, str(params.get("runner_id") or ""), str(params.get("confirm_runner_id") or ""),
+            )
         elif tool == "prepare_llmweb_starter_dataset":
             result = create_dataset(DatasetCreate(
                 project_id=params.get("project_id", ""), runner_id=params.get("runner_id", ""),
