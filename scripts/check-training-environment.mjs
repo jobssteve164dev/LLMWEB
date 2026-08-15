@@ -44,6 +44,8 @@ assert.match(releaseBuilder, /DOCKER_STATIC_SHA256="[0-9a-f]{64}"/);
 assert.match(releaseBuilder, /NANOGPT_ARCHIVE_SHA256="[0-9a-f]{64}"/);
 assert.match(releaseBuilder, /docker-static\.tgz" "\$DOCKER_STATIC_SHA256"/);
 assert.match(releaseBuilder, /"\$NANOGPT_ARCHIVE" "\$NANOGPT_ARCHIVE_SHA256"/);
+assert.match(releaseBuilder, /find "\$PACKAGE_ROOT" -xdev -depth -mindepth 1 -delete/);
+assert.match(releaseBuilder, /trap cleanup_package_root EXIT/);
 assert.match(releaseWorkflow, /contents: read/);
 assert.match(releaseWorkflow, /pnpm check:training-environment/);
 assert.doesNotMatch(releaseWorkflow, /^\s*contents:\s*write\s*$|action-gh-release|gh release create|^\s*run:\s*.*build-training-environment-release\.sh/m);

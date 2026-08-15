@@ -20,6 +20,11 @@ TORCH_SHA256="8d316e5bf121f1eab1147e49ad0511a9d92e4c45cc357d1ab0bee440da71a095"
 PACKAGE_NAME="llmweb-model-training-linux-amd64-$VERSION.tar.gz"
 PACKAGE_ASSET="$OUTPUT_DIRECTORY/$PACKAGE_NAME"
 PACKAGE_ROOT="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/llmweb-model-training-package.XXXXXX")"
+cleanup_package_root() {
+  find "$PACKAGE_ROOT" -xdev -depth -mindepth 1 -delete
+  rmdir "$PACKAGE_ROOT"
+}
+trap cleanup_package_root EXIT
 
 mkdir -p "$OUTPUT_DIRECTORY" "$RUNTIME_DIRECTORY/python-wheels" "$RUNTIME_DIRECTORY/nanogpt-$NANOGPT_REF" "$PACKAGE_ROOT/bin" "$PACKAGE_ROOT/runtime"
 

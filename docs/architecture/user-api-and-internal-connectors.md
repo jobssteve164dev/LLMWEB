@@ -247,7 +247,7 @@ GitOps Agent 注册节点
 1. 上层通过已绑定真实账户的 LLMWEB API 连接生成一次性 Runner 配对凭证。
 2. CloudMCP 选择一个调用方已获授权的精确 `runner_target_id`，请求安装 `model-training` Runner 动作；Target 创建和节点选择是此前完成的 GitOps 治理动作，不是本次安装的隐含副作用。
 3. GitOps 控制面从 Target 解析已注册 Agent，验证调用主体、Target 启用状态、节点在线、调度状态、资源预算和动作状态。
-4. GitOps 复用其他业务已有的 Release Bundle producer，由共享构建池从不可变 LLMWEB 源码 SHA 生成单个平台包，以既有业务制品签名密钥签名并写入 GitOps Release；构建池只是生产执行位置，不在该节点安装训练 Runner。
+4. 独立训练环境发行工作流只在训练版本发布时从不可变 LLMWEB 源码 SHA 生成单个平台包；它使用已有受管构建 Runner 作为执行位置，复用既有业务制品签名信任和 GitOps Release 存储，但不修改或触发 Agent/业务公共构建工作流，也不在构建节点安装训练 Runner。
 5. 服务端把 producer 记录的源码 revision、包名、包 SHA256 和签名固化到 Runner Action 与本次 Operation；随后只为这一份包生成一个既有 Agent-bound `/gh-release` 授权。Agent 复用业务发布的下载、验签、验摘要和安全解包代码，再执行包内固定 Action 安装入口。
 6. 包内安装器不再下载执行资产；它校验包内 Runner 与训练运行时内容、导入固定镜像引用并运行最小自检，再向 LLMWEB 注册。
 7. GitOps 以稳定 `runner_action_id` 回报 Runner 动作，以 `operation_id` 回报本次安装阶段；最终同时以 GitOps Agent 终态和 LLMWEB 用户训练池中对应 Runner 心跳正常为完成证据。
@@ -257,7 +257,7 @@ GitOps Agent 注册节点
 ### 9.3 身份、权限与资源
 
 - GitOps 只持久化 Target 下 `model-training` Runner 动作、批准的单一发行包身份、安装阶段和安全状态摘要，不持久化 LLMWEB 用户 API 凭证或配对码。
-- 训练环境版本是每个 Runner Action 的已解析包身份，不是 GitOps 源码常量。LLMWEB 新版本只触发同一 GitOps Release producer 从新源码 SHA 构建新包，不得要求修改 GitOps 运行时代码或公共 Runner 动作契约；仅当包协议、信任来源或稳定动作语义改变时才进行跨系统升级。
+- 训练环境版本是每个 Runner Action 的已解析包身份，不是 GitOps 源码常量。LLMWEB 新版本只向同一独立发行工作流提交新版本号与源码 SHA，不得要求修改 GitOps 运行时代码、独立发行工作流、Agent/业务公共工作流或公共 Runner 动作契约；仅当包协议、信任来源或稳定动作语义改变时才进行跨系统升级。
 - 安装事务可以使用完成受批准系统安装所需的宿主机权限；训练 Agent 不能继承通用高权限 Shell，只能领取版本化结构任务并启动批准的非特权训练运行时。
 - 训练任务不得携带任意命令、镜像、宿主机路径、特权容器、Docker Socket、网络目标或未批准启动参数。
 - Target 至少声明 CPU、内存、磁盘、GPU 分配、最大并发、可调度与维护状态。LLMWEB 只能使用分配给该 Target 的预算，不能把整台 Node 当作隐式资源池。
@@ -302,7 +302,7 @@ LLMWEB 在该用户工作区生成 Runner 配对凭证
         ↓
 CloudMCP 请求在精确 Runner Target 内安装 model-training Runner 动作
         ↓
-GitOps 共享 Release producer 构建签名单包；Target Agent 经既有代理安装/升级
+独立训练发行工作流构建签名单包；Target Agent 经既有代理安装/升级
         ↓
 Runner 主动连接 LLMWEB 并领取结构化训练任务
         ↓
@@ -360,7 +360,7 @@ CloudMCP 不直接向 Runner 下发训练命令。GitOps 不创建第二套训�
 - Runner 动作具有稳定 `runner_action_id`，安装、升级和重试分别使用 `operation_id`；状态读取不能把容器名或 Agent Job ID 当成 Runner 动作身份。
 - `retire_runner_action` 是正式通用动作退役入口，和仅处理“没有运行实例”的 `remove_failed_runner_action` 具有不同语义；退役操作保留独立 `operation_id`，`get_runner_action_status` 必须同时读回控制面状态与节点物理核验结果。
 - `action-runner` 实例退役必须精确撤销外部注册、移除该实例及其构建守护运行时、删除实例记录并保留 Target；审计记录不随实例或 Target 删除而消失。
-- 完成状态同时具有同一最终包经过真实 Agent 消费者的验证证据、GitOps Agent 终态、Runner 身份保持、环境功能自检和 LLMWEB 用户训练池心跳证据；构建端同类 Docker 自测不能替代消费者矩阵。
+- 完成状态同时具有同一最终项目产物经过既有 Agent 消费入口的摘要、签名、标准 archive 与固定镜像引用证据，以及 GitOps Agent 终态、Runner 身份保持、环境功能自检和 LLMWEB 用户训练池心跳证据；不得再引入 daemon-local image ID 或双镜像存储矩阵。
 
 ### 12.4 完整闭环
 

@@ -53,4 +53,4 @@ This file stores stable project facts future agents should reuse. Do not paste r
 
 - 产品基线见 `docs/product/product-design.md`，技术责任与数据边界见 `docs/architecture/system-boundaries.md`。
 - 当前开发机没有 Docker 与 NVIDIA GPU；网页生产构建、控制面/Runner 测试可在本地完成，真实训练镜像构建与端到端 GPU 训练必须在目标主机验收。
-- 当前 `model-training` Action 发行链处于 P000 生产冻结：两个正式安装 Operation 均在 Runner 注册后、服务安装前因 daemon 本地 image ID 不一致失败。必须先按 `docs/architecture/training-environment-release.md` 收敛单一自包含包，让同一最终包通过真实 Agent 消费者和跨镜像存储后端门禁；此前不得新增生产安装，门禁通过后只允许一次正式链复验。
+- 当前 `model-training` Action 发行链处于 P000 生产冻结：两个正式安装 Operation 均因错误使用 daemon-local image ID 作为跨节点身份而失败。修复必须回到普通项目产物模式：单一自包含包、标准 Docker archive、固定镜像引用、摘要/签名和既有 Agent 消费入口；不得再增加双镜像存储或训练专用公共工作流门禁。

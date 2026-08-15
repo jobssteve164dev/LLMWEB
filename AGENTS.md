@@ -31,7 +31,7 @@ This repository is a Research / experiment. Keep changes focused on the user-fac
 ## Training Action Artifact Delivery
 
 - GitOps 管理节点与普通用户电脑消费同一不可变、按平台自包含的训练环境包；每个节点一次只下载一个包含固定安装入口、Runner 和训练运行时的包，不得把 manifest、Runner、容器运行时或镜像拆成节点侧平行下载合同。
-- GitOps 节点必须精确复用既有业务 Release Bundle 下发链：共享 Release 构建池、单一制品身份、既有业务制品摘要与签名、已有受治理产物代理、Agent 侧授权下载/校验/安全解包和终态回报。复用同一代理 URL 但新增 Release 存储、签名 Secret、令牌族、下载器或身份判据不算复用；验签解包后只允许保留固定 Runner Action 安装入口这一处语义差异。
+- 训练环境包由独立、按训练版本显式触发的受管发行工作流从不可变 LLMWEB 源码 SHA 生产；该工作流与 Agent Release、业务 Compose Bundle 的公共工作流生命周期完全分离，但复用既有签名信任、GitOps Release 存储、受治理产物代理、Agent-bound 授权、摘要/签名校验、安全解包和终态回报。不得为了单一 `model-training` 消费者修改 GitOps 共享 `build-agent` 或 `dispatch-build` 事件、Job、条件、输入、签名和 Runner 布局，也不得把 Runner Action 注册成业务项目。
 - Docker daemon 本地导入后的 image ID 不是跨节点制品身份。发布身份以包字节摘要/签名和包内内容摘要为准；镜像导入后通过固定镜像引用、内容检查和功能自检验收。
-- 训练环境发布前必须把同一最终包交给真实安装消费者验证，并覆盖受支持的镜像存储后端、平台和架构。只在构建端同类 Docker 环境执行 `docker load` 不得解锁发布；生产 Target 不承担兼容性探索。
-- LLMWEB 新版本只通过既有 GitOps Release producer 产生新的不可变 Action 包，不得要求 GitOps 修改运行时代码、公共 Runner Target 契约或 CloudMCP 公共 Bridge 契约，也不得创建 LLMWEB 专属构建 Runner。
+- 训练环境按普通项目产物模式验证：标准 Docker archive、固定镜像引用、摘要/签名和既有 Agent 消费入口构成同一身份链。不得再用 daemon-local image ID 或额外镜像存储矩阵定义发行身份，也不得让训练专用验证阻塞 Agent 或业务公共发布。
+- LLMWEB 新版本只向同一独立训练发行工作流提交新版本号和不可变源码 SHA；不得要求修改 GitOps 运行时代码、Agent/业务共享发布工作流、公共 Runner Target 契约或 CloudMCP 公共 Bridge 契约，也不得创建 LLMWEB 专属构建 Runner。
