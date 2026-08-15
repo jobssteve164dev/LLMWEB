@@ -211,13 +211,36 @@ install -m 0755 "$PACKAGE_ROOT/bin/llmweb-runner" "$STAGED_RUNNER"
 
 UPGRADE_EXISTING=0
 if [[ -s "$STATE_ROOT/state.json" ]]; then
-  record_stage "runner_upgrade_authorization"
-  "$STAGED_RUNNER" authorize-upgrade \
-    --url "$CONTROL_URL" \
-    --code-file "$PAIRING_CODE_FILE" \
-    --state-dir "$STATE_ROOT" \
-    || fail "这台电脑已经连接到另一个训练工作区；如需转移，请先正式解除原连接" "runner_upgrade_unauthorized"
-  UPGRADE_EXISTING=1
+  if python3 - "$STATE_ROOT/state.json" <<'PY'
+import json
+import sys
+
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        state = json.load(handle)
+except Exception:
+    raise SystemExit(20)
+if not isinstance(state, dict):
+    raise SystemExit(20)
+device_token = state.get("device_token")
+control_url = state.get("control_url")
+if isinstance(device_token, str) and device_token:
+    raise SystemExit(0 if isinstance(control_url, str) and control_url else 20)
+raise SystemExit(10)
+PY
+  then
+    record_stage "runner_upgrade_authorization"
+    "$STAGED_RUNNER" authorize-upgrade \
+      --url "$CONTROL_URL" \
+      --code-file "$PAIRING_CODE_FILE" \
+      --state-dir "$STATE_ROOT" \
+      || fail "这台电脑已经连接到另一个训练工作区；如需转移，请先正式解除原连接" "runner_upgrade_unauthorized"
+    UPGRADE_EXISTING=1
+  else
+    state_status="$?"
+    [[ "$state_status" -eq 10 ]] \
+      || fail "本地 Runner 身份文件不完整，无法安全安装" "runner_state_invalid"
+  fi
 fi
 
 install -m 0644 "$PACKAGE_MANIFEST" "$INSTALL_ROOT/package-manifest.json"

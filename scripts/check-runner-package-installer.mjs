@@ -122,9 +122,17 @@ esac
 
   const second = runInstaller();
   assert.equal(second.status, 0, second.stderr);
-  const log = await readFile(runnerLog, "utf8");
+  let log = await readFile(runnerLog, "utf8");
   assert.match(log, /^authorize-upgrade .*--code-file /m);
   assert.doesNotMatch(log, /pair_once_secret/);
+
+  const retiredState = JSON.parse(await readFile(join(stateRoot, "state.json"), "utf8"));
+  retiredState.device_token = "";
+  await writeFile(join(stateRoot, "state.json"), `${JSON.stringify(retiredState)}\n`, { mode: 0o600 });
+  const reinstall = runInstaller();
+  assert.equal(reinstall.status, 0, reinstall.stderr);
+  log = await readFile(runnerLog, "utf8");
+  assert.equal((log.match(/^register /gm) || []).length, 2);
 } finally {
   const files = [
     join(packageRoot, "install-runner-package.sh"), join(packageRoot, "package-manifest.json"),
