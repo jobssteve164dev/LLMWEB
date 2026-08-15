@@ -26,6 +26,7 @@ This file stores stable project facts future agents should reuse. Do not paste r
 - 唯一正式生产数据库是 `db-llmweb-llmweb-postgresql-onex-nextterminal-migration`；`DATABASE_URL` 与 `LLMWEB_DATABASE_URL` 都必须绑定它，数据库消费者与数据库保持同节点，源库不得残留 active binding 或 managed egress。
 - 跨节点恢复验收以目标 schema、代表性行数、可回滚写读验证和目标侧可读备份为事实；若执行已完成但控制面状态陈旧，不得盲目重跑 restore，应将其作为治理记录对账缺陷处理。
 - “连接算力”只向用户提供一条带一次性注册码的安装命令；GitHub 安装脚本负责平台识别、Linux Docker/CUDA 或 Apple Silicon Metal/MPS 受控训练环境、设备注册和后台 Runner，用户不再手动构建或填写数据/结果目录。
+- 每个平台训练环境只发布一个不可变、自包含、带摘要与签名的包，包内完成固定安装入口、Runner、训练运行时和自检；外部用户电脑与 GitOps 节点取得同一包字节，GitOps 节点只复用既有 Agent 制品授权、代理、校验下载器和固定入口。节点不得再分别下载 manifest、Runner、runtime 或镜像，Docker daemon 导入后的本地 image ID 也不得作为跨节点发行身份。
 - 根路径是面向公开访问的产品落地页；登录工作台的六个用户动作分别使用 `/workbench/project`、`/workbench/compute`、`/workbench/data`、`/workbench/train`、`/workbench/evaluation` 和 `/workbench/models`，Tab 切换必须保留可直接访问和浏览器前进后退的路径。
 - LLMWEB 以产品 ID `llmweb` 接入 SZLKlaws：共同法律正文只展示生态共同部分，LLMWEB 特有的数据、算力、评测与产物边界只在独立 `/legal-supplement` 页面展示；中英文产品补充版本已登记并发布。
 - 搜索索引只覆盖公开产品页和法律页；账号、工作台、认证回调与 API 不进入站点地图，并由 `robots.txt` 排除抓取。
@@ -52,3 +53,4 @@ This file stores stable project facts future agents should reuse. Do not paste r
 
 - 产品基线见 `docs/product/product-design.md`，技术责任与数据边界见 `docs/architecture/system-boundaries.md`。
 - 当前开发机没有 Docker 与 NVIDIA GPU；网页生产构建、控制面/Runner 测试可在本地完成，真实训练镜像构建与端到端 GPU 训练必须在目标主机验收。
+- 当前 `model-training` Action 发行链处于 P000 生产冻结：两个正式安装 Operation 均在 Runner 注册后、服务安装前因 daemon 本地 image ID 不一致失败。必须先按 `docs/architecture/training-environment-release.md` 收敛单一自包含包，让同一最终包通过真实 Agent 消费者和跨镜像存储后端门禁；此前不得新增生产安装，门禁通过后只允许一次正式链复验。
