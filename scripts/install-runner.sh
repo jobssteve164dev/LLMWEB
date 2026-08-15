@@ -378,18 +378,25 @@ else
   mv "$INSTALL_ROOT/bin/llmweb-runner.download" "$INSTALL_ROOT/bin/llmweb-runner"
   chmod 0755 "$INSTALL_ROOT/bin/llmweb-runner"
 
-  say "正在下载统一训练环境"
-  record_install_stage "runtime_asset"
-  RUNTIME_ARCHIVE="$INSTALL_ROOT/$RUNTIME_ASSET"
-  curl -fL -C - --retry 3 --retry-all-errors "$GATEWAY_BASE/$RUNTIME_ASSET" -o "$RUNTIME_ARCHIVE.download"
-  printf '%s  %s\n' "$RUNTIME_SHA256" "$RUNTIME_ARCHIVE.download" | sha256sum -c -
-  mv "$RUNTIME_ARCHIVE.download" "$RUNTIME_ARCHIVE"
   record_install_stage "runtime_load"
-  docker load -i "$RUNTIME_ARCHIVE" >/dev/null
-  ACTUAL_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CPU_RUNTIME_IMAGE")"
-  [[ "$ACTUAL_IMAGE_ID" == "$EXPECTED_IMAGE_ID" ]] || fail "训练环境内容校验失败"
-  docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/null \
-    || fail "普通电脑训练环境没有通过自检"
+  ACTUAL_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CPU_RUNTIME_IMAGE" 2>/dev/null || true)"
+  if [[ "$ACTUAL_IMAGE_ID" == "$EXPECTED_IMAGE_ID" ]] \
+    && docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/null; then
+    say "已验证现有训练环境，正在原位复用"
+  else
+    say "正在下载统一训练环境"
+    record_install_stage "runtime_asset"
+    RUNTIME_ARCHIVE="$INSTALL_ROOT/$RUNTIME_ASSET"
+    curl -fL -C - --retry 3 --retry-all-errors "$GATEWAY_BASE/$RUNTIME_ASSET" -o "$RUNTIME_ARCHIVE.download"
+    printf '%s  %s\n' "$RUNTIME_SHA256" "$RUNTIME_ARCHIVE.download" | sha256sum -c -
+    mv "$RUNTIME_ARCHIVE.download" "$RUNTIME_ARCHIVE"
+    record_install_stage "runtime_load"
+    docker load -i "$RUNTIME_ARCHIVE" >/dev/null
+    ACTUAL_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CPU_RUNTIME_IMAGE")"
+    [[ "$ACTUAL_IMAGE_ID" == "$EXPECTED_IMAGE_ID" ]] || fail "训练环境内容校验失败"
+    docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/null \
+      || fail "普通电脑训练环境没有通过自检"
+  fi
 fi
 
 if [[ "$UPGRADE_EXISTING" -eq 0 ]]; then
