@@ -62,7 +62,9 @@ CloudMCP → GitOps Runner Target
 
 Artifact Gateway 只允许代理当前发行清单列出的固定文件，不接受任意上游 URL。它必须保留 `Range`、`Content-Range`、`ETag` 和内容长度，以便大文件断点续传。客户端即使通过不同代理或缓存取得文件，也必须验证相同摘要。
 
-GitOps 内部节点不另建 LLMWEB 下载协议：控制面把服务端批准的固定 Release 资产登记到已有 `/gh-release` 授权，Runner Target 上的 Agent 使用一次性受治理下载令牌取得节点安装包。调用方不能传 Release 地址、标签、资产名或摘要；这些值由 GitOps 当前批准发行决定。
+GitOps 内部节点不另建 LLMWEB 下载协议：控制面在一次 `model-training` Runner 动作安装开始时解析 LLMWEB 当前可信正式发行，校验不可变标签、源码 revision、清单、资产集合、SHA256 和镜像 ID，再把解析出的确切发行身份固化到该 Runner Action 和本次 Operation。随后只将这组精确资产登记到已有 `/gh-release` 授权，Runner Target 上的 Agent 使用一次性受治理下载令牌取得节点安装包。调用方不能传 Release 地址、标签、资产名或摘要；安装开始后即使出现新发行，也不得改变已在执行的 Operation。
+
+训练环境版本属于 Runner Action 的已解析发布身份，不属于 GitOps 运行时代码或公共契约。GitOps 代码只实现稳定的 `model-training` 动作、可信正式发行解析和既有 `/gh-release` 分发能力；LLMWEB 发布新版本不要求修改或重新发布 GitOps 运行时代码。只有发行清单协议、信任来源或稳定 Runner 动作语义本身改变时，才进入跨系统契约变更。
 
 这里的 Runner Target 是绑定现有 Agent 节点的范围与资源边界，不要求 Server 凭证。发行包安装的是该范围内的 `model-training` Runner 动作；Target、Runner 动作、一次安装 Operation 和最终服务/容器证据必须分别记录，不能用产品命名的容器或安装任务代替 Target。
 
