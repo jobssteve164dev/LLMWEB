@@ -267,15 +267,21 @@ Runner 动作使用通用状态：
 ```text
 inactive → installing → registering → ready → busy
                     ↘ upgrading / degraded / disabled
+ready / degraded / disabled / inactive → retiring → inactive
+                                      ↘ degraded
 ```
 
 GitOps 判断节点、产物、安装和系统服务健康；LLMWEB 判断账户注册、心跳和训练执行健康。聚合展示不得用一侧状态覆盖另一侧事实。
 
-- 解绑账户：撤销 LLMWEB 设备身份并停止领取新任务，保留 Runner Target。
-- 移除 Runner 动作：停止对应服务并移除精确凭据；保留 Target、其他 Runner、本地数据和模型。
-- 失败补偿：仅在 Target 已停止调度、Runner 动作为 `degraded` 且没有生成运行实例时，按精确 `runner_action_id` 转回 `inactive` 并保留操作、错误和状态审计；已有实例时必须走对应 Runner 的正式退役流程。
+- 解绑账户：先通过 LLMWEB 用户 API 按精确 `runner_id` 撤销设备身份；有非终态训练任务时拒绝撤销，成功后该身份不能心跳、领取或上报，Runner Target 保持不变。
+- 移除 Runner 动作：再通过 GitOps 通用 `retire_runner_action` 按精确 `runner_target_id`、稳定 `runner_action_id` 和同值确认执行。GitOps 只从 Target 解析现有 Agent，并调用代码内固定的动作退役适配器；调用方不能提交 Agent、Shell、路径或清理命令。
+- `model-training` 退役适配器只停止并禁用 `llmweb-runner.service`、移除该服务单元、清空本地状态中的 `device_token`，然后重新核验服务、主进程、单元文件和凭据均已消失。`/opt/llmweb` 中的受信运行缓存以及训练数据、checkpoint、模型和同 Target 其他 Runner 动作均保留。
+- 退役只有在节点物理核验完成、Runner Action 写回 `inactive` 且 `action_retired` 审计落盘后才成功。节点动作失败时写回 `degraded`、结构化失败阶段和 `action_retirement_failed` 审计；因 LLMWEB 身份已先撤销，失败期间不能领取新任务，可按同一 Action 身份安全重试。
+- 失败补偿：仅在 Runner 动作为 `degraded` 且没有生成任何运行实例时，按精确 `runner_action_id` 转回 `inactive` 并保留操作、错误和状态审计；已有服务、进程、凭据或实例时禁止用 `remove_failed_runner_action` 冒充退役，必须走 `retire_runner_action`。
 - 转移账户：必须先正式撤销旧绑定，再用新账户重新配对，禁止直接改写归属。
 - 退役 Target：先停止调度，再处理所有 Runner 动作，最后解除 Agent 节点范围。
+
+账户撤销与节点动作退役是跨真相源的有序补偿链，不伪装成分布式事务：必须先关闭 LLMWEB 任务入口，再清理 GitOps 节点动作；第二步失败时保持“平台身份已撤销、节点动作退役失败”的可观察状态并只重试第二步，禁止恢复旧身份或回退直连路径。
 
 已有训练身份升级时必须保留身份、数据和模型产物，并证明新配对与原 Runner 属于同一工作区。跨账户连接必须拒绝。
 
@@ -349,6 +355,7 @@ CloudMCP 不直接向 Runner 下发训练命令。GitOps 不创建第二套训�
 - LLMWEB 发布新的训练环境版本不修改 GitOps 运行时代码或公共契约；执行中的 Operation 始终使用开始时固化的不可变发行身份。
 - 节点只经既有 `/gh-release` 代理下载摘要锁定的正式包，不接受任意 URL、源码、镜像或命令。
 - Runner 动作具有稳定 `runner_action_id`，安装、升级和重试分别使用 `operation_id`；状态读取不能把容器名或 Agent Job ID 当成 Runner 动作身份。
+- `retire_runner_action` 是正式通用动作退役入口，和仅处理“没有运行实例”的 `remove_failed_runner_action` 具有不同语义；退役操作保留独立 `operation_id`，`get_runner_action_status` 必须同时读回控制面状态与节点物理核验结果。
 - `action-runner` 实例退役必须精确撤销外部注册、移除该实例及其构建守护运行时、删除实例记录并保留 Target；审计记录不随实例或 Target 删除而消失。
 - 完成状态同时具有 GitOps Agent 终态、Runner 身份保持、环境校验和 LLMWEB 用户训练池心跳证据。
 
