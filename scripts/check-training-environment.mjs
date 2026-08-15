@@ -23,6 +23,7 @@ assert.match(installer, /&& docker run --rm.*python -c/s);
 assert.match(installer, /已经连接到另一个训练工作区/);
 assert.match(installer, /runners\/upgrade-authorization/);
 assert.match(releaseWorkflow, /Generate SBOM/);
+assert.match(releaseWorkflow, /runs-on: ubuntu-24\.04/);
 assert.match(releaseWorkflow, /llmweb-node-package-linux-amd64\.tar\.gz/);
 assert.match(releaseWorkflow, /severity-cutoff: high/);
 assert.match(releaseWorkflow, /only-fixed: true/);

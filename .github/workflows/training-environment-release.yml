@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   cpu-release:
-    runs-on: [self-hosted, Linux, ARM64, gitops-release-oc]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
