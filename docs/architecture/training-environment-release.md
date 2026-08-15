@@ -64,6 +64,8 @@ Artifact Gateway 只允许代理当前发行清单列出的固定文件，不接
 
 GitOps 内部节点不另建 LLMWEB 下载协议：控制面把服务端批准的固定 Release 资产登记到已有 `/gh-release` 授权，Runner Target 上的 Agent 使用一次性受治理下载令牌取得节点安装包。调用方不能传 Release 地址、标签、资产名或摘要；这些值由 GitOps 当前批准发行决定。
 
+这里的 Runner Target 只是节点上的通用执行与资源边界；发行包安装结果属于其 `model-training` Workload Binding。Target、Binding、一次安装操作和最终服务/容器证据必须分别记录，不能用产品命名的容器或安装任务代替 Target。
+
 首次安装缺少完整且校验通过的产物时不得退回 GitHub、PyPI 或模型站点随机下载。已经校验的本地缓存可以在网关暂时不可用时继续运行已有环境。
 
 ## 5. 节点归属
