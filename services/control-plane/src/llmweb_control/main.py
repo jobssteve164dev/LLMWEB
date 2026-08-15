@@ -121,7 +121,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="LLMWEB Control Plane",
     description="Coordinates projects, runners, local datasets, training, evaluation, and model records.",
-    version="0.2.0",
+    version="0.2.1",
     lifespan=lifespan,
 )
 

@@ -309,7 +309,7 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
                 "capabilities": {
                     "ready": True, "backend": "docker_cpu", "cpu_cores": 4,
                     "memory_total_mb": 8192, "disk_free_mb": 10 * 1024,
-                    "training_environment_version": "0.2.0",
+                    "training_environment_version": "0.2.1",
                 },
             },
         )
@@ -341,7 +341,7 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
             "/v1/runners/heartbeat", headers=runner_headers,
             json={"capabilities": {
                 "ready": True, "backend": "docker_cpu", "disk_free_mb": 80 * 1024,
-                "training_environment_version": "0.2.0",
+                "training_environment_version": "0.2.1",
             }},
         )
         experiment_response = client.post(
@@ -351,8 +351,8 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
         )
         assert experiment_response.status_code == 201, experiment_response.text
         baseline = client.post("/v1/runners/jobs/lease", headers=runner_headers).json()
-        assert baseline["payload"]["runtime"] == {"engine": "nanogpt", "image": "llmweb/runtime-cpu:0.2.0"}
-        assert baseline["payload"]["environment"] == {"version": "0.2.0", "backend": "linux-amd64-cpu"}
+        assert baseline["payload"]["runtime"] == {"engine": "nanogpt", "image": "llmweb/runtime-cpu:0.2.1"}
+        assert baseline["payload"]["environment"] == {"version": "0.2.1", "backend": "linux-amd64-cpu"}
         assert baseline["payload"]["training"]["iterations"] == 500
 
 

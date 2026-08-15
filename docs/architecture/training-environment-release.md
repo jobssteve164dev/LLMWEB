@@ -56,10 +56,13 @@ Linux NVIDIA 和 Apple Silicon 在同一清单协议中保留明确变体，但�
                               ▼
                          目标电脑本地缓存
 
-CloudMCP → GitOps Agent ──────┘
+CloudMCP → GitOps Runner Target
+            → 既有 /gh-release 代理 ─┘
 ```
 
 Artifact Gateway 只允许代理当前发行清单列出的固定文件，不接受任意上游 URL。它必须保留 `Range`、`Content-Range`、`ETag` 和内容长度，以便大文件断点续传。客户端即使通过不同代理或缓存取得文件，也必须验证相同摘要。
+
+GitOps 内部节点不另建 LLMWEB 下载协议：控制面把服务端批准的固定 Release 资产登记到已有 `/gh-release` 授权，Runner Target 上的 Agent 使用一次性受治理下载令牌取得节点安装包。调用方不能传 Release 地址、标签、资产名或摘要；这些值由 GitOps 当前批准发行决定。
 
 首次安装缺少完整且校验通过的产物时不得退回 GitHub、PyPI 或模型站点随机下载。已经校验的本地缓存可以在网关暂时不可用时继续运行已有环境。
 

@@ -47,7 +47,7 @@ LLMWEB 注册用户
 - 第一版一个账户可以创建多个命名 API 连接，以对应不同调用服务；每个连接拥有独立凭证、权限、审计和撤销状态。
 - 第一版不向用户 API 提供删除项目、数据或模型的能力，不提供任意脚本、Shell 或训练镜像执行能力。
 - CloudMCP 使用标准用户 API，不保留 LLMWEB 专属内部身份或业务旁路。
-- GitOps 通过专用内部连接器完成节点准备与 Runner 接入，但 Runner 必须归属于发起连接的真实用户工作区。
+- GitOps 通过通用 Runner Target 工作负载绑定完成节点准备与训练 Agent 接入；GitOps 不新增 LLMWEB 专属 Runner 类型，训练 Agent 必须归属于发起连接的真实用户工作区。
 - 现有内部 CloudMCP 工作区中的关联对象完成显式迁移和验收后硬退役，不保留隐式回退。
 
 ## 4. 设置页 API 连接
@@ -216,20 +216,63 @@ LLMWEB 用户 API 凭证
 
 不得继续使用 `cloudmcp-operator`、`ws_cloudmcp_operator` 或 CloudMCP 专属配额。CloudMCP 连接器故障时必须失败关闭，不能回退到旧内部 Bridge。
 
-## 9. GitOps 侧 LLMWEB Runner 连接器
+## 9. GitOps Runner Target 工作负载绑定
 
-GitOps 增加结构化的 LLMWEB Runner 节点连接器，负责把一个明确的受管节点接入指定用户的训练池：
+### 9.1 对象模型
+
+GitOps 不增加“LLMWEB Runner”或“LLMWEB Target”。它继续治理已有的 Node 与 Runner Target，并为 Target 绑定通用工作负载：
+
+```text
+GitOps Node
+└── Runner Target
+    ├── Target 身份、节点绑定和资源预算
+    ├── 受治理产物下载与执行策略
+    └── Workload Bindings
+        ├── action-runner
+        └── model-training
+```
+
+- Node 表示物理机或虚拟机；Runner Target 表示节点上的独立执行与资源边界。一台 Node 可以登记多个 Target。
+- `model-training` 是通用能力，不是 LLMWEB 专属 Target 类型。LLMWEB Agent 只是该能力当前安装的受批准实现。
+- 一个 Target 可以登记多个工作负载，但首版同一时刻只能有一个主要调度用途；模型训练不得与 CI 或发布构建争抢同一份未隔离的 GPU、内存和磁盘预算。
+- GitOps 是节点、Target、安装状态、资源预算和可调度状态的真相；LLMWEB 是账户、训练 Runner 身份、训练任务和心跳的真相。
+
+### 9.2 绑定流程
 
 1. 上层通过已绑定真实账户的 LLMWEB API 连接生成一次性 Runner 配对凭证。
-2. CloudMCP 调用 GitOps 连接器并指定精确 `agent_id`、配对材料和批准的不可变 LLMWEB 发行版本。
-3. GitOps 控制面验证调用主体、节点归属、在线与调度状态，以及配对任务当前状态。
-4. GitOps Agent 使用现有受治理下载与执行路径安装或升级 Runner。
-5. 安装器验证发行清单、文件 SHA256、镜像 ID 和最小自检，再向 LLMWEB 注册。
-6. GitOps 连接器轮询并回报接入阶段；最终以 LLMWEB 用户训练池中出现原 Runner 身份且心跳正常为完成证据。
+2. CloudMCP 选择一个调用方已获授权的精确 `runner_target_id`，请求为它绑定 `model-training` 工作负载。
+3. GitOps 控制面从 Target 解析节点，验证调用主体、Target 启用状态、节点在线与调度状态、资源预算和绑定任务状态。
+4. GitOps 服务端选择固定的不可变 Release 标签、资产名和 SHA256；调用方不能选择或覆盖可执行内容。
+5. GitOps Agent 通过已有 `/gh-release` 产物代理下载节点安装包，先验证包摘要，再解包并执行包内固定安装入口。
+6. 安装器验证发行清单、Runner、训练镜像、镜像 ID 和最小自检，再向 LLMWEB 注册。
+7. GitOps 回报 Target 工作负载的安装阶段；最终同时以 GitOps Agent 终态和 LLMWEB 用户训练池中对应 Runner 心跳正常为完成证据。
 
-连接器只接受结构化字段，不接受任意 URL、Shell、安装命令、镜像名或工作区 ID。配对材料必须短时、一次有效，并绑定目标账户；GitOps 不解析或改写其账户归属。
+公共绑定接口只接受 `runner_target_id`、固定能力 `model-training` 和不透明的一次性配对材料，不接受 `agent_id`、任意 URL、源码 revision、Shell、安装命令、镜像名、账户或工作区 ID。配对材料绑定目标账户且短时一次有效；GitOps 不解析、保存或改写其账户归属。
 
-已有 Runner 身份升级时必须保留身份、数据和模型产物，并证明新配对与原 Runner 属于同一工作区。跨账户连接必须拒绝，转移需走独立的正式解绑流程。
+### 9.3 身份、权限与资源
+
+- GitOps 只持久化 Target 与 `model-training` 的绑定、批准发行版本、安装阶段和安全状态摘要，不持久化 LLMWEB 用户 API 凭证或配对码。
+- 安装事务可以使用完成受批准系统安装所需的宿主机权限；训练 Agent 不能继承通用高权限 Shell，只能领取版本化结构任务并启动批准的非特权训练运行时。
+- 训练任务不得携带任意命令、镜像、宿主机路径、特权容器、Docker Socket、网络目标或未批准启动参数。
+- Target 至少声明 CPU、内存、磁盘、GPU 分配、最大并发、可调度与维护状态。LLMWEB 只能使用分配给该 Target 的预算，不能把整台 Node 当作隐式资源池。
+
+### 9.4 生命周期
+
+Target 工作负载使用通用状态：
+
+```text
+unbound → installing → registering → ready → busy
+                    ↘ upgrading / degraded / disabled
+```
+
+GitOps 判断节点、产物、安装和系统服务健康；LLMWEB 判断账户注册、心跳和训练执行健康。聚合展示不得用一侧状态覆盖另一侧事实。
+
+- 解绑账户：撤销 LLMWEB 设备身份并停止领取新任务，保留 Runner Target。
+- 移除工作负载：停止服务并移除精确凭据；本地数据与模型不得默认删除。
+- 转移账户：必须先正式撤销旧绑定，再用新账户重新配对，禁止直接改写归属。
+- 退役 Target：先停止调度，再处理工作负载，最后解除节点绑定。
+
+已有训练身份升级时必须保留身份、数据和模型产物，并证明新配对与原 Runner 属于同一工作区。跨账户连接必须拒绝。
 
 ## 10. 三端正式链路
 
@@ -244,9 +287,9 @@ CloudMCP LLMWEB 连接器调用用户训练 API
         ↓
 LLMWEB 在该用户工作区生成 Runner 配对凭证
         ↓
-CloudMCP 调用 GitOps LLMWEB Runner 连接器
+CloudMCP 请求给精确 Runner Target 绑定 model-training 工作负载
         ↓
-GitOps Agent 在精确节点安装/升级 Runner
+GitOps Agent 经既有 Release 代理安装/升级受批准训练 Agent
         ↓
 Runner 主动连接 LLMWEB 并领取结构化训练任务
         ↓
@@ -294,14 +337,16 @@ CloudMCP 不直接向 Runner 下发训练命令。GitOps 不创建第二套训�
 
 ### 12.3 GitOps
 
-- 连接器只能操作调用方获准的精确 GitOps 节点。
-- 只接受结构化配对与不可变发行字段，不接受任意命令。
+- 绑定只能操作调用方获准的精确 Runner Target，并由 GitOps 从 Target 解析节点。
+- GitOps 治理面不新增 LLMWEB 专属 Runner、Target 类型或专属下载协议。
+- 调用方只提交固定 `model-training` 能力与不透明配对材料；发行标签、资产和摘要由 GitOps 服务端批准。
+- 节点只经既有 `/gh-release` 代理下载摘要锁定的正式包，不接受任意 URL、源码、镜像或命令。
 - 安装、升级、重试和状态读取具有稳定任务身份和幂等语义。
 - 完成状态同时具有 GitOps Agent 终态、Runner 身份保持、环境校验和 LLMWEB 用户训练池心跳证据。
 
 ### 12.4 完整闭环
 
-- 内部受管节点通过 GitOps 连接器进入指定真实用户训练池。
+- 内部受管 Runner Target 绑定 `model-training` 工作负载并进入指定真实用户训练池。
 - CloudMCP 通过该用户的标准 API 连接创建项目、准备数据、启动训练、读取对比结果和模型产物。
 - 同一用户从网页看到完全一致的项目、Runner、进度、指标、模型和调用记录。
 - 旧 `cloudmcp-operator`、`ws_cloudmcp_operator` 和专属直连路径从代码、配置、生产运行与工具目录中清零。
@@ -313,4 +358,3 @@ CloudMCP 不直接向 Runner 下发训练命令。GitOps 不创建第二套训�
 - 用户 API 不提供任意 Shell、脚本或镜像执行。
 - GitOps 继续负责节点治理，不成为训练业务状态真相。
 - CloudMCP 继续负责内部工具聚合与租户授权，不成为 LLMWEB 用户身份真相。
-

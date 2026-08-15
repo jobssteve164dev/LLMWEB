@@ -3,7 +3,7 @@ const versionPattern = /^\d+\.\d+\.\d+$/;
 const assetPattern = /^[A-Za-z0-9._-]+$/;
 
 export function trainingEnvironmentVersion() {
-  const version = process.env.LLMWEB_TRAINING_ENVIRONMENT_VERSION ?? "0.2.0";
+  const version = process.env.LLMWEB_TRAINING_ENVIRONMENT_VERSION ?? "0.2.1";
   if (!versionPattern.test(version)) throw new Error("训练环境版本配置无效");
   return version;
 }
