@@ -4,11 +4,12 @@
   "title": "LLMWEB Training Environment Release",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "version", "source_revision", "runner", "linux_host_runtime", "variants"],
+  "required": ["schema_version", "version", "source_revision", "installer", "runner", "linux_host_runtime", "variants"],
   "properties": {
     "schema_version": { "const": "1.0" },
     "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
     "source_revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "installer": { "$ref": "#/$defs/artifact" },
     "runner": { "$ref": "#/$defs/artifact" },
     "linux_host_runtime": { "$ref": "#/$defs/artifact" },
     "variants": {

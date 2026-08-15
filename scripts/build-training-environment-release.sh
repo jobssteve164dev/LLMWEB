@@ -51,24 +51,29 @@ docker run --rm "$IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/nu
 
 RUNNER_ASSET="$OUTPUT_DIRECTORY/llmweb-runner-linux-amd64"
 RUNTIME_ASSET="$OUTPUT_DIRECTORY/llmweb-runtime-cpu-$VERSION.tar.gz"
+INSTALLER_PACKAGE_ASSET="$OUTPUT_DIRECTORY/llmweb-node-package-linux-amd64.tar.gz"
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C "$REPOSITORY_ROOT/runner" build -trimpath -ldflags="-s -w" -o "$RUNNER_ASSET" ./cmd/runner
 chmod 0755 "$RUNNER_ASSET"
 docker save "$IMAGE" | gzip -1 > "$RUNTIME_ASSET"
+tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+  -czf "$INSTALLER_PACKAGE_ASSET" -C "$REPOSITORY_ROOT/scripts" install-runner.sh
 
 RUNNER_SHA256="$(sha256sum "$RUNNER_ASSET" | cut -d' ' -f1)"
 RUNTIME_SHA256="$(sha256sum "$RUNTIME_ASSET" | cut -d' ' -f1)"
+INSTALLER_PACKAGE_SHA256="$(sha256sum "$INSTALLER_PACKAGE_ASSET" | cut -d' ' -f1)"
 DOCKER_SHA256="$(sha256sum "$OUTPUT_DIRECTORY/docker-static-linux-amd64-$DOCKER_STATIC_VERSION.tgz" | cut -d' ' -f1)"
 IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$IMAGE")"
 
-python3 - "$OUTPUT_DIRECTORY/manifest.json" "$VERSION" "$SOURCE_REVISION" "$RUNNER_SHA256" "$RUNTIME_SHA256" "$IMAGE" "$IMAGE_ID" "$DOCKER_STATIC_VERSION" "$DOCKER_SHA256" <<'PY'
+python3 - "$OUTPUT_DIRECTORY/manifest.json" "$VERSION" "$SOURCE_REVISION" "$INSTALLER_PACKAGE_SHA256" "$RUNNER_SHA256" "$RUNTIME_SHA256" "$IMAGE" "$IMAGE_ID" "$DOCKER_STATIC_VERSION" "$DOCKER_SHA256" <<'PY'
 import json
 import sys
 
-target, version, revision, runner_sha, runtime_sha, image, image_id, docker_version, docker_sha = sys.argv[1:]
+target, version, revision, installer_sha, runner_sha, runtime_sha, image, image_id, docker_version, docker_sha = sys.argv[1:]
 manifest = {
     "schema_version": "1.0",
     "version": version,
     "source_revision": revision,
+    "installer": {"asset": "llmweb-node-package-linux-amd64.tar.gz", "sha256": installer_sha},
     "runner": {"asset": "llmweb-runner-linux-amd64", "sha256": runner_sha},
     "linux_host_runtime": {"asset": f"docker-static-linux-amd64-{docker_version}.tgz", "sha256": docker_sha},
     "variants": {

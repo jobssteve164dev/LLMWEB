@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   cpu-release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, ARM64, gitops-release-oc]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -65,6 +65,7 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             ${{ runner.temp }}/release/manifest.json
+            ${{ runner.temp }}/release/llmweb-node-package-linux-amd64.tar.gz
             ${{ runner.temp }}/release/llmweb-runner-linux-amd64
             ${{ runner.temp }}/release/docker-static-linux-amd64-27.5.1.tgz
             ${{ runner.temp }}/release/llmweb-runtime-cpu-${{ inputs.version }}.tar.gz
