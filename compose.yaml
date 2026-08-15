@@ -23,7 +23,6 @@ services:
       LLMWEB_PUBLIC_URL: ${LLMWEB_PUBLIC_URL:-http://localhost:8000}
       LLMWEB_RUNNER_INSTALLER_URL: ${LLMWEB_RUNNER_INSTALLER_URL:-https://llmweb.szlk.ai/install-runner.sh}
       LLMWEB_RUNNER_SOURCE_REF: ${LLMWEB_RUNNER_SOURCE_REF:-main}
-      LLMWEB_CLOUDMCP_OPERATOR_WORKSPACE_ID: ${LLMWEB_CLOUDMCP_OPERATOR_WORKSPACE_ID:-ws_cloudmcp_operator}
     ports:
       - "8000:8000"
     healthcheck:

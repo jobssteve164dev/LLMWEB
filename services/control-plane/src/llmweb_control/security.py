@@ -8,7 +8,7 @@ from fastapi import Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import Runner
+from .models import ApiConnection, Runner, utc_now
 from .settings import get_settings
 
 
@@ -77,3 +77,21 @@ def require_runner(db: Session, authorization: str | None) -> Runner:
     if runner is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="算力连接凭证无效或已撤销")
     return runner
+
+
+def require_internal_web(authorization: str | None) -> None:
+    expected = f"Bearer {get_settings().web_token}"
+    if authorization is None or not hmac.compare_digest(authorization, expected):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="内部访问凭证无效")
+
+
+def resolve_api_connection(db: Session, credential: str) -> ApiConnection:
+    connection = db.scalar(select(ApiConnection).where(
+        ApiConnection.credential_hash == digest_secret(credential),
+        ApiConnection.status == "active",
+        ApiConnection.revoked_at.is_(None),
+    ))
+    if connection is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API 连接凭证无效或已撤销")
+    connection.last_used_at = utc_now()
+    return connection

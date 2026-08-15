@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Workbench } from "../../components/workbench";
 
-const validSteps = new Set(["project", "compute", "data", "train", "evaluation", "models"]);
+const validSteps = new Set(["project", "compute", "data", "train", "evaluation", "models", "settings"]);
 
 export const metadata: Metadata = {
   title: "训练工作台",

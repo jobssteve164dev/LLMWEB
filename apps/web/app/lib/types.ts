@@ -118,3 +118,26 @@ export type WorkspaceState = {
   experiments: Experiment[];
   jobs: Job[];
 };
+
+export type ApiConnection = {
+  id: string;
+  name: string;
+  purpose: string;
+  capabilities: string[];
+  credential_hint: string;
+  status: "active" | "revoked";
+  created_at: string;
+  rotated_at: string | null;
+  last_used_at: string | null;
+  revoked_at: string | null;
+};
+
+export type ApiActivity = {
+  id: string;
+  connection_id: string;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  outcome: "succeeded" | "failed";
+  occurred_at: string;
+};

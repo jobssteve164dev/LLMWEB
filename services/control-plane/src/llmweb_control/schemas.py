@@ -109,3 +109,23 @@ class JobControl(BaseModel):
 
 class CheckpointSelect(BaseModel):
     checkpoint_ref: str = Field(min_length=1, max_length=500)
+
+
+class ApiConnectionCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    purpose: str = Field(min_length=1, max_length=500)
+    capabilities: list[Literal["workspace:read", "project:write", "runner:pair", "training:write", "artifact:read"]] = Field(min_length=1)
+
+    @field_validator("capabilities")
+    @classmethod
+    def deduplicate_capabilities(cls, value: list[str]) -> list[str]:
+        return list(dict.fromkeys(value))
+
+
+class ApiAuditCreate(BaseModel):
+    request_id: str = Field(min_length=1, max_length=80)
+    action: str = Field(min_length=1, max_length=120)
+    outcome: Literal["succeeded", "failed"]
+    target_type: str | None = Field(default=None, max_length=64)
+    target_id: str | None = Field(default=None, max_length=64)
+    parameter_names: list[str] = Field(default_factory=list, max_length=40)

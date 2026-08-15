@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 from datetime import timedelta, timezone
-import hmac
 import logging
 import secrets
 import shlex
@@ -12,9 +11,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
-from .models import Dataset, Experiment, Job, JobEvent, PairingCode, Project, Runner, Workspace, new_id, utc_now
-from .schemas import CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate, RunnerUpgradeAuthorization
-from .security import WebIdentity, digest_secret, require_runner, require_web
+from .models import ApiAuditEvent, ApiConnection, Dataset, Experiment, Job, JobEvent, PairingCode, Project, Runner, Workspace, new_id, utc_now
+from .schemas import ApiAuditCreate, ApiConnectionCreate, CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate, RunnerUpgradeAuthorization
+from .security import WebIdentity, digest_secret, require_internal_web, require_runner, require_web, resolve_api_connection
 from .settings import get_settings
 
 Db = Annotated[Session, Depends(get_db)]
@@ -29,7 +28,7 @@ APPROVED_MODELS = {
 CLOUDMCP_PROVIDER_ID = "llmweb_training"
 CLOUDMCP_PROVIDER_VERSION = "1.0"
 logger = logging.getLogger(__name__)
-CLOUDMCP_TOOL_CATALOG = [
+USER_API_TOOL_CATALOG = [
     {
         "name": "list_llmweb_training_pool",
         "description": "查看 LLMWEB 训练池、项目和最近训练状态。",
@@ -98,7 +97,11 @@ CLOUDMCP_TOOL_CATALOG = [
         "description": "暂停、继续或取消一个明确的 LLMWEB 训练任务。",
         "inputSchema": {
             "type": "object", "additionalProperties": False,
-            "properties": {"job_id": {"type": "string"}, "action": {"type": "string", "enum": ["pause", "resume", "cancel"]}},
+            "properties": {
+                "job_id": {"type": "string"},
+                "action": {"type": "string", "enum": ["pause", "resume", "cancel"]},
+                "confirmation": {"type": "string", "description": "取消时必须传 CONFIRM_CANCEL_TRAINING"},
+            },
             "required": ["job_id", "action"],
         },
     },
@@ -308,6 +311,121 @@ def state(
             for item in experiments
         ],
         "jobs": [job_view(item, events_by_job.get(item.id, [])) for item in jobs],
+    }
+
+
+def api_connection_view(connection: ApiConnection) -> dict[str, Any]:
+    return {
+        "id": connection.id,
+        "name": connection.name,
+        "purpose": connection.purpose,
+        "capabilities": connection.granted_capabilities,
+        "credential_hint": connection.credential_hint,
+        "status": connection.status,
+        "created_at": as_iso(connection.created_at),
+        "rotated_at": as_iso(connection.rotated_at),
+        "last_used_at": as_iso(connection.last_used_at),
+        "revoked_at": as_iso(connection.revoked_at),
+    }
+
+
+def issue_api_credential() -> tuple[str, str, str]:
+    credential = "llmweb_api_" + secrets.token_urlsafe(32)
+    return credential, digest_secret(credential), credential[-6:]
+
+
+@app.get("/v1/api-connections", tags=["web"])
+def list_api_connections(db: Db, identity: WebAuth) -> dict[str, Any]:
+    ensure_workspace(db, identity)
+    connections = list(db.scalars(select(ApiConnection).where(
+        ApiConnection.workspace_id == identity.workspace_id,
+        ApiConnection.passport_user_id == identity.user_id,
+    ).order_by(ApiConnection.created_at.desc())))
+    events = list(db.scalars(select(ApiAuditEvent).where(
+        ApiAuditEvent.workspace_id == identity.workspace_id,
+        ApiAuditEvent.actor_user_id == identity.user_id,
+    ).order_by(ApiAuditEvent.occurred_at.desc()).limit(50)))
+    return {
+        "connections": [api_connection_view(item) for item in connections],
+        "recent_activity": [{
+            "id": item.id,
+            "connection_id": item.connection_id,
+            "action": item.action,
+            "target_type": item.target_type,
+            "target_id": item.target_id,
+            "outcome": item.outcome,
+            "occurred_at": as_iso(item.occurred_at),
+        } for item in events],
+    }
+
+
+@app.post("/v1/api-connections", status_code=status.HTTP_201_CREATED, tags=["web"])
+def create_api_connection(body: ApiConnectionCreate, db: Db, identity: WebAuth) -> dict[str, Any]:
+    ensure_workspace(db, identity)
+    credential, credential_hash, credential_hint = issue_api_credential()
+    connection = ApiConnection(
+        workspace_id=identity.workspace_id,
+        passport_user_id=identity.user_id,
+        account_email=identity.email,
+        account_name=identity.name,
+        name=body.name.strip(),
+        purpose=body.purpose.strip(),
+        granted_capabilities=body.capabilities,
+        credential_hash=credential_hash,
+        credential_hint=credential_hint,
+    )
+    db.add(connection)
+    db.commit()
+    return {"connection": api_connection_view(connection), "credential": credential}
+
+
+def owned_api_connection(db: Session, connection_id: str, identity: WebIdentity) -> ApiConnection:
+    connection = db.get(ApiConnection, connection_id)
+    if connection is None or connection.workspace_id != identity.workspace_id or connection.passport_user_id != identity.user_id:
+        raise HTTPException(status_code=404, detail="API 连接不存在")
+    return connection
+
+
+@app.post("/v1/api-connections/{connection_id}/rotate", tags=["web"])
+def rotate_api_connection(connection_id: str, db: Db, identity: WebAuth) -> dict[str, Any]:
+    connection = owned_api_connection(db, connection_id, identity)
+    if connection.status != "active" or connection.revoked_at is not None:
+        raise HTTPException(status_code=409, detail="已撤销的 API 连接不能轮换")
+    credential, connection.credential_hash, connection.credential_hint = issue_api_credential()
+    connection.rotated_at = utc_now()
+    db.commit()
+    return {"connection": api_connection_view(connection), "credential": credential}
+
+
+@app.post("/v1/api-connections/{connection_id}/revoke", tags=["web"])
+def revoke_api_connection(connection_id: str, db: Db, identity: WebAuth) -> dict[str, Any]:
+    connection = owned_api_connection(db, connection_id, identity)
+    if connection.revoked_at is None:
+        connection.revoked_at = utc_now()
+        connection.status = "revoked"
+        db.commit()
+    return {"connection": api_connection_view(connection)}
+
+
+@app.post("/v1/api-connections/resolve", tags=["internal"])
+def resolve_api_connection_for_web(
+    db: Db,
+    authorization: Annotated[str | None, Header()] = None,
+    api_credential: Annotated[str | None, Header(alias="X-LLMWEB-API-Credential")] = None,
+) -> dict[str, Any]:
+    require_internal_web(authorization)
+    if not api_credential:
+        raise HTTPException(status_code=401, detail="API 连接凭证缺失")
+    connection = resolve_api_connection(db, api_credential)
+    db.commit()
+    return {
+        "connection": api_connection_view(connection),
+        "identity": {
+            "user_id": connection.passport_user_id,
+            "email": connection.account_email,
+            "name": connection.account_name,
+            "workspace_id": connection.workspace_id,
+        },
     }
 
 
@@ -768,36 +886,7 @@ def control_job(job_id: str, body: JobControl, db: Db, identity: WebAuth) -> dic
     return {"job_id": job.id, "desired_state": job.desired_state}
 
 
-def cloudmcp_identity() -> WebIdentity:
-    settings = get_settings()
-    return WebIdentity(
-        user_id="cloudmcp-operator",
-        email="cloudmcp-operator@internal.invalid",
-        name="训练助手",
-        project_limit=50,
-        workspace_id=settings.cloudmcp_operator_workspace_id,
-    )
-
-
-def authenticate_cloudmcp(request: Request) -> None:
-    settings = get_settings()
-    expected_client_id = settings.cloudmcp_bridge_client_id or ""
-    accepted_secrets = [value for value in (
-        settings.cloudmcp_bridge_client_secret,
-        settings.cloudmcp_bridge_client_secret_next,
-    ) if value]
-    declared_client_id = request.headers.get("X-CloudMCP-Bridge-Client", "")
-    authorization = request.headers.get("Authorization", "")
-    configured = bool(expected_client_id and accepted_secrets)
-    valid_client = configured and hmac.compare_digest(declared_client_id, expected_client_id)
-    valid_secret = any(hmac.compare_digest(authorization, f"Bearer {secret}") for secret in accepted_secrets)
-    if not configured:
-        raise HTTPException(status_code=500, detail="CloudMCP provider bridge is not configured")
-    if not valid_client or not valid_secret:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-
-def cloudmcp_state_summary(db: Session, identity: WebIdentity, project_id: str | None = None) -> dict[str, Any]:
+def user_api_state_summary(db: Session, identity: WebIdentity, project_id: str | None = None) -> dict[str, Any]:
     snapshot = state(db, identity, project_id)
     return {
         "workspace": snapshot["workspace"],
@@ -825,22 +914,21 @@ def cloudmcp_state_summary(db: Session, identity: WebIdentity, project_id: str |
     }
 
 
-@app.get("/api/provider-bridge/v1/help", tags=["cloudmcp"])
-@app.get("/api/provider-bridge/help", tags=["cloudmcp"])
-def cloudmcp_help(request: Request) -> dict[str, Any]:
+@app.get("/api/provider-bridge/v1/help", tags=["user-api"])
+@app.get("/api/provider-bridge/help", tags=["user-api"])
+def user_api_provider_help() -> dict[str, Any]:
     return {
         "object": "llmweb_training_provider_bridge_help",
         "provider": {
             "bridgeId": CLOUDMCP_PROVIDER_ID,
             "providerId": CLOUDMCP_PROVIDER_ID,
-            "providerName": "LLMWEB Training",
+            "providerName": "LLMWEB User Training API",
             "routePath": "/api/provider-bridge",
         },
         "auth": {
-            "mode": "cloudmcp_provider_env_v1",
+            "mode": "user_api_bearer_v1",
             "runtimeHeaders": {
-                "Authorization": "Bearer <CLOUDMCP_BRIDGE_CLIENT_SECRET>",
-                "X-CloudMCP-Bridge-Client": "<CLOUDMCP_BRIDGE_CLIENT_ID>",
+                "Authorization": "Bearer <LLMWEB_USER_API_CREDENTIAL>",
                 "X-CloudMCP-Bridge-Provider": CLOUDMCP_PROVIDER_ID,
                 "X-CloudMCP-Bridge-Version": CLOUDMCP_PROVIDER_VERSION,
             },
@@ -850,22 +938,108 @@ def cloudmcp_help(request: Request) -> dict[str, Any]:
             "successShape": {"success": True, "result": "any"},
             "failureShape": {"success": False, "error": "string"},
         },
-        "tools": CLOUDMCP_TOOL_CATALOG,
+        "tools": USER_API_TOOL_CATALOG,
     }
 
 
-@app.post("/api/provider-bridge", tags=["cloudmcp"])
-async def cloudmcp_provider_bridge(request: Request, db: Db) -> dict[str, Any]:
-    authenticate_cloudmcp(request)
+TOOL_CAPABILITIES = {
+    "list_tools": "workspace:read",
+    "list_llmweb_training_pool": "workspace:read",
+    "create_llmweb_starter_project": "project:write",
+    "create_llmweb_runner_pairing": "runner:pair",
+    "prepare_llmweb_starter_dataset": "project:write",
+    "start_llmweb_starter_training": "training:write",
+    "get_llmweb_training_run": "workspace:read",
+    "select_llmweb_training_result": "training:write",
+    "control_llmweb_training_job": "training:write",
+}
+
+
+def record_api_audit(
+    db: Session,
+    connection: ApiConnection,
+    request_id: str,
+    action: str,
+    outcome: str,
+    params: dict[str, Any],
+) -> None:
+    db.add(ApiAuditEvent(
+        connection_id=connection.id,
+        workspace_id=connection.workspace_id,
+        actor_user_id=connection.passport_user_id,
+        request_id=request_id,
+        action=action,
+        target_type=next((key.removesuffix("_id") for key in ("experiment_id", "job_id", "project_id", "runner_id", "dataset_id") if params.get(key)), None),
+        target_id=next((str(params[key]) for key in ("experiment_id", "job_id", "project_id", "runner_id", "dataset_id") if params.get(key)), None),
+        outcome=outcome,
+        safe_request_summary={"parameter_names": sorted(params.keys())},
+    ))
+    db.commit()
+
+
+@app.post("/v1/api-connections/audit", status_code=status.HTTP_201_CREATED, tags=["internal"])
+def create_api_audit_event(
+    body: ApiAuditCreate,
+    db: Db,
+    authorization: Annotated[str | None, Header()] = None,
+    api_connection_id: Annotated[str | None, Header(alias="X-LLMWEB-API-Connection-ID")] = None,
+) -> dict[str, str]:
+    require_internal_web(authorization)
+    if not api_connection_id:
+        raise HTTPException(status_code=401, detail="API 连接身份缺失")
+    connection = db.get(ApiConnection, api_connection_id)
+    if connection is None:
+        raise HTTPException(status_code=404, detail="API 连接不存在")
+    existing = db.scalar(select(ApiAuditEvent).where(
+        ApiAuditEvent.connection_id == connection.id,
+        ApiAuditEvent.request_id == body.request_id,
+    ))
+    if existing is not None:
+        return {"id": existing.id}
+    event = ApiAuditEvent(
+        connection_id=connection.id,
+        workspace_id=connection.workspace_id,
+        actor_user_id=connection.passport_user_id,
+        request_id=body.request_id,
+        action=body.action,
+        target_type=body.target_type,
+        target_id=body.target_id,
+        outcome=body.outcome,
+        safe_request_summary={"parameter_names": sorted(set(body.parameter_names))},
+    )
+    db.add(event)
+    db.commit()
+    return {"id": event.id}
+
+
+@app.post("/api/provider-bridge", tags=["user-api"])
+async def user_api_provider_bridge(
+    request: Request,
+    db: Db,
+    identity: WebAuth,
+    api_connection_id: Annotated[str | None, Header(alias="X-LLMWEB-API-Connection-ID")] = None,
+) -> dict[str, Any]:
+    if not api_connection_id:
+        raise HTTPException(status_code=401, detail="API 连接身份缺失")
+    connection = owned_api_connection(db, api_connection_id, identity)
+    if connection.status != "active" or connection.revoked_at is not None:
+        raise HTTPException(status_code=401, detail="API 连接已撤销")
     body = await request.json()
     tool = str(body.get("tool") or "").strip()
     params = body.get("params") if isinstance(body.get("params"), dict) else {}
-    identity = cloudmcp_identity()
+    required_capability = TOOL_CAPABILITIES.get(tool)
+    if required_capability is None:
+        raise HTTPException(status_code=404, detail=f"Unknown tool: {tool}")
+    if required_capability not in connection.granted_capabilities:
+        raise HTTPException(status_code=403, detail="这个 API 连接没有执行该动作的权限")
+    if tool == "control_llmweb_training_job" and params.get("action") == "cancel" and params.get("confirmation") != "CONFIRM_CANCEL_TRAINING":
+        raise HTTPException(status_code=400, detail="取消训练需要本次调用的明确确认")
+    request_id = request.headers.get("X-Request-ID") or new_id("request")
     try:
         if tool == "list_tools":
-            result: Any = CLOUDMCP_TOOL_CATALOG
+            result: Any = USER_API_TOOL_CATALOG
         elif tool == "list_llmweb_training_pool":
-            result = cloudmcp_state_summary(db, identity, params.get("project_id"))
+            result = user_api_state_summary(db, identity, params.get("project_id"))
         elif tool == "create_llmweb_starter_project":
             result = create_project(ProjectCreate(
                 name=params.get("name") or "我的第一次模型训练",
@@ -894,7 +1068,7 @@ async def cloudmcp_provider_bridge(request: Request, db: Db) -> dict[str, Any]:
                 output_destination="local", license_confirmed=params.get("license_confirmed") is True,
             ), db, identity)
         elif tool == "get_llmweb_training_run":
-            summary = cloudmcp_state_summary(db, identity, params.get("project_id"))
+            summary = user_api_state_summary(db, identity, params.get("project_id"))
             experiment_id = params.get("experiment_id")
             run = next((item for item in summary["training_runs"] if item["id"] == experiment_id), None)
             if run is None:
@@ -914,13 +1088,16 @@ async def cloudmcp_provider_bridge(request: Request, db: Db) -> dict[str, Any]:
             result = select_checkpoint(experiment_id, CheckpointSelect(checkpoint_ref=reference), db, identity)
         elif tool == "control_llmweb_training_job":
             result = control_job(str(params.get("job_id") or ""), JobControl(action=params.get("action")), db, identity)
-        else:
-            raise HTTPException(status_code=404, detail=f"Unknown tool: {tool}")
+        record_api_audit(db, connection, request_id, tool, "succeeded", params)
         return {"success": True, "result": result}
     except HTTPException as error:
+        record_api_audit(db, connection, request_id, tool, "failed", params)
         return {"success": False, "error": str(error.detail), "status": error.status_code}
     except (TypeError, ValueError) as error:
+        record_api_audit(db, connection, request_id, tool, "failed", params)
         return {"success": False, "error": str(error), "status": 400}
     except Exception:
-        logger.exception("Unexpected CloudMCP provider bridge failure for tool %s", tool)
+        db.rollback()
+        record_api_audit(db, connection, request_id, tool, "failed", params)
+        logger.exception("Unexpected user API provider adapter failure for tool %s", tool)
         return {"success": False, "error": "LLMWEB 工具暂时无法完成请求", "status": 500}

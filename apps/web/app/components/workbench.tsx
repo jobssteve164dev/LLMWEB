@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthScreen } from "./auth-screen";
-import type { Dataset, EvaluationSample, Experiment, Job, Metrics, Project, Runner, WorkspaceState } from "../lib/types";
+import type { ApiActivity, ApiConnection, Dataset, EvaluationSample, Experiment, Job, Metrics, Project, Runner, WorkspaceState } from "../lib/types";
 
-type Step = "project" | "compute" | "data" | "train" | "monitor" | "model";
+type Step = "project" | "compute" | "data" | "train" | "monitor" | "model" | "settings";
 const currentProjectStorageKey = "llmweb_current_project:v1";
 
 function loadCurrentProject() {
@@ -36,6 +36,7 @@ const stepPaths: Record<Step, string> = {
   train: "/workbench/train",
   monitor: "/workbench/evaluation",
   model: "/workbench/models",
+  settings: "/workbench/settings",
 };
 
 function stepFromPath(pathname: string): Step {
@@ -223,7 +224,7 @@ export function Workbench() {
           <button className="headerAction" type="button" onClick={() => { setCreatingProject(true); moveTo("project"); }}>新建项目</button>
           <span className="privacyPill"><span aria-hidden="true">●</span> 原始数据留在你的环境</span>
         </div>
-        <div className="accountMenu"><span>{state.account.name || state.account.email}</span><small>{state.project_quota.used}/{state.project_quota.limit} 个项目</small><button type="button" onClick={() => void signOut()}>退出</button></div>
+        <div className="accountMenu"><span>{state.account.name || state.account.email}</span><small>{state.project_quota.used}/{state.project_quota.limit} 个项目</small><div><button type="button" onClick={() => moveTo("settings")}>设置</button><button type="button" onClick={() => void signOut()}>退出</button></div></div>
       </header>
 
       <div className="workspaceLayout">
@@ -264,10 +265,88 @@ export function Workbench() {
           {activeStep === "train" ? <TrainStep project={project} runner={runner} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} /> : null}
           {activeStep === "monitor" ? <MonitorStep experiment={experiment} jobs={state.jobs} runner={runner} busy={busy} perform={perform} moveTo={moveTo} /> : null}
           {activeStep === "model" ? <ModelStep experiment={experiment} moveTo={moveTo} /> : null}
+          {activeStep === "settings" ? <SettingsStep account={state.account} /> : null}
         </section>
       </div>
     </main>
   );
+}
+
+const apiCapabilityOptions = [
+  { id: "workspace:read", label: "查看工作台状态和训练结果" },
+  { id: "project:write", label: "管理项目和数据准备" },
+  { id: "runner:pair", label: "连接算力" },
+  { id: "training:write", label: "启动、暂停和继续训练" },
+  { id: "artifact:read", label: "读取模型产物信息" },
+] as const;
+
+function SettingsStep({ account }: { account: WorkspaceState["account"] }) {
+  const [connections, setConnections] = useState<ApiConnection[]>([]);
+  const [activity, setActivity] = useState<ApiActivity[]>([]);
+  const [credential, setCredential] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const payload = await api<{ connections: ApiConnection[]; recent_activity: ApiActivity[] }>("api-connections", { cache: "no-store" });
+    setConnections(payload.connections);
+    setActivity(payload.recent_activity);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void api<{ connections: ApiConnection[]; recent_activity: ApiActivity[] }>("api-connections", { cache: "no-store" })
+      .then((payload) => {
+        if (!active) return;
+        setConnections(payload.connections);
+        setActivity(payload.recent_activity);
+      })
+      .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "API 连接暂时无法读取。"); });
+    return () => { active = false; };
+  }, []);
+
+  const execute = async (action: () => Promise<{ credential?: string } | void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await action();
+      if (result?.credential) setCredential(result.credential);
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "操作没有完成。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return <><SectionIntro eyebrow="账户设置" title="API 连接" description="把你的训练工作台接到自己信任的自动化服务。每个连接只代表当前账户，并且可以随时撤销。" />
+    {error ? <div className="notice error" role="alert">{error}</div> : null}
+    <form className="apiConnectionCreate" onSubmit={(event) => {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      const capabilities = apiCapabilityOptions.filter((item) => form.get(item.id) === "on").map((item) => item.id);
+      const formElement = event.currentTarget;
+      void execute(async () => {
+        const result = await api<{ credential: string }>("api-connections", { method: "POST", body: JSON.stringify({ name: form.get("name"), purpose: form.get("purpose"), capabilities }) });
+        formElement.reset();
+        return result;
+      });
+    }}>
+      <div><span>新连接</span><h2>连接你的调用服务</h2><p>为不同服务分别创建连接，之后可以单独轮换或撤销。</p></div>
+      <label>连接名称<input name="name" required maxLength={120} placeholder="例如：我的训练助手" /></label>
+      <label>用途说明<input name="purpose" required maxLength={500} placeholder="例如：从团队自动化服务启动并查看训练" /></label>
+      <fieldset><legend>允许它完成</legend>{apiCapabilityOptions.map((item) => <label key={item.id}><input defaultChecked name={item.id} type="checkbox" />{item.label}</label>)}</fieldset>
+      <button className="primaryButton" disabled={busy} type="submit">{busy ? "正在创建…" : "创建 API 连接"}</button>
+    </form>
+    {credential ? <div className="credentialReveal" role="status"><div><strong>请现在保存凭证</strong><p>这是唯一一次显示。只交给你信任的调用服务；丢失后请轮换。</p></div><code>{credential}</code><button className="secondaryButton" type="button" onClick={() => void navigator.clipboard.writeText(credential)}>复制凭证</button><button className="textButton" type="button" onClick={() => setCredential(null)}>我已保存</button></div> : null}
+    <div className="apiConnectionList">{connections.length ? connections.map((connection) => <article key={connection.id} className={connection.status === "revoked" ? "revoked" : ""}>
+      <header><div><span>{connection.status === "active" ? "已连接" : "已撤销"}</span><h3>{connection.name}</h3><p>{connection.purpose}</p></div><small>凭证尾号 · {connection.credential_hint}</small></header>
+      <ul>{connection.capabilities.map((capability) => <li key={capability}>{apiCapabilityOptions.find((item) => item.id === capability)?.label ?? capability}</li>)}</ul>
+      <footer><span>{connection.last_used_at ? `最近使用 ${new Date(connection.last_used_at).toLocaleString("zh-CN")}` : "尚未使用"}</span>{connection.status === "active" ? <div><button className="secondaryButton" disabled={busy} type="button" onClick={() => { if (window.confirm("轮换后旧凭证会立即失效。确定继续吗？")) void execute(() => api<{ credential: string }>(`api-connections/${connection.id}/rotate`, { method: "POST", body: "{}" })); }}>轮换凭证</button><button className="dangerButton" disabled={busy} type="button" onClick={() => { if (window.confirm("撤销后这个调用服务会立即失去访问权限，已有项目和训练不会被删除。")) void execute(() => api(`api-connections/${connection.id}/revoke`, { method: "POST", body: "{}" })); }}>撤销</button></div> : null}</footer>
+    </article>) : <div className="emptyApiConnections"><strong>还没有 API 连接</strong><p>创建后，你可以把凭证交给自己信任的调用服务。</p></div>}</div>
+    <section className="apiActivity"><h2>最近调用</h2>{activity.length ? <ol>{activity.map((item) => <li key={item.id}><span className={item.outcome}>{item.outcome === "succeeded" ? "成功" : "失败"}</span><strong>{connections.find((connection) => connection.id === item.connection_id)?.name ?? "已撤销连接"}</strong><small>{item.action} · {new Date(item.occurred_at).toLocaleString("zh-CN")}</small></li>)}</ol> : <p>调用服务使用后，这里会出现操作记录。</p>}</section>
+    <p className="settingsAccount">这些连接属于 {account.email}。它们不能切换到其他账户，也不能获得你的登录密码或原始训练数据。</p>
+  </>;
 }
 
 type Perform = (action: () => Promise<unknown>, success: string) => Promise<void>;

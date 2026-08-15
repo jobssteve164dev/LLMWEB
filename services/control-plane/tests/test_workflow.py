@@ -356,43 +356,48 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
         assert baseline["payload"]["training"]["iterations"] == 500
 
 
-def test_cloudmcp_provider_bridge_exposes_governed_training_tools(monkeypatch) -> None:
+def test_user_api_connection_governs_provider_bridge_and_audit() -> None:
     reset_database()
-    monkeypatch.setenv("CLOUDMCP_BRIDGE_CLIENT_ID", "bridge-client")
-    monkeypatch.setenv("CLOUDMCP_BRIDGE_CLIENT_SECRET", "bridge-secret")
-    get_settings.cache_clear()
-    headers = {
-        "Authorization": "Bearer bridge-secret",
-        "X-CloudMCP-Bridge-Client": "bridge-client",
-    }
-    try:
-        with TestClient(app) as client:
-            rejected = client.post("/api/provider-bridge", json={"tool": "list_tools", "params": {}})
-            assert rejected.status_code == 401
-            tools_response = client.post("/api/provider-bridge", headers=headers, json={"tool": "list_tools", "params": {}})
-            assert tools_response.status_code == 200
-            names = {item["name"] for item in tools_response.json()["result"]}
-            assert {
-                "create_llmweb_starter_project", "create_llmweb_runner_pairing",
-                "prepare_llmweb_starter_dataset", "start_llmweb_starter_training",
-                "get_llmweb_training_run", "select_llmweb_training_result",
-            }.issubset(names)
-            serialized = str(tools_response.json())
-            assert "command" not in serialized
-            project_response = client.post(
-                "/api/provider-bridge", headers=headers,
-                json={"tool": "create_llmweb_starter_project", "params": {}},
-            ).json()
-            assert project_response["success"] is True
-            pool = client.post(
-                "/api/provider-bridge", headers=headers,
-                json={"tool": "list_llmweb_training_pool", "params": {"project_id": project_response["result"]["id"]}},
-            ).json()
-            assert pool["result"]["projects"][0]["name"] == "我的第一次模型训练"
-    finally:
-        monkeypatch.delenv("CLOUDMCP_BRIDGE_CLIENT_ID")
-        monkeypatch.delenv("CLOUDMCP_BRIDGE_CLIENT_SECRET")
-        get_settings.cache_clear()
+    with TestClient(app) as client:
+        rejected = client.post("/api/provider-bridge", json={"tool": "list_tools", "params": {}})
+        assert rejected.status_code == 401
+        created = client.post("/v1/api-connections", headers=WEB_HEADERS, json={
+            "name": "团队训练助手",
+            "purpose": "从内部自动化服务管理训练",
+            "capabilities": ["workspace:read", "project:write"],
+        })
+        assert created.status_code == 201, created.text
+        connection = created.json()["connection"]
+        credential = created.json()["credential"]
+        resolved = client.post("/v1/api-connections/resolve", headers={
+            "Authorization": f"Bearer {get_settings().web_token}",
+            "X-LLMWEB-API-Credential": credential,
+        })
+        assert resolved.status_code == 200
+        headers = {**WEB_HEADERS, "X-LLMWEB-API-Connection-ID": connection["id"], "X-Request-ID": "request-list-tools"}
+        tools_response = client.post("/api/provider-bridge", headers=headers, json={"tool": "list_tools", "params": {}})
+        assert tools_response.status_code == 200
+        names = {item["name"] for item in tools_response.json()["result"]}
+        assert {"create_llmweb_starter_project", "create_llmweb_runner_pairing", "start_llmweb_starter_training"}.issubset(names)
+        assert "command" not in str(tools_response.json())
+        project_response = client.post(
+            "/api/provider-bridge", headers={**headers, "X-Request-ID": "request-create-project"},
+            json={"tool": "create_llmweb_starter_project", "params": {}},
+        ).json()
+        assert project_response["success"] is True
+        forbidden = client.post(
+            "/api/provider-bridge", headers=headers,
+            json={"tool": "create_llmweb_runner_pairing", "params": {}},
+        )
+        assert forbidden.status_code == 403
+        listed = client.get("/v1/api-connections", headers=WEB_HEADERS).json()
+        assert {item["action"] for item in listed["recent_activity"]} >= {"list_tools", "create_llmweb_starter_project"}
+        client.post(f"/v1/api-connections/{connection['id']}/revoke", headers=WEB_HEADERS, json={})
+        rejected_after_revoke = client.post("/v1/api-connections/resolve", headers={
+            "Authorization": f"Bearer {get_settings().web_token}",
+            "X-LLMWEB-API-Credential": credential,
+        })
+        assert rejected_after_revoke.status_code == 401
 
 
 def test_cloudmcp_provider_bridge_compose_delegates_governed_credentials() -> None:
@@ -400,6 +405,8 @@ def test_cloudmcp_provider_bridge_compose_delegates_governed_credentials() -> No
     assert "CLOUDMCP_BRIDGE_CLIENT_ID:" not in compose
     assert "CLOUDMCP_BRIDGE_CLIENT_SECRET:" not in compose
     assert "LLMWEB_CLOUDMCP_BRIDGE_CLIENT" not in compose
+    assert "LLMWEB_CLOUDMCP_OPERATOR_WORKSPACE_ID" not in compose
+    assert "ws_cloudmcp_operator" not in compose
 
 
 def test_project_limits_and_user_isolation() -> None:

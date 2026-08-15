@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ApiConnectionError, bearerCredential, resolveApiConnection, trustedApiHeaders } from "../../../lib/api-connection";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,21 +12,22 @@ async function proxy(request: NextRequest, context: RouteContext) {
   const suffix = path.length ? `/${path.join("/")}` : "";
   const target = `${baseUrl.replace(/\/$/, "")}/api/provider-bridge${suffix}${request.nextUrl.search}`;
   const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.text();
-  const forwardedHeaders = [
-    "authorization",
-    "x-cloudmcp-bridge-client",
-    "x-cloudmcp-bridge-provider",
-    "x-cloudmcp-bridge-version",
-  ];
 
   try {
+    if (request.method === "GET" || request.method === "HEAD") {
+      const response = await fetch(target, { method: request.method, cache: "no-store" });
+      return new NextResponse(await response.text(), { status: response.status, headers: { "Content-Type": response.headers.get("content-type") ?? "application/json", "Cache-Control": "no-store" } });
+    }
+    const credential = bearerCredential(request.headers.get("authorization"));
+    if (!credential) return NextResponse.json({ detail: "API 连接凭证缺失。" }, { status: 401 });
+    const resolved = await resolveApiConnection(credential);
     const response = await fetch(target, {
       method: request.method,
-      headers: Object.fromEntries(
-        forwardedHeaders
-          .map((name) => [name, request.headers.get(name)] as const)
-          .filter((entry): entry is readonly [string, string] => Boolean(entry[1])),
-      ),
+      headers: {
+        ...trustedApiHeaders(resolved),
+        "Content-Type": "application/json",
+        "X-Request-ID": request.headers.get("x-request-id") || crypto.randomUUID(),
+      },
       body,
       cache: "no-store",
     });
@@ -36,7 +38,9 @@ async function proxy(request: NextRequest, context: RouteContext) {
         "Cache-Control": "no-store",
       },
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiConnectionError) return NextResponse.json({ detail: error.message }, { status: error.status });
+    console.error("[LLMWEB] Provider-compatible user API request failed", error);
     return NextResponse.json({ detail: "训练服务暂时没有响应。" }, { status: 503 });
   }
 }

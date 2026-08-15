@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -144,3 +144,40 @@ class JobEvent(Base):
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ApiConnection(Base):
+    __tablename__ = "api_connections"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("api"))
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    passport_user_id: Mapped[str] = mapped_column(String(255), index=True)
+    account_email: Mapped[str] = mapped_column(String(320))
+    account_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    name: Mapped[str] = mapped_column(String(120))
+    purpose: Mapped[str] = mapped_column(String(500))
+    granted_capabilities: Mapped[list[str]] = mapped_column(JSON)
+    credential_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    credential_hint: Mapped[str] = mapped_column(String(12))
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    rotated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ApiAuditEvent(Base):
+    __tablename__ = "api_audit_events"
+    __table_args__ = (UniqueConstraint("connection_id", "request_id", name="uq_api_audit_connection_request"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("audit"))
+    connection_id: Mapped[str] = mapped_column(ForeignKey("api_connections.id"), index=True)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    actor_user_id: Mapped[str] = mapped_column(String(255), index=True)
+    request_id: Mapped[str] = mapped_column(String(80))
+    action: Mapped[str] = mapped_column(String(120))
+    target_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(24))
+    safe_request_summary: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
