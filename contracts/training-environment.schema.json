@@ -4,22 +4,19 @@
   "title": "LLMWEB Training Environment Release",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "version", "source_revision", "installer", "runner", "linux_host_runtime", "variants"],
+  "required": ["schema_version", "version", "source_revision", "packages"],
   "properties": {
-    "schema_version": { "const": "1.0" },
+    "schema_version": { "const": "2.0" },
     "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
     "source_revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-    "installer": { "$ref": "#/$defs/artifact" },
-    "runner": { "$ref": "#/$defs/artifact" },
-    "linux_host_runtime": { "$ref": "#/$defs/artifact" },
-    "variants": {
+    "packages": {
       "type": "object",
       "additionalProperties": false,
       "required": ["linux-amd64-cpu", "linux-amd64-cuda", "darwin-arm64-mps"],
       "properties": {
-        "linux-amd64-cpu": { "$ref": "#/$defs/variant" },
-        "linux-amd64-cuda": { "$ref": "#/$defs/variant" },
-        "darwin-arm64-mps": { "$ref": "#/$defs/variant" }
+        "linux-amd64-cpu": { "$ref": "#/$defs/package" },
+        "linux-amd64-cuda": { "$ref": "#/$defs/package" },
+        "darwin-arm64-mps": { "$ref": "#/$defs/package" }
       }
     }
   },
@@ -33,31 +30,31 @@
         "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
       }
     },
-    "variant": {
+    "minimum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu_cores", "memory_mb", "disk_free_mb"],
+      "properties": {
+        "cpu_cores": { "type": "integer", "minimum": 1 },
+        "memory_mb": { "type": "integer", "minimum": 1 },
+        "disk_free_mb": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "package": {
       "type": "object",
       "additionalProperties": false,
       "required": ["status", "minimum"],
       "properties": {
         "status": { "enum": ["available", "unavailable"] },
-        "minimum": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["cpu_cores", "memory_mb", "disk_free_mb"],
-          "properties": {
-            "cpu_cores": { "type": "integer", "minimum": 1 },
-            "memory_mb": { "type": "integer", "minimum": 1 },
-            "disk_free_mb": { "type": "integer", "minimum": 1 }
-          }
-        },
+        "minimum": { "$ref": "#/$defs/minimum" },
         "artifact": { "$ref": "#/$defs/artifact" },
-        "image": { "type": "string", "minLength": 1 },
-        "image_id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "image": { "type": "string", "pattern": "^[A-Za-z0-9._/-]+:[A-Za-z0-9._-]+$" },
         "reason": { "type": "string", "minLength": 1 }
       },
       "allOf": [
         {
           "if": { "properties": { "status": { "const": "available" } } },
-          "then": { "required": ["artifact", "image", "image_id"] },
+          "then": { "required": ["artifact", "image"] },
           "else": { "required": ["reason"] }
         }
       ]

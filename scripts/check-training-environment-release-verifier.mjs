@@ -4,38 +4,28 @@ import { createHash } from "node:crypto";
 import { chmod, mkdir, mkdtemp, readFile, rmdir, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { gzipSync } from "node:zlib";
 
 const repositoryRoot = new URL("../", import.meta.url).pathname;
 const verifier = join(repositoryRoot, "scripts/verify-training-environment-release.sh");
 const fixtureRoot = await mkdtemp(join(tmpdir(), "llmweb-release-verifier-"));
 const releaseRoot = join(fixtureRoot, "release");
 const packageRoot = join(fixtureRoot, "package");
+const runtimeRoot = join(fixtureRoot, "runtime");
 const fakeBin = join(fixtureRoot, "bin");
-
-const installerAsset = "llmweb-node-package-linux-amd64.tar.gz";
-const runnerAsset = "llmweb-runner-linux-amd64";
-const hostRuntimeAsset = "docker-static-linux-amd64-27.5.1.tgz";
-const runtimeAsset = "llmweb-runtime-cpu-9.9.9.tar.gz";
-const expectedImageId = `sha256:${"a".repeat(64)}`;
-
-const fixtureFiles = [
-  join(releaseRoot, "manifest.json"),
-  join(releaseRoot, installerAsset),
-  join(releaseRoot, runnerAsset),
-  join(releaseRoot, hostRuntimeAsset),
-  join(releaseRoot, runtimeAsset),
-  join(packageRoot, "install-runner.sh"),
-  join(fakeBin, "docker"),
-];
+const packageAsset = "llmweb-model-training-linux-amd64-9.9.9.tar.gz";
+const packagePath = join(releaseRoot, packageAsset);
 
 const digest = async (path) => createHash("sha256").update(await readFile(path)).digest("hex");
+const run = (command, args) => {
+  const result = spawnSync(command, args, { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+};
 const runVerifier = (overrides = {}) => spawnSync("bash", [verifier, releaseRoot], {
   encoding: "utf8",
   env: {
     ...process.env,
     PATH: `${fakeBin}:${process.env.PATH}`,
-    FAKE_DOCKER_IMAGE_ID: expectedImageId,
+    FAKE_DOCKER_PLATFORM: "linux/amd64",
     FAKE_DOCKER_RUN_FAIL: "0",
     ...overrides,
   },
@@ -45,21 +35,31 @@ try {
   await Promise.all([
     mkdir(releaseRoot),
     mkdir(packageRoot),
+    mkdir(runtimeRoot),
     mkdir(fakeBin),
   ]);
-  await writeFile(join(packageRoot, "install-runner.sh"), "#!/usr/bin/env bash\nexit 0\n");
-  const packed = spawnSync("tar", ["-czf", join(releaseRoot, installerAsset), "-C", packageRoot, "install-runner.sh"], { encoding: "utf8" });
-  assert.equal(packed.status, 0, packed.stderr);
   await Promise.all([
-    writeFile(join(releaseRoot, runnerAsset), "runner-fixture\n"),
-    writeFile(join(releaseRoot, hostRuntimeAsset), "host-runtime-fixture\n"),
-    writeFile(join(releaseRoot, runtimeAsset), gzipSync("runtime-archive-fixture\n")),
+    mkdir(join(packageRoot, "bin")),
+    mkdir(join(packageRoot, "runtime")),
+    mkdir(join(runtimeRoot, "layer")),
+  ]);
+  await Promise.all([
+    writeFile(join(packageRoot, "install-runner-package.sh"), "#!/usr/bin/env bash\nexit 0\n"),
+    writeFile(join(packageRoot, "bin/llmweb-runner"), "#!/usr/bin/env bash\nprintf '0.2.0\\n'\n"),
+    writeFile(join(packageRoot, "runtime/docker-static.tgz"), "docker-static-fixture\n"),
+    writeFile(join(runtimeRoot, "manifest.json"), `${JSON.stringify([{ Config: "config.json", RepoTags: ["llmweb/runtime-cpu:9.9.9"], Layers: ["layer/layer.tar"] }])}\n`),
+    writeFile(join(runtimeRoot, "repositories"), "{}\n"),
+    writeFile(join(runtimeRoot, "config.json"), "{}\n"),
+    writeFile(join(runtimeRoot, "layer/layer.tar"), "layer-fixture\n"),
     writeFile(join(fakeBin, "docker"), `#!/usr/bin/env bash
 set -eu
 case "\${1:-}" in
   info) exit 0 ;;
-  load) test "\${2:-}" = -i; test -s "\${3:-}" ;;
-  image) printf '%s\\n' "\${FAKE_DOCKER_IMAGE_ID}" ;;
+  load) test "\${2:-}" = --input; test -s "\${3:-}" ;;
+  image)
+    test "\${2:-}" = inspect
+    printf '%s\\n' "\${FAKE_DOCKER_PLATFORM}"
+    ;;
   run)
     if [[ "\${FAKE_DOCKER_RUN_FAIL:-0}" = 1 ]]; then
       printf 'Illegal instruction (core dumped)\\n' >&2
@@ -70,50 +70,97 @@ case "\${1:-}" in
 esac
 `),
   ]);
-  await chmod(join(fakeBin, "docker"), 0o755);
+  await Promise.all([
+    chmod(join(packageRoot, "install-runner-package.sh"), 0o755),
+    chmod(join(packageRoot, "bin/llmweb-runner"), 0o755),
+    chmod(join(fakeBin, "docker"), 0o755),
+  ]);
+  run("tar", ["-czf", join(packageRoot, "runtime/image.tar.gz"), "-C", runtimeRoot, "manifest.json", "repositories", "config.json", "layer"]);
 
-  const manifest = {
+  const packageManifest = {
+    schema_version: "1.0",
     version: "9.9.9",
     source_revision: "b".repeat(40),
-    installer: { asset: installerAsset, sha256: await digest(join(releaseRoot, installerAsset)) },
-    runner: { asset: runnerAsset, sha256: await digest(join(releaseRoot, runnerAsset)) },
-    linux_host_runtime: { asset: hostRuntimeAsset, sha256: await digest(join(releaseRoot, hostRuntimeAsset)) },
-    variants: {
-      "linux-amd64-cpu": {
-        artifact: { asset: runtimeAsset, sha256: await digest(join(releaseRoot, runtimeAsset)) },
-        image: "llmweb/runtime-cpu:9.9.9",
-        image_id: expectedImageId,
-      },
+    platform: "linux/amd64",
+    image: "llmweb/runtime-cpu:9.9.9",
+    minimum: { cpu_cores: 4, memory_mb: 7936, disk_free_mb: 20480 },
+    files: {
+      "install-runner-package.sh": await digest(join(packageRoot, "install-runner-package.sh")),
+      "bin/llmweb-runner": await digest(join(packageRoot, "bin/llmweb-runner")),
+      "runtime/docker-static.tgz": await digest(join(packageRoot, "runtime/docker-static.tgz")),
+      "runtime/image.tar.gz": await digest(join(packageRoot, "runtime/image.tar.gz")),
     },
   };
-  await writeFile(join(releaseRoot, "manifest.json"), `${JSON.stringify(manifest)}\n`);
+  await writeFile(join(packageRoot, "package-manifest.json"), `${JSON.stringify(packageManifest)}\n`);
+  run("tar", ["-czf", packagePath, "-C", packageRoot, "install-runner-package.sh", "package-manifest.json", "bin", "runtime"]);
+
+  const releaseManifest = {
+    schema_version: "2.0",
+    version: "9.9.9",
+    source_revision: "b".repeat(40),
+    packages: {
+      "linux-amd64-cpu": {
+        status: "available",
+        minimum: packageManifest.minimum,
+        artifact: { asset: packageAsset, sha256: await digest(packagePath) },
+        image: packageManifest.image,
+      },
+      "linux-amd64-cuda": { status: "unavailable", minimum: packageManifest.minimum, reason: "fixture" },
+      "darwin-arm64-mps": { status: "unavailable", minimum: packageManifest.minimum, reason: "fixture" },
+    },
+  };
+  await writeFile(join(releaseRoot, "manifest.json"), `${JSON.stringify(releaseManifest)}\n`);
 
   const success = runVerifier();
   assert.equal(success.status, 0, success.stderr);
   assert.match(success.stdout, /verified_training_environment_version=9\.9\.9/);
-  assert.match(success.stdout, new RegExp(`verified_image_id=${expectedImageId}`));
+  assert.match(success.stdout, /verified_runtime_platform=linux\/amd64/);
 
-  await writeFile(join(releaseRoot, runnerAsset), "tampered-runner\n");
+  const originalPackage = await readFile(packagePath);
+  await writeFile(packagePath, Buffer.concat([originalPackage, Buffer.from("tampered")]))
   const tampered = runVerifier();
   assert.notEqual(tampered.status, 0);
   assert.match(`${tampered.stdout}\n${tampered.stderr}`, /FAILED|did NOT match/);
-  await writeFile(join(releaseRoot, runnerAsset), "runner-fixture\n");
+  await writeFile(packagePath, originalPackage);
 
-  const wrongImage = runVerifier({ FAKE_DOCKER_IMAGE_ID: `sha256:${"c".repeat(64)}` });
-  assert.notEqual(wrongImage.status, 0);
-  assert.match(wrongImage.stderr, /image identity does not match/);
+  const wrongPlatform = runVerifier({ FAKE_DOCKER_PLATFORM: "linux/arm64" });
+  assert.notEqual(wrongPlatform.status, 0);
+  assert.match(wrongPlatform.stderr, /platform does not match/);
 
   const failedRuntime = runVerifier({ FAKE_DOCKER_RUN_FAIL: "1" });
   assert.notEqual(failedRuntime.status, 0);
   assert.match(failedRuntime.stderr, /Illegal instruction/);
 } finally {
-  for (const file of fixtureFiles) {
-    await unlink(file).catch((error) => {
+  const files = [
+    join(releaseRoot, "manifest.json"),
+    packagePath,
+    join(packageRoot, "install-runner-package.sh"),
+    join(packageRoot, "package-manifest.json"),
+    join(packageRoot, "bin/llmweb-runner"),
+    join(packageRoot, "runtime/docker-static.tgz"),
+    join(packageRoot, "runtime/image.tar.gz"),
+    join(runtimeRoot, "manifest.json"),
+    join(runtimeRoot, "repositories"),
+    join(runtimeRoot, "config.json"),
+    join(runtimeRoot, "layer/layer.tar"),
+    join(fakeBin, "docker"),
+  ];
+  for (const path of files) {
+    await unlink(path).catch((error) => {
       if (error.code !== "ENOENT") throw error;
     });
   }
-  for (const directory of [releaseRoot, packageRoot, fakeBin, fixtureRoot]) {
-    await rmdir(directory).catch((error) => {
+  for (const path of [
+    join(packageRoot, "bin"),
+    join(packageRoot, "runtime"),
+    join(runtimeRoot, "layer"),
+    releaseRoot,
+    packageRoot,
+    runtimeRoot,
+    fakeBin,
+    fixtureRoot,
+  ]) {
+    await rmdir(path).catch((error) => {
       if (error.code !== "ENOENT") throw error;
     });
   }

@@ -1,110 +1,38 @@
-name: Training Environment Release
+name: Training Environment Source Contract
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: Immutable semantic version
-        required: true
-        default: 0.2.2
+  pull_request:
+    paths:
+      - 'scripts/build-training-environment-release.sh'
+      - 'scripts/export-classic-docker-archive.sh'
+      - 'scripts/install-runner-package.sh'
+      - 'scripts/verify-training-environment-release.sh'
+      - 'scripts/check-training-environment*.mjs'
+      - 'contracts/training-environment.schema.json'
+      - 'runner/**'
 
 permissions:
-  contents: write
-
-concurrency:
-  group: training-environment-${{ inputs.version }}
-  cancel-in-progress: false
+  contents: read
 
 jobs:
-  cpu-release:
+  source-contract:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
           go-version-file: runner/go.mod
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-node@v5
         with:
-          python-version: "3.13"
-      - name: Build immutable CPU training environment
-        run: bash scripts/build-training-environment-release.sh "${{ inputs.version }}" "$RUNNER_TEMP/release" "$GITHUB_SHA"
-      - name: Generate SBOM
-        uses: anchore/sbom-action@v0
-        with:
-          image: llmweb/runtime-cpu:${{ inputs.version }}
-          format: spdx-json
-          output-file: ${{ runner.temp }}/release/llmweb-runtime-cpu-${{ inputs.version }}.spdx.json
-      - name: Report all runtime vulnerabilities
-        uses: anchore/scan-action@v7
-        with:
-          image: llmweb/runtime-cpu:${{ inputs.version }}
-          fail-build: false
-          output-format: table
-      - name: Block actionable high vulnerabilities
-        uses: anchore/scan-action@v7
-        with:
-          image: llmweb/runtime-cpu:${{ inputs.version }}
-          config: .github/security/training-runtime-grype.yaml
-          fail-build: true
-          severity-cutoff: high
-          only-fixed: true
-          output-format: table
-      - name: Validate final release files
-        run: |
-          python -m pip install check-jsonschema==0.35.0
-          check-jsonschema --schemafile contracts/training-environment.schema.json "$RUNNER_TEMP/release/manifest.json"
-          test ! -e "$RUNNER_TEMP/release/.git"
-          sha256sum "$RUNNER_TEMP/release"/*
-          cat "$RUNNER_TEMP/release/build-evidence.txt"
-      - name: Upload release candidate
-        uses: actions/upload-artifact@v4
-        with:
-          name: training-environment-${{ inputs.version }}
-          path: |
-            ${{ runner.temp }}/release/manifest.json
-            ${{ runner.temp }}/release/llmweb-node-package-linux-amd64.tar.gz
-            ${{ runner.temp }}/release/llmweb-runner-linux-amd64
-            ${{ runner.temp }}/release/docker-static-linux-amd64-27.5.1.tgz
-            ${{ runner.temp }}/release/llmweb-runtime-cpu-${{ inputs.version }}.tar.gz
-            ${{ runner.temp }}/release/llmweb-runtime-cpu-${{ inputs.version }}.spdx.json
-            ${{ runner.temp }}/release/build-evidence.txt
-          if-no-files-found: error
-          retention-days: 1
+          node-version: '24'
+          cache: pnpm
+      - run: corepack enable && pnpm install --frozen-lockfile
+      - name: Verify package and consumer source contracts
+        run: pnpm check:training-environment
+      - name: Verify Runner pairing-file boundary
+        run: go -C runner test ./...
 
-  verify-cpu-release:
-    needs: cpu-release
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v5
-      - name: Download release candidate into a clean job
-        uses: actions/download-artifact@v4
-        with:
-          name: training-environment-${{ inputs.version }}
-          path: ${{ runner.temp }}/release
-      - name: Verify final archive load, identity, and runtime self-test
-        run: bash scripts/verify-training-environment-release.sh "$RUNNER_TEMP/release"
-
-  publish-cpu-release:
-    needs: verify-cpu-release
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Download verified release candidate
-        uses: actions/download-artifact@v4
-        with:
-          name: training-environment-${{ inputs.version }}
-          path: ${{ runner.temp }}/release
-      - name: Publish immutable release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: training-env-v${{ inputs.version }}
-          target_commitish: ${{ github.sha }}
-          name: LLMWEB Training Environment ${{ inputs.version }}
-          fail_on_unmatched_files: true
-          files: |
-            ${{ runner.temp }}/release/manifest.json
-            ${{ runner.temp }}/release/llmweb-node-package-linux-amd64.tar.gz
-            ${{ runner.temp }}/release/llmweb-runner-linux-amd64
-            ${{ runner.temp }}/release/docker-static-linux-amd64-27.5.1.tgz
-            ${{ runner.temp }}/release/llmweb-runtime-cpu-${{ inputs.version }}.tar.gz
-            ${{ runner.temp }}/release/llmweb-runtime-cpu-${{ inputs.version }}.spdx.json
-            ${{ runner.temp }}/release/build-evidence.txt
+# The authoritative executable package is built, signed, verified across image
+# stores, and published by GitOps' existing Release Bundle producer. This source
+# workflow deliberately has no contents:write permission and cannot publish.

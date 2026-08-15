@@ -1,22 +1,38 @@
-const repository = "jobssteve164dev/LLMWEB";
 const versionPattern = /^\d+\.\d+\.\d+$/;
 const assetPattern = /^[A-Za-z0-9._-]+$/;
 
-export function trainingEnvironmentVersion() {
-  const version = process.env.LLMWEB_TRAINING_ENVIRONMENT_VERSION ?? "0.2.1";
-  if (!versionPattern.test(version)) throw new Error("训练环境版本配置无效");
-  return version;
+function upstreamBaseURL() {
+  const value = process.env.LLMWEB_TRAINING_ENVIRONMENT_UPSTREAM_BASE_URL
+    ?? "https://gitops-runner.szlk.ai/model-training-releases";
+  const url = new URL(value);
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
+    throw new Error("训练环境上游地址无效");
+  }
+  return url.toString().replace(/\/$/, "");
 }
 
-export function releaseAssetURL(asset: string) {
+export function releaseManifestURL() {
+  return `${upstreamBaseURL()}/latest/manifest.json`;
+}
+
+export function releaseAssetURL(version: string, asset: string) {
+  if (!versionPattern.test(version)) throw new Error("训练环境版本无效");
   if (!assetPattern.test(asset)) throw new Error("训练环境文件名无效");
-  return `https://github.com/${repository}/releases/download/training-env-v${trainingEnvironmentVersion()}/${asset}`;
+  return `${upstreamBaseURL()}/${version}/${asset}`;
 }
 
-export async function fetchReleaseAsset(asset: string, range?: string | null) {
+async function fetchUpstream(url: string, range?: string | null) {
   const headers = new Headers({ "User-Agent": "LLMWEB-Artifact-Gateway/1.0" });
   if (range) headers.set("Range", range);
-  return fetch(releaseAssetURL(asset), { headers, redirect: "follow", cache: "no-store" });
+  return fetch(url, { headers, redirect: "follow", cache: "no-store" });
+}
+
+export async function fetchReleaseManifest() {
+  return fetchUpstream(releaseManifestURL());
+}
+
+export async function fetchReleaseAsset(version: string, asset: string, range?: string | null) {
+  return fetchUpstream(releaseAssetURL(version, asset), range);
 }
 
 export function gatewayResponse(upstream: Response, immutable = true) {

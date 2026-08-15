@@ -63,6 +63,21 @@ func Pair(ctx context.Context, baseURL, code, name string, report capabilities.R
 	return result, nil
 }
 
+func (client *Client) AuthorizeUpgrade(ctx context.Context, code string) error {
+	err := client.request(
+		ctx,
+		http.MethodPost,
+		"/v1/runners/upgrade-authorization",
+		map[string]any{"code": code},
+		nil,
+		true,
+	)
+	if errors.Is(err, errNoContent) {
+		return nil
+	}
+	return err
+}
+
 func capabilityPayload(report capabilities.Report) map[string]any {
 	return map[string]any{
 		"ready":                        report.Ready(),

@@ -38,6 +38,8 @@ LLMWEB 注册用户
 
 普通用户界面不得出现 CloudMCP、Provider Bridge、GitOps、内部工作区、Bridge Header、Runner Agent 或后端路由等实现概念。CloudMCP 不能成为设置卡片名称、授权对象或账户类型。
 
+普通用户连接自有算力时，只运行 LLMWEB 设置页生成的一次性连接命令。安装器从 LLMWEB 产品域下载发行清单、正式包、摘要和签名；LLMWEB 在服务端代理 GitOps 中已经通过最终验证的同一 Bundle。用户不持有 CloudMCP 或 GitOps 凭证，也不选择内部仓库、Tag、节点或代理。内部 GitOps target 安装与普通用户安装的入口不同，但消费包字节、摘要、签名和固定安装器完全相同。
+
 ## 3. 核心决策
 
 - API 调用身份必须来自真实 Passport 注册用户，不能来自内部虚拟用户或固定工作区。
@@ -245,8 +247,8 @@ GitOps Agent 注册节点
 1. 上层通过已绑定真实账户的 LLMWEB API 连接生成一次性 Runner 配对凭证。
 2. CloudMCP 选择一个调用方已获授权的精确 `runner_target_id`，请求安装 `model-training` Runner 动作；Target 创建和节点选择是此前完成的 GitOps 治理动作，不是本次安装的隐含副作用。
 3. GitOps 控制面从 Target 解析已注册 Agent，验证调用主体、Target 启用状态、节点在线、调度状态、资源预算和动作状态。
-4. GitOps 服务端在本次安装开始时解析并校验 LLMWEB 当前可信正式发行，把确切 Release 标签、源码 revision、单个平台包名、包 SHA256 和签名固化到 Runner Action 与本次 Operation；调用方不能选择或覆盖可执行内容，新发行也不能改变执行中的 Operation。
-5. GitOps Agent 复用既有制品路径，只为这一份自包含包取得一个受治理授权，使用既有校验下载器验证摘要与签名，再解包并执行包内固定安装入口。
+4. GitOps 复用其他业务已有的 Release Bundle producer，由共享构建池从不可变 LLMWEB 源码 SHA 生成单个平台包，以既有业务制品签名密钥签名并写入 GitOps Release；构建池只是生产执行位置，不在该节点安装训练 Runner。
+5. 服务端把 producer 记录的源码 revision、包名、包 SHA256 和签名固化到 Runner Action 与本次 Operation；随后只为这一份包生成一个既有 Agent-bound `/gh-release` 授权。Agent 复用业务发布的下载、验签、验摘要和安全解包代码，再执行包内固定 Action 安装入口。
 6. 包内安装器不再下载执行资产；它校验包内 Runner 与训练运行时内容、导入固定镜像引用并运行最小自检，再向 LLMWEB 注册。
 7. GitOps 以稳定 `runner_action_id` 回报 Runner 动作，以 `operation_id` 回报本次安装阶段；最终同时以 GitOps Agent 终态和 LLMWEB 用户训练池中对应 Runner 心跳正常为完成证据。
 
@@ -255,7 +257,7 @@ GitOps Agent 注册节点
 ### 9.3 身份、权限与资源
 
 - GitOps 只持久化 Target 下 `model-training` Runner 动作、批准的单一发行包身份、安装阶段和安全状态摘要，不持久化 LLMWEB 用户 API 凭证或配对码。
-- 训练环境版本是每个 Runner Action 的已解析发布身份，不是 GitOps 源码常量。LLMWEB 发布新版本不得要求修改 GitOps 运行时代码或公共 Runner 动作契约；仅当发行清单协议、信任来源或稳定动作语义改变时才进行跨系统升级。
+- 训练环境版本是每个 Runner Action 的已解析包身份，不是 GitOps 源码常量。LLMWEB 新版本只触发同一 GitOps Release producer 从新源码 SHA 构建新包，不得要求修改 GitOps 运行时代码或公共 Runner 动作契约；仅当包协议、信任来源或稳定动作语义改变时才进行跨系统升级。
 - 安装事务可以使用完成受批准系统安装所需的宿主机权限；训练 Agent 不能继承通用高权限 Shell，只能领取版本化结构任务并启动批准的非特权训练运行时。
 - 训练任务不得携带任意命令、镜像、宿主机路径、特权容器、Docker Socket、网络目标或未批准启动参数。
 - Target 至少声明 CPU、内存、磁盘、GPU 分配、最大并发、可调度与维护状态。LLMWEB 只能使用分配给该 Target 的预算，不能把整台 Node 当作隐式资源池。
@@ -300,7 +302,7 @@ LLMWEB 在该用户工作区生成 Runner 配对凭证
         ↓
 CloudMCP 请求在精确 Runner Target 内安装 model-training Runner 动作
         ↓
-GitOps Agent 经既有 Release 代理安装/升级受批准训练 Agent
+GitOps 共享 Release producer 构建签名单包；Target Agent 经既有代理安装/升级
         ↓
 Runner 主动连接 LLMWEB 并领取结构化训练任务
         ↓

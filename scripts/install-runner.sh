@@ -8,7 +8,6 @@ REPOSITORY="jobssteve164dev/LLMWEB"
 INSTALL_ROOT="${LLMWEB_INSTALL_ROOT:-/opt/llmweb}"
 STATE_ROOT="${LLMWEB_STATE_ROOT:-/var/lib/llmweb/state}"
 RUNTIME_IMAGE="llmweb/runtime:0.1.0"
-CPU_RUNTIME_IMAGE="llmweb/runtime-cpu:0.1.0"
 CURRENT_FAILURE_CODE=""
 FAILURE_MARKER_EMITTED=0
 INSTALL_FAILURE_CODE_FILE=""
@@ -33,37 +32,6 @@ fail() {
   emit_install_failure_marker "$failure_code"
   printf '\n[LLMWEB] 安装未完成：%s\n' "$1" >&2
   exit 1
-}
-
-classify_runtime_self_test_failure() {
-  local output="${1,,}"
-  case "$output" in
-    *"illegal instruction"*|*"sigill"*) printf 'runtime_cpu_incompatible\n' ;;
-    *"exec format error"*|*"no matching manifest"*|*"platform does not match"*) printf 'runtime_architecture_incompatible\n' ;;
-    *"cannot allocate memory"*|*"out of memory"*|*"signal: killed"*) printf 'runtime_out_of_memory\n' ;;
-    *"no space left on device"*) printf 'storage_full\n' ;;
-    *"cannot connect to the docker daemon"*|*"docker daemon is not running"*) printf 'docker_unavailable\n' ;;
-    *"modulenotfounderror"*|*"importerror"*) printf 'runtime_dependency_missing\n' ;;
-    *"permission denied"*|*"operation not permitted"*) printf 'permission_denied\n' ;;
-    *) printf 'runtime_self_test_failed\n' ;;
-  esac
-}
-
-RUNTIME_SELF_TEST_FAILURE_CODE=""
-run_cpu_runtime_self_test() {
-  local output=""
-  local diagnostic_output=""
-  if output="$(docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' 2>&1)"; then
-    RUNTIME_SELF_TEST_FAILURE_CODE=""
-    return 0
-  fi
-  RUNTIME_SELF_TEST_FAILURE_CODE="$(classify_runtime_self_test_failure "$output")"
-  diagnostic_output="$output"
-  if (( ${#diagnostic_output} > 16384 )); then
-    diagnostic_output="${diagnostic_output: -16384}"
-  fi
-  printf '\n[LLMWEB] 训练环境自检原始输出（最多保留末尾 16384 字符）：\n%s\n' "$diagnostic_output" >&2
-  return 1
 }
 
 while [[ $# -gt 0 ]]; do
@@ -220,6 +188,161 @@ command -v curl >/dev/null 2>&1 || fail "缺少 curl，无法下载安装文件"
 command -v tar >/dev/null 2>&1 || fail "缺少 tar，无法解压安装文件"
 command -v sha256sum >/dev/null 2>&1 || fail "缺少 sha256sum，无法校验连接程序工具链"
 command -v python3 >/dev/null 2>&1 || fail "缺少 Python 3，无法读取训练环境清单"
+command -v openssl >/dev/null 2>&1 || fail "缺少 OpenSSL，无法验证训练环境签名"
+
+install_cpu_release_package() {
+  local manifest_url="${LLMWEB_TRAINING_ENVIRONMENT_MANIFEST_URL:-$CONTROL_URL/api/training-environment/manifest}"
+  local asset_base="${LLMWEB_TRAINING_ENVIRONMENT_ASSET_BASE_URL:-$CONTROL_URL/api/training-environment/assets}"
+  local work_root
+  local package_root
+  local manifest_path
+  local package_path
+  local digest_path
+  local signature_path
+  local public_key_path
+  local pairing_code_path
+  local version
+  local package_asset
+  local expected_digest
+  local sidecar_digest
+
+  work_root="$(mktemp -d /tmp/llmweb-model-training.XXXXXX)"
+  package_root="$work_root/package"
+  manifest_path="$work_root/manifest.json"
+  digest_path="$work_root/package.sha256"
+  signature_path="$work_root/package.sig"
+  public_key_path="$work_root/release-signing-public-key.pem"
+  pairing_code_path="$work_root/pairing-code"
+
+  cleanup_cpu_release_package() {
+    local path
+    for path in \
+      "$package_root/install-runner-package.sh" \
+      "$package_root/package-manifest.json" \
+      "$package_root/bin/llmweb-runner" \
+      "$package_root/runtime/docker-static.tgz" \
+      "$package_root/runtime/image.tar.gz" \
+      "$manifest_path" "$package_path" "$digest_path" "$signature_path" \
+      "$public_key_path" "$pairing_code_path"; do
+      if [[ -e "$path" || -L "$path" ]]; then unlink "$path"; fi
+    done
+    rmdir "$package_root/bin" "$package_root/runtime" "$package_root" "$work_root" 2>/dev/null || true
+  }
+  trap cleanup_cpu_release_package EXIT
+
+  say "正在读取统一训练环境"
+  curl -fL --retry 3 --retry-all-errors "$manifest_url" -o "$manifest_path"
+  mapfile -t release_values < <(python3 - "$manifest_path" <<'PY'
+import json
+import re
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    manifest = json.load(handle)
+if set(manifest) != {"schema_version", "version", "source_revision", "packages"}:
+    raise SystemExit("invalid release manifest fields")
+if manifest["schema_version"] != "2.0" or not re.fullmatch(r"\d+\.\d+\.\d+", manifest["version"]):
+    raise SystemExit("invalid release identity")
+if not re.fullmatch(r"[0-9a-f]{40}", manifest["source_revision"]):
+    raise SystemExit("invalid source revision")
+packages = manifest["packages"]
+if set(packages) != {"linux-amd64-cpu", "linux-amd64-cuda", "darwin-arm64-mps"}:
+    raise SystemExit("invalid release package set")
+package = packages["linux-amd64-cpu"]
+if package.get("status") != "available" or package.get("image") != f"llmweb/runtime-cpu:{manifest['version']}":
+    raise SystemExit("CPU package is unavailable")
+artifact = package.get("artifact") or {}
+expected_asset = f"llmweb-model-training-linux-amd64-{manifest['version']}.tar.gz"
+if artifact.get("asset") != expected_asset or not re.fullmatch(r"[0-9a-f]{64}", str(artifact.get("sha256", ""))):
+    raise SystemExit("invalid CPU package identity")
+print(manifest["version"])
+print(artifact["asset"])
+print(artifact["sha256"])
+PY
+  ) || fail "训练环境清单验证失败" "environment_manifest_invalid"
+  [[ "${#release_values[@]}" -eq 3 ]] || fail "训练环境清单不完整" "environment_manifest_invalid"
+  version="${release_values[0]}"
+  package_asset="${release_values[1]}"
+  expected_digest="${release_values[2]}"
+  package_path="$work_root/$package_asset"
+
+  say "正在下载统一训练环境包"
+  curl -fL --retry 3 --retry-all-errors "$asset_base/$package_asset" -o "$package_path"
+  curl -fL --retry 3 --retry-all-errors "$asset_base/$package_asset.sha256" -o "$digest_path"
+  curl -fL --retry 3 --retry-all-errors "$asset_base/$package_asset.sig" -o "$signature_path"
+  sidecar_digest="$(tr -d '\n' < "$digest_path")"
+  [[ "$sidecar_digest" == "$expected_digest" && "$sidecar_digest" =~ ^[0-9a-f]{64}$ ]] \
+    || fail "训练环境摘要不一致" "package_digest_mismatch"
+  [[ "$(stat -c %s "$signature_path")" -eq 64 ]] \
+    || fail "训练环境签名无效" "package_signature_invalid"
+  printf '%s\n' "$sidecar_digest" > "$digest_path"
+  cat > "$public_key_path" <<'EOF'
+-----BEGIN PUBLIC KEY-----
+MCowBQYDK2VwAyEA0UXdF8Z4E2lswdmS2dFLQMq64EnlXDLPota9POlJrtw=
+-----END PUBLIC KEY-----
+EOF
+  openssl pkeyutl -verify -pubin -inkey "$public_key_path" -rawin \
+    -in "$digest_path" -sigfile "$signature_path" >/dev/null \
+    || fail "训练环境签名验证失败" "package_signature_invalid"
+  printf '%s  %s\n' "$expected_digest" "$package_path" | sha256sum -c - >/dev/null \
+    || fail "训练环境包校验失败" "package_digest_mismatch"
+
+  mkdir -p "$package_root/bin" "$package_root/runtime"
+  python3 - "$package_path" "$package_root" <<'PY'
+import os
+import pathlib
+import shutil
+import sys
+import tarfile
+
+archive = pathlib.Path(sys.argv[1])
+root = pathlib.Path(sys.argv[2]).resolve()
+expected = {
+    "install-runner-package.sh",
+    "package-manifest.json",
+    "bin/llmweb-runner",
+    "runtime/docker-static.tgz",
+    "runtime/image.tar.gz",
+}
+with tarfile.open(archive, "r:gz") as handle:
+    members = []
+    seen = set()
+    for member in handle.getmembers():
+        name = member.name.lstrip("./")
+        if not name or member.isdir():
+            continue
+        if name in seen or name not in expected or not member.isfile() or member.issym() or member.islnk():
+            raise SystemExit("unsafe package member")
+        seen.add(name)
+        members.append((member, name))
+    if seen != expected:
+        raise SystemExit("package member set is not exact")
+    for member, name in members:
+        target = (root / name).resolve()
+        if root not in target.parents:
+            raise SystemExit("package path escapes extraction root")
+        source = handle.extractfile(member)
+        if source is None:
+            raise SystemExit("package member cannot be read")
+        with target.open("wb") as output:
+            shutil.copyfileobj(source, output)
+        os.chmod(target, 0o755 if name in {"install-runner-package.sh", "bin/llmweb-runner"} else 0o644)
+PY
+  umask 077
+  printf '%s\n' "$REGISTRATION_CODE" > "$pairing_code_path"
+  bash "$package_root/install-runner-package.sh" \
+    --url "$CONTROL_URL" \
+    --code-file "$pairing_code_path"
+  cleanup_cpu_release_package
+  trap - EXIT
+  say "连接完成。已启用普通电脑训练环境。"
+}
+
+if ! command -v nvidia-smi >/dev/null 2>&1 || ! nvidia-smi >/dev/null 2>&1; then
+  install_cpu_release_package
+  exit 0
+fi
+
 mkdir -p "$INSTALL_ROOT/bin" "$INSTALL_ROOT/source" "$STATE_ROOT"
 UPGRADE_EXISTING=0
 if [[ -s "$STATE_ROOT/state.json" ]] && python3 - "$STATE_ROOT/state.json" <<'PY'
@@ -278,84 +401,31 @@ start_docker() {
   docker info >/dev/null 2>&1 || fail "Docker 服务未能启动"
 }
 
-HAS_NVIDIA=0
-if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-  HAS_NVIDIA=1
-fi
-
-if [[ "$HAS_NVIDIA" -eq 0 ]]; then
-  MANIFEST_URL="${LLMWEB_TRAINING_ENVIRONMENT_MANIFEST_URL:-$CONTROL_URL/api/training-environment/manifest}"
-  MANIFEST_PATH="$INSTALL_ROOT/training-environment.json"
-  record_install_stage "environment_manifest"
-  curl -fL --retry 3 --retry-all-errors "$MANIFEST_URL" -o "$MANIFEST_PATH.download"
-  mv "$MANIFEST_PATH.download" "$MANIFEST_PATH"
-  manifest_value() {
-    python3 - "$MANIFEST_PATH" "$1" <<'PY'
-import json
-import sys
-with open(sys.argv[1], encoding="utf-8") as handle:
-    value = json.load(handle)
-for key in sys.argv[2].split("."):
-    value = value[key]
-print(value)
-PY
-  }
-fi
-
 if ! command -v docker >/dev/null 2>&1; then
   say "正在安装容器运行环境"
-  if [[ "$HAS_NVIDIA" -eq 1 ]]; then
-    curl -fsSL https://get.docker.com -o "$INSTALL_ROOT/get-docker.sh"
-    sh "$INSTALL_ROOT/get-docker.sh"
-  else
-    HOST_RUNTIME_ASSET="$(manifest_value linux_host_runtime.asset)"
-    HOST_RUNTIME_SHA256="$(manifest_value linux_host_runtime.sha256)"
-    GATEWAY_BASE="${LLMWEB_TRAINING_ENVIRONMENT_ASSET_BASE_URL:-$CONTROL_URL/api/training-environment/assets}"
-    HOST_RUNTIME_ARCHIVE="$INSTALL_ROOT/$HOST_RUNTIME_ASSET"
-    record_install_stage "host_runtime"
-    curl -fL -C - --retry 3 --retry-all-errors "$GATEWAY_BASE/$HOST_RUNTIME_ASSET" -o "$HOST_RUNTIME_ARCHIVE.download"
-    printf '%s  %s\n' "$HOST_RUNTIME_SHA256" "$HOST_RUNTIME_ARCHIVE.download" | sha256sum -c -
-    mv "$HOST_RUNTIME_ARCHIVE.download" "$HOST_RUNTIME_ARCHIVE"
-    tar -xzf "$HOST_RUNTIME_ARCHIVE" --strip-components=1 -C /usr/local/bin
-    cat > /etc/systemd/system/docker.service <<'EOF'
-[Unit]
-Description=Docker Application Container Engine
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-ExecStart=/usr/local/bin/dockerd --host=unix:///var/run/docker.sock
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    systemctl daemon-reload
-  fi
+  curl -fsSL https://get.docker.com -o "$INSTALL_ROOT/get-docker.sh"
+  sh "$INSTALL_ROOT/get-docker.sh"
 fi
 start_docker
 
-if [[ "$HAS_NVIDIA" -eq 1 ]]; then
-  say "正在下载与 ${PLATFORM} 匹配的连接程序"
-  record_install_stage "source_download"
-  SOURCE_ARCHIVE_URL="${LLMWEB_SOURCE_ARCHIVE_URL:-https://github.com/${REPOSITORY}/archive/${SOURCE_REF}.tar.gz}"
-  curl -fL --retry 3 --retry-all-errors \
-    "$SOURCE_ARCHIVE_URL" \
-    -o "$INSTALL_ROOT/source.tar.gz.download"
-  mv "$INSTALL_ROOT/source.tar.gz.download" "$INSTALL_ROOT/source.tar.gz"
-  tar -xzf "$INSTALL_ROOT/source.tar.gz" --strip-components=1 -C "$INSTALL_ROOT/source"
+say "正在下载与 ${PLATFORM} 匹配的连接程序"
+record_install_stage "source_download"
+SOURCE_ARCHIVE_URL="${LLMWEB_SOURCE_ARCHIVE_URL:-https://github.com/${REPOSITORY}/archive/${SOURCE_REF}.tar.gz}"
+curl -fL --retry 3 --retry-all-errors \
+  "$SOURCE_ARCHIVE_URL" \
+  -o "$INSTALL_ROOT/source.tar.gz.download"
+mv "$INSTALL_ROOT/source.tar.gz.download" "$INSTALL_ROOT/source.tar.gz"
+tar -xzf "$INSTALL_ROOT/source.tar.gz" --strip-components=1 -C "$INSTALL_ROOT/source"
 
-  RUNNER_BINARY_URL="${LLMWEB_RUNNER_BINARY_URL:-https://github.com/${REPOSITORY}/releases/download/llmweb-runner-bec5876f/llmweb-runner-linux-amd64}"
-  RUNNER_BINARY_SHA256="5b647a97c9403d443c58415c56e5d3b8217fb0cd28a8ec0d0d6e231353fbb76b"
-  say "正在下载已校验的连接程序"
-  record_install_stage "runner_download"
-  curl -fL --retry 3 --retry-all-errors "$RUNNER_BINARY_URL" \
-    -o "$INSTALL_ROOT/bin/llmweb-runner.download"
-  printf '%s  %s\n' "$RUNNER_BINARY_SHA256" "$INSTALL_ROOT/bin/llmweb-runner.download" | sha256sum -c -
-  mv "$INSTALL_ROOT/bin/llmweb-runner.download" "$INSTALL_ROOT/bin/llmweb-runner"
-  chmod 0755 "$INSTALL_ROOT/bin/llmweb-runner"
-fi
+RUNNER_BINARY_URL="${LLMWEB_RUNNER_BINARY_URL:-https://github.com/${REPOSITORY}/releases/download/llmweb-runner-bec5876f/llmweb-runner-linux-amd64}"
+RUNNER_BINARY_SHA256="5b647a97c9403d443c58415c56e5d3b8217fb0cd28a8ec0d0d6e231353fbb76b"
+say "正在下载已校验的连接程序"
+record_install_stage "runner_download"
+curl -fL --retry 3 --retry-all-errors "$RUNNER_BINARY_URL" \
+  -o "$INSTALL_ROOT/bin/llmweb-runner.download"
+printf '%s  %s\n' "$RUNNER_BINARY_SHA256" "$INSTALL_ROOT/bin/llmweb-runner.download" | sha256sum -c -
+mv "$INSTALL_ROOT/bin/llmweb-runner.download" "$INSTALL_ROOT/bin/llmweb-runner"
+chmod 0755 "$INSTALL_ROOT/bin/llmweb-runner"
 
 TARGET_USER="${SUDO_USER:-root}"
 TARGET_HOME="$(getent passwd "$TARGET_USER" 2>/dev/null | cut -d: -f6 || true)"
@@ -400,63 +470,13 @@ install_nvidia_toolkit() {
 }
 
 say "正在安装受控训练环境，这一步可能需要几分钟"
-if [[ "$HAS_NVIDIA" -eq 1 ]]; then
-  record_install_stage "runtime_image"
-  if ! docker info --format '{{json .Runtimes}}' | grep -q 'nvidia'; then
-    install_nvidia_toolkit
-  fi
-  docker build --platform "$PLATFORM" -t "$RUNTIME_IMAGE" -f "$INSTALL_ROOT/source/runtime/Dockerfile" "$INSTALL_ROOT/source"
-  docker run --rm --gpus all "$RUNTIME_IMAGE" nvidia-smi >/dev/null \
-    || fail "训练环境无法使用 NVIDIA GPU，请检查驱动与 NVIDIA Container Toolkit"
-else
-  TRAINING_ENVIRONMENT_VERSION="$(manifest_value version)"
-  [[ "$(manifest_value variants.linux-amd64-cpu.status)" == "available" ]] || fail "当前训练环境暂不支持这台普通电脑"
-  MINIMUM_CPU_CORES="$(manifest_value variants.linux-amd64-cpu.minimum.cpu_cores)"
-  MINIMUM_MEMORY_MB="$(manifest_value variants.linux-amd64-cpu.minimum.memory_mb)"
-  MINIMUM_DISK_MB="$(manifest_value variants.linux-amd64-cpu.minimum.disk_free_mb)"
-  CURRENT_CPU_CORES="$(getconf _NPROCESSORS_ONLN)"
-  CURRENT_MEMORY_MB="$(awk '/MemTotal:/ { print int($2 / 1024) }' /proc/meminfo)"
-  CURRENT_DISK_MB="$(df -Pm / | awk 'NR == 2 { print $4 }')"
-  (( CURRENT_CPU_CORES >= MINIMUM_CPU_CORES )) || fail "这台电脑至少需要 ${MINIMUM_CPU_CORES} 核处理器"
-  (( CURRENT_MEMORY_MB >= MINIMUM_MEMORY_MB )) || fail "这台电脑至少需要约 8GB 内存"
-  (( CURRENT_DISK_MB >= MINIMUM_DISK_MB )) || fail "这台电脑至少需要 20GB 可用空间"
-
-  RUNNER_ASSET="$(manifest_value runner.asset)"
-  RUNNER_BINARY_SHA256="$(manifest_value runner.sha256)"
-  RUNTIME_ASSET="$(manifest_value variants.linux-amd64-cpu.artifact.asset)"
-  RUNTIME_SHA256="$(manifest_value variants.linux-amd64-cpu.artifact.sha256)"
-  CPU_RUNTIME_IMAGE="$(manifest_value variants.linux-amd64-cpu.image)"
-  EXPECTED_IMAGE_ID="$(manifest_value variants.linux-amd64-cpu.image_id)"
-  GATEWAY_BASE="${LLMWEB_TRAINING_ENVIRONMENT_ASSET_BASE_URL:-$CONTROL_URL/api/training-environment/assets}"
-
-  say "正在下载已校验的连接程序"
-  record_install_stage "runner_download"
-  curl -fL -C - --retry 3 --retry-all-errors "$GATEWAY_BASE/$RUNNER_ASSET" -o "$INSTALL_ROOT/bin/llmweb-runner.download"
-  printf '%s  %s\n' "$RUNNER_BINARY_SHA256" "$INSTALL_ROOT/bin/llmweb-runner.download" | sha256sum -c -
-  mv "$INSTALL_ROOT/bin/llmweb-runner.download" "$INSTALL_ROOT/bin/llmweb-runner"
-  chmod 0755 "$INSTALL_ROOT/bin/llmweb-runner"
-
-  record_install_stage "runtime_load"
-  ACTUAL_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CPU_RUNTIME_IMAGE" 2>/dev/null || true)"
-  if [[ "$ACTUAL_IMAGE_ID" == "$EXPECTED_IMAGE_ID" ]] \
-    && run_cpu_runtime_self_test; then
-    say "已验证现有训练环境，正在原位复用"
-  else
-    say "正在下载统一训练环境"
-    record_install_stage "runtime_asset"
-    RUNTIME_ARCHIVE="$INSTALL_ROOT/$RUNTIME_ASSET"
-    curl -fL -C - --retry 3 --retry-all-errors "$GATEWAY_BASE/$RUNTIME_ASSET" -o "$RUNTIME_ARCHIVE.download"
-    printf '%s  %s\n' "$RUNTIME_SHA256" "$RUNTIME_ARCHIVE.download" | sha256sum -c -
-    mv "$RUNTIME_ARCHIVE.download" "$RUNTIME_ARCHIVE"
-    record_install_stage "runtime_load"
-    docker load -i "$RUNTIME_ARCHIVE" >/dev/null
-    ACTUAL_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CPU_RUNTIME_IMAGE")"
-    [[ "$ACTUAL_IMAGE_ID" == "$EXPECTED_IMAGE_ID" ]] \
-      || fail "训练环境内容校验失败" "runtime_image_identity_mismatch"
-    run_cpu_runtime_self_test \
-      || fail "普通电脑训练环境没有通过自检" "$RUNTIME_SELF_TEST_FAILURE_CODE"
-  fi
+record_install_stage "runtime_image"
+if ! docker info --format '{{json .Runtimes}}' | grep -q 'nvidia'; then
+  install_nvidia_toolkit
 fi
+docker build --platform "$PLATFORM" -t "$RUNTIME_IMAGE" -f "$INSTALL_ROOT/source/runtime/Dockerfile" "$INSTALL_ROOT/source"
+docker run --rm --gpus all "$RUNTIME_IMAGE" nvidia-smi >/dev/null \
+  || fail "训练环境无法使用 NVIDIA GPU，请检查驱动与 NVIDIA Container Toolkit"
 
 if [[ "$UPGRADE_EXISTING" -eq 0 ]]; then
   say "正在注册这台训练主机"
@@ -504,8 +524,4 @@ systemctl is-active --quiet llmweb-runner || fail "后台连接服务未能启�
 record_install_stage "ready"
 trap - EXIT
 
-if [[ "$HAS_NVIDIA" -eq 1 ]]; then
-  say "连接完成。已启用 GPU 训练；数据目录：$DATA_ROOT；模型与结果目录：$OUTPUT_ROOT"
-else
-  say "连接完成。已启用普通电脑入门训练；数据目录：$DATA_ROOT；模型与结果目录：$OUTPUT_ROOT"
-fi
+say "连接完成。已启用 GPU 训练；数据目录：$DATA_ROOT；模型与结果目录：$OUTPUT_ROOT"

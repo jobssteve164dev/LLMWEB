@@ -8,7 +8,9 @@
 
 用户只需要完成一个动作：连接一台自己控制的电脑。LLMWEB 负责识别能力、取得正确环境、验证可用性并保持连接。用户不需要理解容器、CUDA、MPS、下载代理或训练框架。
 
-CloudMCP 管理的 GitOps 节点与外部用户电脑必须消费同一个训练环境版本和相同内容摘要。GitOps 节点通过既有 Release 产物代理下载安装包，外部用户通过 LLMWEB 产品域下载同一发行内容；两种入口只允许在下载传输和系统服务托管方式上不同，不能形成两套训练环境。
+CloudMCP 管理的 GitOps 节点与外部用户电脑必须消费同一个训练环境版本和相同内容摘要。正式包由 GitOps 其他业务已经使用的共享 Release 构建池从不可变 LLMWEB 源码 SHA 生产并签名；GitOps 节点通过既有 Release 产物代理下载安装包，外部用户通过 LLMWEB 产品域代理同一包字节。两种入口只允许在下载传输和系统服务托管方式上不同，不能形成两套训练环境。
+
+普通用户的下载入口始终是 LLMWEB。`install-runner.sh` 从 LLMWEB 产品域读取发行清单、包、摘要和签名；LLMWEB 服务端再只读代理 GitOps Release 中通过最终验证的同一资产。GitOps 只为 `model-training` 最终包开放固定、只读、白名单化的上游路径，不开放任意仓库、Tag 或资产代理。用户不需要 GitOps 或 CloudMCP 账户，也不会看到内部存储地址。一次性配对码只负责把已安装 Runner 绑定到当前 LLMWEB 账户，不参与制品寻址。
 
 ## 2. 统一对象
 
@@ -30,7 +32,7 @@ CloudMCP 管理的 GitOps 节点与外部用户电脑必须消费同一个训练
 - 预构建 `nanoGPT` CPU 容器，节点不再执行 `docker build`。
 - 预构建 Linux amd64 Runner。
 - 包含固定安装入口、Runner、CPU 镜像归档、元数据和自检的单个 Linux amd64 自包含包。
-- 由 LLMWEB 产品域提供的 Artifact Gateway。
+- 由既有 GitOps Release Bundle producer 构建、签名和存储，LLMWEB 产品域只为外部用户代理同一正式包。
 - 外部连接命令与 CloudMCP/GitOps 入池消费相同包字节；GitOps 只改变传输代理。
 - 至少 4 核、8GB 内存和 20GB 可用磁盘的安装前检查。
 - 已绑定节点拒绝用另一个配对码静默改绑。
@@ -44,10 +46,12 @@ Linux NVIDIA 和 Apple Silicon 在同一清单协议中保留明确变体，但�
 外部用户连接指令 ───────────────┐
                               ▼
                         LLMWEB 产品域
-                          发行包索引
+                      正式 Action 包索引
                               │
                               ▼
                        Artifact Gateway
+                              │
+             GitOps 固定只读 model-training Release 上游
                               │
                         包 SHA256 / 签名
                               │
@@ -55,16 +59,18 @@ Linux NVIDIA 和 Apple Silicon 在同一清单协议中保留明确变体，但�
                     单个自包含平台包 / 本地缓存
 
 CloudMCP → GitOps Runner Target
-            → 既有 /gh-release 代理 ─┘
+            → 既有 GitOps Release /gh-release 代理 ─┘
 ```
 
 Artifact Gateway 只允许代理当前不可变发行索引列出的平台包，不接受任意上游 URL。它必须保留 `Range`、`Content-Range`、`ETag` 和内容长度，以便大文件断点续传。客户端即使通过不同代理或缓存取得包，也必须验证同一包摘要与签名。
 
-GitOps 内部节点不另建 LLMWEB 下载协议：控制面在一次 `model-training` Runner 动作安装开始时解析 LLMWEB 当前可信正式发行，校验不可变标签、源码 revision、平台包名、包 SHA256 和签名，再把这一份包的确切发行身份固化到该 Runner Action 和本次 Operation。随后仅为该包创建一次已有 Agent 制品路径的受治理授权；Runner Target 上的 Agent 复用既有校验下载器取得该包，验证后执行包内固定入口。调用方不能传 Release 地址、标签、资产名或摘要；安装开始后即使出现新发行，也不得改变已在执行的 Operation。
+GitOps 内部节点不另建 LLMWEB 下载协议：共享 `gitops-release-oc` 构建池只作为构建平面，从不可变 LLMWEB 源码 SHA 构建一个最终包；它不会在 OC 节点安装 LLMWEB 算力 Runner。既有 GitOps producer 使用 `BUSINESS_ARTIFACT_SIGNING_PRIVATE_KEY` 生成 canonical 摘要与 Ed25519 签名，将包和 sidecar 作为不可变资产写入 GitOps Release，并由 Action release 记录绑定源码、构建与资产身份。
 
-“复用既有路径”要求生产者、包封装、摘要/签名、发布入口、代理授权、Agent 下载器、固定入口和终态回报逐段一致。只复用 `/gh-release` URL、却为 manifest、Runner、宿主 runtime 或镜像分别生成授权和下载流程，属于平行私有合同，禁止实现。
+一次 `model-training` 安装开始时，控制面从该记录解析平台包名、包 SHA256 和签名并固化到 Runner Action 与本次 Operation。随后仅为该包创建一次现有 Agent-bound `/gh-release` 下载授权；Target 上的 Agent 复用业务部署已经运行的授权下载、验签、验摘要和安全解包代码，再进入包内固定 Action 安装入口。调用方不能传 Release 地址、标签、资产名、摘要、镜像或入口；安装开始后即使出现新包，也不得改变已在执行的 Operation。
 
-训练环境版本属于 Runner Action 的已解析发布身份，不属于 GitOps 运行时代码或公共契约。GitOps 代码只实现稳定的 `model-training` 动作、可信正式发行解析和既有 `/gh-release` 分发能力；LLMWEB 发布新版本不要求修改或重新发布 GitOps 运行时代码。只有发行清单协议、信任来源或稳定 Runner 动作语义本身改变时，才进入跨系统契约变更。
+“复用既有路径”要求共享 Release 构建池、包封装、业务制品摘要/签名、GitOps Release、代理授权、Agent 下载/验签/安全解包和终态回报逐段一致。只复用 `/gh-release` URL、却为 manifest、Runner、宿主 runtime 或镜像分别生成授权和下载流程，属于平行私有合同，禁止实现。普通业务在解包后进入 Compose，`model-training` 在解包后进入固定 Action 安装器；这项必要差异不得把 Runner Action 注册成业务项目或改变公共 `/deploy` 契约。
+
+训练环境版本属于 Runner Action 的已解析发布身份，不属于 GitOps 运行时代码或公共契约。GitOps 代码只实现稳定的 `model-training` 动作、既有 Release producer 和 `/gh-release` 分发能力；LLMWEB 新源码版本只触发同一 producer 生成新不可变包，不要求修改或重新发布 GitOps 运行时代码。只有包协议、信任来源或稳定 Runner 动作语义本身改变时，才进入跨系统契约变更。
 
 这里的 Runner Target 是绑定现有 Agent 节点的范围与资源边界，不要求 Server 凭证。发行包安装的是该范围内的 `model-training` Runner 动作；Target、Runner 动作、一次安装 Operation 和最终服务/容器证据必须分别记录，不能用产品命名的容器或安装任务代替 Target。
 
@@ -132,14 +138,15 @@ Runner 只接受自身安装并验证过的环境版本、固定后端和批准�
 
 第一阶段闭环要求：
 
-1. CI 从干净源码构建 Runner、标准 Docker archive 和自包含平台包；构建 Job 只产生候选包。独立验证 Job 必须重新下载完全相同的候选包，使用真实安装消费者校验包摘要/签名、安全解包、实际 `docker load`、固定镜像引用、内容检查与 PyTorch 最小自检。发布 Job 只能发布已经通过验证的同一包字节，不能重新构建或替换文件。
+1. 既有 GitOps Release producer 从干净、不可变的 LLMWEB 源码 SHA 构建 Runner、标准 Docker archive 和自包含平台包；构建 Job 只产生候选包。独立验证 Job 必须重新下载完全相同的候选包，使用真实 Agent Action 消费者校验包摘要/签名、安全解包、实际 `docker load`、固定镜像引用、内容检查与 PyTorch 最小自检。发布步骤只能发布已经通过验证的同一包字节，不能重新构建或替换文件。
 2. 消费者矩阵必须覆盖正式支持的归档解释器、Docker 镜像存储后端、平台和架构。构建 Job 与验证 Job 使用同一 hosted Docker 后端只能证明内部自洽，不能作为跨节点兼容证据；生产 Target 不能成为首次消费者测试。
 3. 最终包不包含 Git、缓存、密钥、工作区状态或用户产物，也不包含会触发后续执行资产下载的动态 URL。
 4. 外部用户入口与 GitOps Agent 分别通过 LLMWEB 产品域和既有受治理代理取得同一包字节。
 5. 干净 Linux 节点不执行镜像构建、不下载第二份执行资产即可完成安装和自检。
 6. CloudMCP/GitOps 与外部连接得到相同版本、包 SHA256、签名和包内内容摘要。
-7. 4 核 8GB CPU 节点完成数据准备、训练前基线、训练、checkpoint 选择、同测试集复测和模型导出。
-8. 外部用户只看到“连接电脑”和可行动状态，不看到下载代理或后端差异。
+7. 普通用户入口只返回发行清单中列出的包及其 `.sha256`、`.sig`；不得接受调用方自选仓库、Tag、URL 或文件名。
+8. 4 核 8GB CPU 节点完成数据准备、训练前基线、训练、checkpoint 选择、同测试集复测和模型导出。
+9. 外部用户只看到“连接电脑”和可行动状态，不看到下载代理或后端差异。
 
 ## 11. 失败证据与北向观测
 

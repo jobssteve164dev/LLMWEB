@@ -8,7 +8,7 @@
     "lint:web": "pnpm --filter @llmweb/web lint",
     "typecheck:web": "pnpm --filter @llmweb/web typecheck",
     "check:plan-single-track": "node scripts/check-plan-single-track.mjs",
-    "check:training-environment": "bash -n scripts/install-runner.sh scripts/build-training-environment-release.sh scripts/verify-training-environment-release.sh && node scripts/check-training-environment.mjs && node scripts/check-training-environment-release-verifier.mjs",
+    "check:training-environment": "bash -n scripts/install-runner.sh scripts/install-runner-package.sh scripts/export-classic-docker-archive.sh scripts/build-training-environment-release.sh scripts/verify-training-environment-release.sh && node scripts/check-training-environment.mjs && node scripts/check-training-environment-release-verifier.mjs && node scripts/check-runner-package-installer.mjs",
     "check": "pnpm check:plan-single-track && pnpm check:training-environment && pnpm lint:web && pnpm typecheck:web && pnpm build:web"
   }
 }
