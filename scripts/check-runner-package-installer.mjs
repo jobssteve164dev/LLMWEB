@@ -92,9 +92,10 @@ esac
     writeFile(join(fakeBin, "uname"), "#!/usr/bin/env bash\nif [[ \"${1:-}\" = -s ]]; then printf 'Linux\\n'; elif [[ \"${1:-}\" = -m ]]; then printf 'x86_64\\n'; else exec /usr/bin/uname \"$@\"; fi\n"),
     writeFile(pairingPath, "pair_once_secret\n", { mode: 0o600 }),
   ]);
-  for (const path of [installer, join(packageRoot, "bin/llmweb-runner"), join(fakeBin, "docker"), join(fakeBin, "systemctl"), join(fakeBin, "id"), join(fakeBin, "uname")]) {
+  for (const path of [installer, join(fakeBin, "docker"), join(fakeBin, "systemctl"), join(fakeBin, "id"), join(fakeBin, "uname")]) {
     await chmod(path, 0o755);
   }
+  await chmod(join(packageRoot, "bin/llmweb-runner"), 0o644);
   run("tar", ["-czf", join(packageRoot, "runtime/image.tar.gz"), "-C", runtimeRoot, "manifest.json", "repositories", "config.json", "layer"]);
   const packageManifest = {
     schema_version: "1.0",

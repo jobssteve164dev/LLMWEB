@@ -33,6 +33,8 @@ assert.match(installer, /runners\/upgrade-authorization/);
 assert.match(releaseWorkflow, /runs-on: ubuntu-24\.04/);
 assert.match(packageInstaller, /--code-file/);
 assert.match(packageInstaller, /authorize-upgrade/);
+assert.match(packageInstaller, /mktemp "\$INSTALL_ROOT\/bin\/\.llmweb-runner\.XXXXXX"/);
+assert.doesNotMatch(packageInstaller, /"\$PACKAGE_ROOT\/bin\/llmweb-runner" authorize-upgrade/);
 assert.match(packageInstaller, /package-manifest\.json/);
 assert.match(packageInstaller, /docker load --input/);
 assert.match(packageInstaller, /\.Os}}\/{{\.Architecture/);

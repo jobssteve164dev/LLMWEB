@@ -11,6 +11,7 @@ SYSTEMD_UNIT_PATH="${LLMWEB_SYSTEMD_UNIT_PATH:-/etc/systemd/system/llmweb-runner
 SYSTEMD_RUNTIME_DIRECTORY="${LLMWEB_SYSTEMD_RUNTIME_DIRECTORY:-/run/systemd/system}"
 CURRENT_STAGE="package_verify"
 FAILURE_MARKER_EMITTED=0
+STAGED_RUNNER=""
 
 emit_failure() {
   local code="${1:-install_failed}"
@@ -69,6 +70,9 @@ record_stage() {
 
 on_exit() {
   local status="$1"
+  if [[ -n "$STAGED_RUNNER" ]]; then
+    unlink "$STAGED_RUNNER" 2>/dev/null || true
+  fi
   if [[ "$status" -ne 0 && "$FAILURE_MARKER_EMITTED" -ne 1 ]]; then
     emit_failure "${CURRENT_STAGE}_failed"
   fi
@@ -201,10 +205,14 @@ CURRENT_DISK_MB="$(df -Pm / | awk 'NR == 2 { print $4 }')"
 (( CURRENT_MEMORY_MB >= MINIMUM_MEMORY_MB )) || fail "这台电脑内存不足" "insufficient_memory"
 (( CURRENT_DISK_MB >= MINIMUM_DISK_MB )) || fail "这台电脑可用磁盘不足" "insufficient_storage"
 
+mkdir -p "$INSTALL_ROOT/bin" "$INSTALL_ROOT/runtime"
+STAGED_RUNNER="$(mktemp "$INSTALL_ROOT/bin/.llmweb-runner.XXXXXX")"
+install -m 0755 "$PACKAGE_ROOT/bin/llmweb-runner" "$STAGED_RUNNER"
+
 UPGRADE_EXISTING=0
 if [[ -s "$STATE_ROOT/state.json" ]]; then
   record_stage "runner_upgrade_authorization"
-  "$PACKAGE_ROOT/bin/llmweb-runner" authorize-upgrade \
+  "$STAGED_RUNNER" authorize-upgrade \
     --url "$CONTROL_URL" \
     --code-file "$PAIRING_CODE_FILE" \
     --state-dir "$STATE_ROOT" \
@@ -212,7 +220,6 @@ if [[ -s "$STATE_ROOT/state.json" ]]; then
   UPGRADE_EXISTING=1
 fi
 
-mkdir -p "$INSTALL_ROOT/bin" "$INSTALL_ROOT/runtime"
 install -m 0644 "$PACKAGE_MANIFEST" "$INSTALL_ROOT/package-manifest.json"
 
 record_stage "host_runtime"
@@ -246,7 +253,8 @@ RUNTIME_PLATFORM="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$
 run_cpu_runtime_self_test \
   || fail "训练环境没有通过功能自检" "$RUNTIME_SELF_TEST_FAILURE_CODE"
 
-install -m 0755 "$PACKAGE_ROOT/bin/llmweb-runner" "$INSTALL_ROOT/bin/llmweb-runner"
+mv "$STAGED_RUNNER" "$INSTALL_ROOT/bin/llmweb-runner"
+STAGED_RUNNER=""
 "$INSTALL_ROOT/bin/llmweb-runner" version >/dev/null \
   || fail "Runner 二进制自检失败" "runner_self_test_failed"
 
