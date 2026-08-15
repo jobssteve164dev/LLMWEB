@@ -9,14 +9,61 @@ INSTALL_ROOT="${LLMWEB_INSTALL_ROOT:-/opt/llmweb}"
 STATE_ROOT="${LLMWEB_STATE_ROOT:-/var/lib/llmweb/state}"
 RUNTIME_IMAGE="llmweb/runtime:0.1.0"
 CPU_RUNTIME_IMAGE="llmweb/runtime-cpu:0.1.0"
+CURRENT_FAILURE_CODE=""
+FAILURE_MARKER_EMITTED=0
+INSTALL_FAILURE_CODE_FILE=""
+
+emit_install_failure_marker() {
+  local failure_code="${1:-install_failed}"
+  [[ "$failure_code" =~ ^[a-z][a-z0-9_]*$ ]] || failure_code="install_failed"
+  CURRENT_FAILURE_CODE="$failure_code"
+  FAILURE_MARKER_EMITTED=1
+  printf 'GITOPS_LLMWEB_INSTALL_FAILURE_CODE=%s\n' "$failure_code" >&2
+  if [[ -n "$INSTALL_FAILURE_CODE_FILE" && -d "$STATE_ROOT" ]]; then
+    printf '%s\n' "$failure_code" > "$INSTALL_FAILURE_CODE_FILE"
+  fi
+}
 
 say() {
   printf '\n[LLMWEB] %s\n' "$1"
 }
 
 fail() {
+  local failure_code="${2:-${CURRENT_INSTALL_STAGE:-install}_failed}"
+  emit_install_failure_marker "$failure_code"
   printf '\n[LLMWEB] 安装未完成：%s\n' "$1" >&2
   exit 1
+}
+
+classify_runtime_self_test_failure() {
+  local output="${1,,}"
+  case "$output" in
+    *"illegal instruction"*|*"sigill"*) printf 'runtime_cpu_incompatible\n' ;;
+    *"exec format error"*|*"no matching manifest"*|*"platform does not match"*) printf 'runtime_architecture_incompatible\n' ;;
+    *"cannot allocate memory"*|*"out of memory"*|*"signal: killed"*) printf 'runtime_out_of_memory\n' ;;
+    *"no space left on device"*) printf 'storage_full\n' ;;
+    *"cannot connect to the docker daemon"*|*"docker daemon is not running"*) printf 'docker_unavailable\n' ;;
+    *"modulenotfounderror"*|*"importerror"*) printf 'runtime_dependency_missing\n' ;;
+    *"permission denied"*|*"operation not permitted"*) printf 'permission_denied\n' ;;
+    *) printf 'runtime_self_test_failed\n' ;;
+  esac
+}
+
+RUNTIME_SELF_TEST_FAILURE_CODE=""
+run_cpu_runtime_self_test() {
+  local output=""
+  local diagnostic_output=""
+  if output="$(docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' 2>&1)"; then
+    RUNTIME_SELF_TEST_FAILURE_CODE=""
+    return 0
+  fi
+  RUNTIME_SELF_TEST_FAILURE_CODE="$(classify_runtime_self_test_failure "$output")"
+  diagnostic_output="$output"
+  if (( ${#diagnostic_output} > 16384 )); then
+    diagnostic_output="${diagnostic_output: -16384}"
+  fi
+  printf '\n[LLMWEB] 训练环境自检原始输出（最多保留末尾 16384 字符）：\n%s\n' "$diagnostic_output" >&2
+  return 1
 }
 
 while [[ $# -gt 0 ]]; do
@@ -203,12 +250,23 @@ PY
   UPGRADE_EXISTING=1
 fi
 INSTALL_STAGE_FILE="$STATE_ROOT/install-stage"
+INSTALL_FAILURE_CODE_FILE="$STATE_ROOT/install-failure-code"
 CURRENT_INSTALL_STAGE="base_runtime"
 record_install_stage() {
   CURRENT_INSTALL_STAGE="$1"
   printf '%s\n' "$CURRENT_INSTALL_STAGE" > "$INSTALL_STAGE_FILE"
 }
-trap 'printf "failed:%s\n" "$CURRENT_INSTALL_STAGE" > "$INSTALL_STAGE_FILE"' EXIT
+on_install_exit() {
+  local exit_code="$1"
+  if [[ "$exit_code" -ne 0 ]]; then
+    if [[ "$FAILURE_MARKER_EMITTED" -ne 1 ]]; then
+      emit_install_failure_marker "${CURRENT_FAILURE_CODE:-${CURRENT_INSTALL_STAGE}_failed}"
+    fi
+    printf 'failed:%s\n' "$CURRENT_INSTALL_STAGE" > "$INSTALL_STAGE_FILE"
+  fi
+}
+printf 'none\n' > "$INSTALL_FAILURE_CODE_FILE"
+trap 'on_install_exit $?' EXIT
 record_install_stage "base_runtime"
 
 start_docker() {
@@ -381,7 +439,7 @@ else
   record_install_stage "runtime_load"
   ACTUAL_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CPU_RUNTIME_IMAGE" 2>/dev/null || true)"
   if [[ "$ACTUAL_IMAGE_ID" == "$EXPECTED_IMAGE_ID" ]] \
-    && docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/null; then
+    && run_cpu_runtime_self_test; then
     say "已验证现有训练环境，正在原位复用"
   else
     say "正在下载统一训练环境"
@@ -393,9 +451,10 @@ else
     record_install_stage "runtime_load"
     docker load -i "$RUNTIME_ARCHIVE" >/dev/null
     ACTUAL_IMAGE_ID="$(docker image inspect --format '{{.Id}}' "$CPU_RUNTIME_IMAGE")"
-    [[ "$ACTUAL_IMAGE_ID" == "$EXPECTED_IMAGE_ID" ]] || fail "训练环境内容校验失败"
-    docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/null \
-      || fail "普通电脑训练环境没有通过自检"
+    [[ "$ACTUAL_IMAGE_ID" == "$EXPECTED_IMAGE_ID" ]] \
+      || fail "训练环境内容校验失败" "runtime_image_identity_mismatch"
+    run_cpu_runtime_self_test \
+      || fail "普通电脑训练环境没有通过自检" "$RUNTIME_SELF_TEST_FAILURE_CODE"
   fi
 fi
 

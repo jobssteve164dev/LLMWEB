@@ -56,6 +56,43 @@ jobs:
           test ! -e "$RUNNER_TEMP/release/.git"
           sha256sum "$RUNNER_TEMP/release"/*
           cat "$RUNNER_TEMP/release/build-evidence.txt"
+      - name: Upload release candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: training-environment-${{ inputs.version }}
+          path: |
+            ${{ runner.temp }}/release/manifest.json
+            ${{ runner.temp }}/release/llmweb-node-package-linux-amd64.tar.gz
+            ${{ runner.temp }}/release/llmweb-runner-linux-amd64
+            ${{ runner.temp }}/release/docker-static-linux-amd64-27.5.1.tgz
+            ${{ runner.temp }}/release/llmweb-runtime-cpu-${{ inputs.version }}.tar.gz
+            ${{ runner.temp }}/release/llmweb-runtime-cpu-${{ inputs.version }}.spdx.json
+            ${{ runner.temp }}/release/build-evidence.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  verify-cpu-release:
+    needs: cpu-release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Download release candidate into a clean job
+        uses: actions/download-artifact@v4
+        with:
+          name: training-environment-${{ inputs.version }}
+          path: ${{ runner.temp }}/release
+      - name: Verify final archive load, identity, and runtime self-test
+        run: bash scripts/verify-training-environment-release.sh "$RUNNER_TEMP/release"
+
+  publish-cpu-release:
+    needs: verify-cpu-release
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download verified release candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: training-environment-${{ inputs.version }}
+          path: ${{ runner.temp }}/release
       - name: Publish immutable release
         uses: softprops/action-gh-release@v2
         with:
