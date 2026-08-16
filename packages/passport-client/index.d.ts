@@ -7,6 +7,7 @@ export type PassportClientOptions = {
   product: Product
   secret?: string
   fetchImpl?: typeof fetch
+  /** Set to 0 when the caller must not fail the main path on a fixed request deadline. */
   timeoutMs?: number
 }
 

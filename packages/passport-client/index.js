@@ -296,8 +296,13 @@ export function createPassportClient(options) {
   const baseUrl = normalizeBaseUrl(options?.baseUrl)
   const product = options?.product
   const secret = options?.secret
-  const timeoutMs = Number.isFinite(options?.timeoutMs) && options.timeoutMs > 0 ? options.timeoutMs : 15000
-  const fetchImpl = withTimeout(options?.fetchImpl || fetch, timeoutMs)
+  const timeoutMs = options?.timeoutMs === 0
+    ? null
+    : Number.isFinite(options?.timeoutMs) && options.timeoutMs > 0
+      ? options.timeoutMs
+      : 15000
+  const baseFetch = options?.fetchImpl || fetch
+  const fetchImpl = timeoutMs === null ? baseFetch : withTimeout(baseFetch, timeoutMs)
 
   if (!product) {
     throw new PassportClientError('Passport client requires product', {

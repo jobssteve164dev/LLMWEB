@@ -44,7 +44,7 @@ export function getPassportClient() {
     baseUrl: process.env.SZLK_PASSPORT_URL || "https://passport.szlk.ai",
     product: passportProduct,
     secret,
-    timeoutMs: 12_000,
+    timeoutMs: 0,
   });
   return client;
 }
