@@ -21,7 +21,7 @@ COPY packages/passport-client /app/packages/passport-client
 COPY scripts/install-runner.sh /app/scripts/install-runner.sh
 RUN pnpm build:web
 
-FROM --platform=$TARGETPLATFORM node:22-bookworm-slim AS runner
+FROM --platform=$TARGETPLATFORM gcr.io/distroless/nodejs22-debian12:nonroot@sha256:13593b7570658e8477de39e2f4a1dd25db2f836d68a0ba771251572d23bb4f8e AS runner
 
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
@@ -34,4 +34,4 @@ COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
 COPY --from=builder /app/apps/web/public ./apps/web/public
 
 EXPOSE 3000
-CMD ["node", "apps/web/server.js"]
+CMD ["apps/web/server.js"]
