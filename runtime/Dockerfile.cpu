@@ -3,6 +3,7 @@ FROM ${PYTHON_BASE_IMAGE}
 
 ARG NANOGPT_REF=3adf61e154c3fe3fca428ad6bc3818b27a3b8291
 ARG TORCH_WHEEL_SHA256=8d316e5bf121f1eab1147e49ad0511a9d92e4c45cc357d1ab0bee440da71a095
+ARG STARTER_DATASET_SHA256=86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed
 
 LABEL ai.szlk.llmweb.nanogpt-ref="$NANOGPT_REF"
 
@@ -13,8 +14,10 @@ COPY runtime/torch-2.10.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl /tmp/torch-2
 COPY runtime/nanogpt-3adf61e154c3fe3fca428ad6bc3818b27a3b8291/ /opt/nanogpt/
 COPY runtime/python-wheels/ /tmp/wheels/
 COPY runtime/python-wheels.sha256 /tmp/wheels.sha256
+COPY runtime/tiny-shakespeare-6f9487a6fe5b420b7ca9afb0d7c078e37c1d1b4e.txt /opt/llmweb/starter/tiny-shakespeare.txt
 
 RUN printf '%s  %s\n' "$TORCH_WHEEL_SHA256" /tmp/torch-2.10.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl | sha256sum -c - \
+    && printf '%s  %s\n' "$STARTER_DATASET_SHA256" /opt/llmweb/starter/tiny-shakespeare.txt | sha256sum -c - \
     && cd /tmp/wheels \
     && sha256sum -c /tmp/wheels.sha256 \
     && pip install --no-cache-dir --no-index --find-links /tmp/wheels /tmp/torch-2.10.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl \

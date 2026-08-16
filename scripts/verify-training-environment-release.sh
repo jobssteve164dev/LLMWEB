@@ -114,6 +114,9 @@ docker load --input "$RUNTIME_ARCHIVE" >/dev/null
 ACTUAL_PLATFORM="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$CPU_RUNTIME_IMAGE")"
 [[ "$ACTUAL_PLATFORM" == "linux/amd64" ]] || { echo "loaded runtime platform does not match linux/amd64" >&2; exit 1; }
 docker run --rm "$CPU_RUNTIME_IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/null
+docker run --rm -i --network=none "$CPU_RUNTIME_IMAGE" sha256sum -c <<'EOF'
+86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed  /opt/llmweb/starter/tiny-shakespeare.txt
+EOF
 
 printf 'verified_training_environment_version=%s\n' "$VERSION"
 printf 'verified_source_revision=%s\n' "$SOURCE_REVISION"

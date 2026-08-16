@@ -10,6 +10,7 @@ on:
       - 'scripts/verify-training-environment-release.sh'
       - 'scripts/check-training-environment*.mjs'
       - 'contracts/training-environment.schema.json'
+      - 'runtime/Dockerfile.cpu'
       - 'runner/**'
 
 permissions:

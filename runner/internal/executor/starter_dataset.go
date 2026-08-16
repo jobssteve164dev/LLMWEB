@@ -5,17 +5,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 const (
 	starterDatasetID     = "tiny-shakespeare"
-	starterDatasetURL    = "https://raw.githubusercontent.com/karpathy/char-rnn/6f9487a6fe5b420b7ca9afb0d7c078e37c1d1b4e/data/tinyshakespeare/input.txt"
+	starterDatasetPath   = "/opt/llmweb/starter/tiny-shakespeare.txt"
 	starterDatasetSHA256 = "86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed"
 )
 
@@ -23,22 +21,18 @@ func prepareStarterDataset(ctx context.Context, payload map[string]any, outputRo
 	if stringValue(payload, "source_ref") != starterDatasetID {
 		return nil, fmt.Errorf("不支持的入门数据 %q", stringValue(payload, "source_ref"))
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, starterDatasetURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("准备入门数据下载: %w", err)
+	version := os.Getenv("LLMWEB_TRAINING_ENVIRONMENT_VERSION")
+	if version == "" || version == "legacy-0.1.0" {
+		return nil, fmt.Errorf("当前训练环境不包含固定入门数据")
 	}
-	client := &http.Client{Timeout: 2 * time.Minute}
-	response, err := client.Do(request)
+	image := "llmweb/runtime-cpu:" + version
+	command := exec.CommandContext(ctx, "docker", "run", "--rm", "--network=none", "--security-opt=no-new-privileges", "--cap-drop=ALL", image, "cat", starterDatasetPath)
+	content, err := command.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("下载入门数据: %w", err)
+		return nil, fmt.Errorf("读取训练环境内置入门数据: %s", sanitizeLog(string(content)))
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("下载入门数据失败: HTTP %d", response.StatusCode)
-	}
-	content, err := io.ReadAll(io.LimitReader(response.Body, 2*1024*1024))
-	if err != nil {
-		return nil, fmt.Errorf("读取入门数据: %w", err)
+	if len(content) == 0 || len(content) > 2*1024*1024 {
+		return nil, fmt.Errorf("训练环境内置入门数据大小无效")
 	}
 	digest := sha256.Sum256(content)
 	if hex.EncodeToString(digest[:]) != starterDatasetSHA256 {

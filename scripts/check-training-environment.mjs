@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
-const [installer, packageInstaller, archiveExporter, releaseBuilder, releaseWorkflow, releaseVerifier, manifestSchema, jobSchema, compose, webDockerfile, runtimeDockerfile, releaseGateway, assetGateway] = await Promise.all([
+const [installer, packageInstaller, archiveExporter, releaseBuilder, releaseWorkflow, releaseVerifier, manifestSchema, jobSchema, compose, webDockerfile, runtimeDockerfile, starterDataset, releaseGateway, assetGateway] = await Promise.all([
   read("scripts/install-runner.sh"),
   read("scripts/install-runner-package.sh"),
   read("scripts/export-classic-docker-archive.sh"),
@@ -15,6 +15,7 @@ const [installer, packageInstaller, archiveExporter, releaseBuilder, releaseWork
   read("compose.yaml"),
   read("apps/web/Dockerfile"),
   read("runtime/Dockerfile.cpu"),
+  read("runner/internal/executor/starter_dataset.go"),
   read("apps/web/app/api/training-environment/release.ts"),
   read("apps/web/app/api/training-environment/assets/[asset]/route.ts"),
 ]);
@@ -58,6 +59,11 @@ assert.match(releaseVerifier, /docker run --rm.*import torch/s);
 assert.match(compose, /https:\/\/llmweb\.szlk\.ai\/install-runner\.sh/);
 assert.match(webDockerfile, /COPY scripts\/install-runner\.sh \/app\/scripts\/install-runner\.sh/);
 assert.match(runtimeDockerfile, /python:3\.13-slim-trixie@sha256:[0-9a-f]{64}/);
+assert.match(runtimeDockerfile, /tiny-shakespeare-6f9487a6fe5b420b7ca9afb0d7c078e37c1d1b4e\.txt/);
+assert.match(releaseBuilder, /STARTER_DATASET_SHA256="86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed"/);
+assert.match(releaseVerifier, /tiny-shakespeare\.txt/);
+assert.match(starterDataset, /--network=none/);
+assert.doesNotMatch(starterDataset, /raw\.githubusercontent\.com|net\/http/);
 assert.match(manifestSchema, /"packages"/);
 assert.doesNotMatch(manifestSchema, /"image_id"/);
 assert.match(releaseGateway, /gitops-runner\.szlk\.ai\/model-training-releases/);

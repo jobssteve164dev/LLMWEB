@@ -15,6 +15,8 @@ DOCKER_STATIC_VERSION="27.5.1"
 DOCKER_STATIC_SHA256="4f798b3ee1e0140eab5bf30b0edc4e84f4cdb53255a429dc3bbae9524845d640"
 NANOGPT_REF="3adf61e154c3fe3fca428ad6bc3818b27a3b8291"
 NANOGPT_ARCHIVE_SHA256="d2826e3acf7e86204daa0e471d938218f90d7c2064bb51dd7dbd36186c14a8a7"
+STARTER_DATASET_REF="6f9487a6fe5b420b7ca9afb0d7c078e37c1d1b4e"
+STARTER_DATASET_SHA256="86c4e6aa9db7c042ec79f339dcb96d42b0075e16b8fc2e86bf0ca57e2dc565ed"
 TORCH_WHEEL="torch-2.10.0+cpu-cp313-cp313-manylinux_2_28_x86_64.whl"
 TORCH_SHA256="8d316e5bf121f1eab1147e49ad0511a9d92e4c45cc357d1ab0bee440da71a095"
 PACKAGE_NAME="llmweb-model-training-linux-amd64-$VERSION.tar.gz"
@@ -45,6 +47,8 @@ download "https://download.docker.com/linux/static/stable/x86_64/docker-$DOCKER_
 NANOGPT_ARCHIVE="$RUNTIME_DIRECTORY/nanogpt-$NANOGPT_REF.tar.gz"
 download "https://codeload.github.com/karpathy/nanoGPT/tar.gz/$NANOGPT_REF" \
   "$NANOGPT_ARCHIVE" "$NANOGPT_ARCHIVE_SHA256"
+download "https://raw.githubusercontent.com/karpathy/char-rnn/$STARTER_DATASET_REF/data/tinyshakespeare/input.txt" \
+  "$RUNTIME_DIRECTORY/tiny-shakespeare-$STARTER_DATASET_REF.txt" "$STARTER_DATASET_SHA256"
 if [[ ! -f "$RUNTIME_DIRECTORY/nanogpt-$NANOGPT_REF/model.py" ]]; then
   tar -xzf "$NANOGPT_ARCHIVE" --strip-components=1 -C "$RUNTIME_DIRECTORY/nanogpt-$NANOGPT_REF"
 fi
@@ -55,8 +59,11 @@ python3 -m pip download --only-binary=:all: --no-deps --platform manylinux2014_x
   networkx==3.5 jinja2==3.1.6 fsspec==2025.7.0 mpmath==1.3.0 MarkupSafe==3.0.2
 (cd "$RUNTIME_DIRECTORY/python-wheels" && sha256sum -c ../python-wheels.sha256)
 
-docker build --platform linux/amd64 --build-arg NANOGPT_REF="$NANOGPT_REF" -t "$IMAGE" -f "$RUNTIME_DIRECTORY/Dockerfile.cpu" "$REPOSITORY_ROOT"
+docker build --platform linux/amd64 --build-arg NANOGPT_REF="$NANOGPT_REF" --build-arg STARTER_DATASET_SHA256="$STARTER_DATASET_SHA256" -t "$IMAGE" -f "$RUNTIME_DIRECTORY/Dockerfile.cpu" "$REPOSITORY_ROOT"
 docker run --rm "$IMAGE" python -c 'import torch; print(torch.ones(1))' >/dev/null
+docker run --rm -i --network=none "$IMAGE" sha256sum -c <<EOF
+$STARTER_DATASET_SHA256  /opt/llmweb/starter/tiny-shakespeare.txt
+EOF
 
 RUNNER_ASSET="$PACKAGE_ROOT/bin/llmweb-runner"
 CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C "$REPOSITORY_ROOT/runner" build -trimpath -ldflags="-s -w" -o "$RUNNER_ASSET" ./cmd/runner
