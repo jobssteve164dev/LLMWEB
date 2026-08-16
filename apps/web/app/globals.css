@@ -27,6 +27,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .landingNav { align-items: center; display: flex; height: 80px; justify-content: space-between; margin: 0 auto; max-width: var(--site-max); padding: 0 var(--page-gutter); }
 .landingBrand { align-items: center; color: var(--ink); display: inline-flex; font-size: 14px; font-weight: 850; gap: 10px; letter-spacing: .08em; min-height: 44px; text-decoration: none; }
 .landingNav nav { align-items: center; display: flex; gap: 30px; }
+.landingNavActions { align-items: center; display: flex; gap: 12px; }
 .landingNav nav a { color: #4e5b54; font-size: 13px; font-weight: 650; text-decoration: none; }
 .landingNav nav a:hover { color: var(--green); }
 .navCta { background: var(--ink); border-radius: 10px; color: white; font-size: 12px; font-weight: 750; min-height: 44px; padding: 13px 17px; text-decoration: none; }
@@ -146,6 +147,11 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .landingFooter nav a { align-items: center; display: inline-flex; min-height: 44px; min-width: 44px; }
 .landingFooter nav a, .landingFooter > p { color: var(--muted); font-size: 10px; margin: 0; text-decoration: none; }
 .landingFooter nav a:hover { color: var(--green); }
+.companyLink { color: inherit; text-decoration: none; }
+.companyLink:hover { color: var(--green); }
+.languageSwitcher { align-items: center; background: transparent; border: 1px solid var(--line); border-radius: 999px; color: inherit; cursor: pointer; display: inline-flex; font: inherit; font-size: 11px; font-weight: 750; justify-content: center; min-height: 36px; min-width: 44px; padding: 0 12px; }
+.languageSwitcher:hover { border-color: var(--green); color: var(--green); }
+.legalNavActions { align-items: center; display: flex; gap: 12px; }
 
 .legalPage { min-height: 100vh; }
 .legalNav { align-items: center; border-bottom: 1px solid var(--line); display: flex; height: 72px; justify-content: space-between; padding: 0 max(24px, calc((100vw - var(--site-max)) / 2 + var(--page-gutter))); }
