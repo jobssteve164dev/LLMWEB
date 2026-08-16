@@ -6,7 +6,16 @@ export const dynamic = "force-dynamic";
 
 type RouteContext = { params: Promise<{ path?: string[] }> };
 
+const PROVIDER_BRIDGE_RETIRED = true;
+
 async function proxy(request: NextRequest, context: RouteContext) {
+  if (PROVIDER_BRIDGE_RETIRED) {
+    return NextResponse.json(
+      { detail: "此接口已退役，请使用账户 API。" },
+      { status: 410, headers: { "Cache-Control": "no-store" } },
+    );
+  }
+
   const { path = [] } = await context.params;
   const baseUrl = process.env.LLMWEB_CONTROL_URL ?? "http://localhost:8000";
   const suffix = path.length ? `/${path.join("/")}` : "";
