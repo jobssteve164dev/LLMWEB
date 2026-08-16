@@ -8,8 +8,12 @@ type RouteContext = { params: Promise<{ path: string[] }> };
 
 const routeRules = [
   { method: "GET", pattern: /^state$/, capability: "workspace:read", action: "read_workspace" },
+  { method: "GET", pattern: /^capabilities$/, capability: "workspace:read", action: "read_capabilities" },
+  { method: "GET", pattern: /^training-pool$/, capability: "workspace:read", action: "read_training_pool" },
+  { method: "GET", pattern: /^experiments\/[^/]+$/, capability: "workspace:read", action: "read_training_run" },
   { method: "POST", pattern: /^projects$/, capability: "project:write", action: "create_project" },
   { method: "POST", pattern: /^runners\/pairing$/, capability: "runner:pair", action: "create_runner_pairing" },
+  { method: "POST", pattern: /^runners\/[^/]+\/revoke$/, capability: "runner:pair", action: "revoke_runner" },
   { method: "POST", pattern: /^datasets$/, capability: "project:write", action: "create_dataset" },
   { method: "POST", pattern: /^experiments$/, capability: "training:write", action: "start_training" },
   { method: "POST", pattern: /^experiments\/[^/]+\/select-checkpoint$/, capability: "training:write", action: "select_training_result" },
@@ -46,7 +50,8 @@ async function proxy(request: NextRequest, context: RouteContext) {
       }
       body = JSON.stringify({ action: parsed.action });
     }
-    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/${route}${request.nextUrl.search}`, {
+    const controlRoute = route === "capabilities" ? "user-api/capabilities" : route;
+    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/${controlRoute}${request.nextUrl.search}`, {
       method: request.method,
       headers: {
         ...trustedApiHeaders(resolved),

@@ -616,8 +616,17 @@ def _create_dataset(
 
 
 @app.post("/v1/datasets", status_code=status.HTTP_201_CREATED, tags=["web"])
-def create_dataset(body: DatasetCreate, db: Db, identity: WebAuth) -> dict[str, str]:
-    return _create_dataset(body, db, identity)
+def create_dataset(
+    body: DatasetCreate,
+    db: Db,
+    identity: WebAuth,
+    request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
+    api_connection_id: Annotated[str | None, Header(alias="X-LLMWEB-API-Connection-ID")] = None,
+) -> dict[str, str]:
+    return durable_user_api_submission(
+        db, identity, api_connection_id, request_id, "create_dataset", body.model_dump(),
+        lambda: _create_dataset(body, db, identity, commit=False),
+    )
 
 
 def infer_template(model_id: str) -> str:
@@ -751,8 +760,17 @@ def _create_experiment(
 
 
 @app.post("/v1/experiments", status_code=status.HTTP_201_CREATED, tags=["web"])
-def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict[str, Any]:
-    return _create_experiment(body, db, identity)
+def create_experiment(
+    body: ExperimentCreate,
+    db: Db,
+    identity: WebAuth,
+    request_id: Annotated[str | None, Header(alias="X-Request-ID")] = None,
+    api_connection_id: Annotated[str | None, Header(alias="X-LLMWEB-API-Connection-ID")] = None,
+) -> dict[str, Any]:
+    return durable_user_api_submission(
+        db, identity, api_connection_id, request_id, "create_experiment", body.model_dump(),
+        lambda: _create_experiment(body, db, identity, commit=False),
+    )
 
 
 def previous_jobs_complete(db: Session, job: Job) -> bool:
@@ -972,6 +990,31 @@ def user_api_state_summary(db: Session, identity: WebIdentity, project_id: str |
     }
 
 
+@app.get("/v1/user-api/capabilities", tags=["user-api"])
+def user_api_capabilities() -> dict[str, Any]:
+    return {"version": "1", "tools": USER_API_TOOL_CATALOG}
+
+
+@app.get("/v1/training-pool", tags=["user-api"])
+def get_training_pool(db: Db, identity: WebAuth, project_id: Annotated[str | None, Query()] = None) -> dict[str, Any]:
+    return user_api_state_summary(db, identity, project_id)
+
+
+@app.get("/v1/experiments/{experiment_id}", tags=["user-api"])
+def get_training_run(experiment_id: str, db: Db, identity: WebAuth) -> dict[str, Any]:
+    experiment = db.get(Experiment, experiment_id)
+    if experiment is None or experiment.workspace_id != identity.workspace_id:
+        raise HTTPException(status_code=404, detail="训练不存在")
+    summary = user_api_state_summary(db, identity, experiment.project_id)
+    run = next(item for item in summary["training_runs"] if item["id"] == experiment_id)
+    return {"training_run": run, "jobs": [item for item in summary["jobs"] if item["experiment_id"] == experiment_id]}
+
+
+@app.post("/v1/runners/{runner_id}/revoke", tags=["user-api"])
+def revoke_user_api_runner(runner_id: str, body: dict[str, Any], db: Db, identity: WebAuth) -> dict[str, Any]:
+    return revoke_runner(db, identity, runner_id, str(body.get("confirm_runner_id") or ""))
+
+
 @app.get("/api/provider-bridge/v1/help", tags=["user-api"])
 @app.get("/api/provider-bridge/help", tags=["user-api"])
 def user_api_provider_help() -> dict[str, Any]:
@@ -1081,6 +1124,49 @@ def read_api_request_receipt(
     if receipt.action != action or receipt.request_fingerprint != fingerprint:
         raise HTTPException(status_code=409, detail="同一请求身份不能用于不同的训练提交")
     return receipt.result
+
+
+def durable_user_api_submission(
+    db: Session,
+    identity: WebIdentity,
+    api_connection_id: str | None,
+    request_id: str | None,
+    action: str,
+    params: dict[str, Any],
+    create_result,
+) -> dict[str, Any]:
+    if not api_connection_id:
+        result = create_result()
+        db.commit()
+        return result
+    if not request_id:
+        raise HTTPException(status_code=400, detail="创建动作必须提供稳定请求身份")
+    connection = owned_api_connection(db, api_connection_id, identity)
+    if connection.status != "active" or connection.revoked_at is not None:
+        raise HTTPException(status_code=401, detail="API 连接已撤销")
+    fingerprint = api_request_fingerprint(action, params)
+    accepted = read_api_request_receipt(db, connection, request_id, action, fingerprint)
+    if accepted is not None:
+        return accepted
+    try:
+        result = create_result()
+        db.add(ApiRequestReceipt(
+            connection_id=connection.id,
+            workspace_id=connection.workspace_id,
+            request_id=request_id,
+            action=action,
+            request_fingerprint=fingerprint,
+            result=result,
+        ))
+        record_api_audit(db, connection, request_id, action, "succeeded", params, commit=False)
+        db.commit()
+        return result
+    except IntegrityError:
+        db.rollback()
+        accepted = read_api_request_receipt(db, connection, request_id, action, fingerprint)
+        if accepted is None:
+            raise
+        return accepted
 
 
 @app.post("/v1/api-connections/audit", status_code=status.HTTP_201_CREATED, tags=["internal"])

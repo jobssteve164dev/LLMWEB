@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from llmweb_control.database import Base, engine
 from llmweb_control.main import DEFAULT_WORKSPACE_ID, app
-from llmweb_control.models import Dataset, Experiment, Job, Runner, Workspace
+from llmweb_control.models import ApiRequestReceipt, Dataset, Experiment, Job, Runner, Workspace
 from llmweb_control.security import digest_secret
 from llmweb_control.settings import get_settings
 
@@ -507,6 +507,73 @@ def test_training_submission_replays_durable_ids_after_lost_response_without_dup
             jobs = db.query(Job).all()
             assert len(jobs) == 5
             assert {job.id for job in jobs if job.experiment_id} == set(first_training_response["result"]["job_ids"])
+
+
+def test_standard_user_api_submission_owns_the_durable_receipt() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        project_id = client.post("/v1/projects", headers=WEB_HEADERS, json={
+            "name": "标准 API 可靠受理", "goal": "完成训练", "success_criteria": "导出模型",
+        }).json()["id"]
+        pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
+        runner = client.post("/v1/runners/pair", json={
+            "code": pairing["code"], "name": "标准 API 节点", "capabilities": ready_capabilities(),
+        }).json()
+        connection = client.post("/v1/api-connections", headers=WEB_HEADERS, json={
+            "name": "标准 API", "purpose": "验证可靠受理", "capabilities": ["project:write", "training:write"],
+        }).json()["connection"]
+        headers = {**WEB_HEADERS, "X-LLMWEB-API-Connection-ID": connection["id"], "X-Request-ID": "standard-dataset-request"}
+        body = {
+            "project_id": project_id, "runner_id": runner["runner_id"], "name": "莎士比亚文本练习集",
+            "source_type": "starter", "source_ref": "tiny-shakespeare", "format": "txt",
+            "train_percent": 80, "validation_percent": 10, "test_percent": 10, "preview_allowed": True,
+        }
+        first = client.post("/v1/datasets", headers=headers, json=body)
+        assert first.status_code == 201, first.text
+        replay = client.post("/v1/datasets", headers=headers, json=body)
+        assert replay.status_code == 201, replay.text
+        assert replay.json() == first.json()
+        conflict = client.post("/v1/datasets", headers=headers, json={**body, "name": "不同请求"})
+        assert conflict.status_code == 409, conflict.text
+        experiment_headers = {**headers, "X-Request-ID": "standard-training-request"}
+        experiment_body = {
+            "project_id": project_id, "runner_id": runner["runner_id"], "dataset_id": first.json()["id"],
+            "name": "标准 API 训练", "model_id": "karpathy/nanoGPT", "method": "starter", "epochs": 1,
+            "learning_rate": 0.001, "max_length": 128, "batch_size": 12, "gradient_accumulation": 1,
+            "export_formats": ["model"], "evaluation_preview_allowed": True,
+            "output_destination": "local", "license_confirmed": True,
+        }
+        rejected_before_commit = client.post("/v1/experiments", headers=experiment_headers, json=experiment_body)
+        assert rejected_before_commit.status_code == 409
+        with Session(engine) as db:
+            assert db.query(Dataset).count() == 1
+            assert db.query(Experiment).count() == 0
+            assert db.query(Job).count() == 1
+            assert db.query(ApiRequestReceipt).count() == 1
+            dataset = db.query(Dataset).one()
+            dataset.status = "ready"
+            dataset.version_hash = "sha256:standard-api"
+            db.commit()
+
+        accepted = client.post("/v1/experiments", headers=experiment_headers, json=experiment_body)
+        assert accepted.status_code == 201, accepted.text
+        assert client.post("/v1/experiments", headers=experiment_headers, json=experiment_body).json() == accepted.json()
+        run = client.get(f"/v1/experiments/{accepted.json()['id']}", headers=headers)
+        assert run.status_code == 200
+        assert run.json()["training_run"]["id"] == accepted.json()["id"]
+        with Session(engine) as db:
+            assert db.query(Experiment).count() == 1
+            assert db.query(Job).count() == 5
+            assert db.query(ApiRequestReceipt).count() == 2
+
+        wrong_account = client.post("/v1/datasets", headers={
+            **web_headers(user_id="passport-user-2", email="other@example.com"),
+            "X-LLMWEB-API-Connection-ID": connection["id"], "X-Request-ID": "wrong-account-request",
+        }, json=body)
+        assert wrong_account.status_code == 404
+        client.post(f"/v1/api-connections/{connection['id']}/revoke", headers=WEB_HEADERS, json={})
+        revoked = client.post("/v1/datasets", headers={**headers, "X-Request-ID": "revoked-request"}, json=body)
+        assert revoked.status_code == 401
 
 
 def test_user_api_revokes_one_exact_idle_runner_and_blocks_its_device_identity() -> None:
