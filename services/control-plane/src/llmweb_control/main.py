@@ -2,12 +2,11 @@ from contextlib import asynccontextmanager
 from datetime import timedelta, timezone
 import hashlib
 import json
-import logging
 import secrets
 import shlex
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -27,9 +26,6 @@ APPROVED_MODELS = {
     "Qwen/Qwen2.5-3B-Instruct": "aa8e72537993ba99e69dfaafa59ed015b17504d1",
     "karpathy/nanoGPT": "3adf61e154c3fe3fca428ad6bc3818b27a3b8291",
 }
-CLOUDMCP_PROVIDER_ID = "llmweb_training"
-CLOUDMCP_PROVIDER_VERSION = "1.0"
-logger = logging.getLogger(__name__)
 USER_API_TOOL_CATALOG = [
     {
         "name": "list_llmweb_training_pool",
@@ -1015,48 +1011,6 @@ def revoke_user_api_runner(runner_id: str, body: dict[str, Any], db: Db, identit
     return revoke_runner(db, identity, runner_id, str(body.get("confirm_runner_id") or ""))
 
 
-@app.get("/api/provider-bridge/v1/help", tags=["user-api"])
-@app.get("/api/provider-bridge/help", tags=["user-api"])
-def user_api_provider_help() -> dict[str, Any]:
-    return {
-        "object": "llmweb_training_provider_bridge_help",
-        "provider": {
-            "bridgeId": CLOUDMCP_PROVIDER_ID,
-            "providerId": CLOUDMCP_PROVIDER_ID,
-            "providerName": "LLMWEB User Training API",
-            "routePath": "/api/provider-bridge",
-        },
-        "auth": {
-            "mode": "user_api_bearer_v1",
-            "runtimeHeaders": {
-                "Authorization": "Bearer <LLMWEB_USER_API_CREDENTIAL>",
-                "X-CloudMCP-Bridge-Provider": CLOUDMCP_PROVIDER_ID,
-                "X-CloudMCP-Bridge-Version": CLOUDMCP_PROVIDER_VERSION,
-            },
-        },
-        "protocol": {
-            "requestShape": {"tool": "string", "params": {}},
-            "successShape": {"success": True, "result": "any"},
-            "failureShape": {"success": False, "error": "string"},
-        },
-        "tools": USER_API_TOOL_CATALOG,
-    }
-
-
-TOOL_CAPABILITIES = {
-    "list_tools": "workspace:read",
-    "list_llmweb_training_pool": "workspace:read",
-    "create_llmweb_starter_project": "project:write",
-    "create_llmweb_runner_pairing": "runner:pair",
-    "revoke_llmweb_runner": "runner:pair",
-    "prepare_llmweb_starter_dataset": "project:write",
-    "start_llmweb_starter_training": "training:write",
-    "get_llmweb_training_run": "workspace:read",
-    "select_llmweb_training_result": "training:write",
-    "control_llmweb_training_job": "training:write",
-}
-
-
 def record_api_audit(
     db: Session,
     connection: ApiConnection,
@@ -1095,12 +1049,6 @@ def record_api_audit(
         event.occurred_at = utc_now()
     if commit:
         db.commit()
-
-
-DURABLE_SUBMISSION_TOOLS = {
-    "prepare_llmweb_starter_dataset",
-    "start_llmweb_starter_training",
-}
 
 
 def api_request_fingerprint(action: str, params: dict[str, Any]) -> str:
@@ -1202,125 +1150,3 @@ def create_api_audit_event(
     db.add(event)
     db.commit()
     return {"id": event.id}
-
-
-@app.post("/api/provider-bridge", tags=["user-api"])
-async def user_api_provider_bridge(
-    request: Request,
-    db: Db,
-    identity: WebAuth,
-    api_connection_id: Annotated[str | None, Header(alias="X-LLMWEB-API-Connection-ID")] = None,
-) -> dict[str, Any]:
-    if not api_connection_id:
-        raise HTTPException(status_code=401, detail="API 连接身份缺失")
-    connection = owned_api_connection(db, api_connection_id, identity)
-    if connection.status != "active" or connection.revoked_at is not None:
-        raise HTTPException(status_code=401, detail="API 连接已撤销")
-    body = await request.json()
-    tool = str(body.get("tool") or "").strip()
-    params = body.get("params") if isinstance(body.get("params"), dict) else {}
-    required_capability = TOOL_CAPABILITIES.get(tool)
-    if required_capability is None:
-        raise HTTPException(status_code=404, detail=f"Unknown tool: {tool}")
-    if required_capability not in connection.granted_capabilities:
-        raise HTTPException(status_code=403, detail="这个 API 连接没有执行该动作的权限")
-    if tool == "control_llmweb_training_job" and params.get("action") == "cancel" and params.get("confirmation") != "CONFIRM_CANCEL_TRAINING":
-        raise HTTPException(status_code=400, detail="取消训练需要本次调用的明确确认")
-    request_id = request.headers.get("X-Request-ID") or new_id("request")
-    fingerprint = api_request_fingerprint(tool, params)
-    try:
-        if tool in DURABLE_SUBMISSION_TOOLS:
-            accepted_result = read_api_request_receipt(db, connection, request_id, tool, fingerprint)
-            if accepted_result is not None:
-                record_api_audit(db, connection, request_id, tool, "succeeded", params)
-                return {"success": True, "result": accepted_result}
-        if tool == "list_tools":
-            result: Any = USER_API_TOOL_CATALOG
-        elif tool == "list_llmweb_training_pool":
-            result = user_api_state_summary(db, identity, params.get("project_id"))
-        elif tool == "create_llmweb_starter_project":
-            result = create_project(ProjectCreate(
-                name=params.get("name") or "我的第一次模型训练",
-                goal=params.get("goal") or "让一个小模型学会续写莎士比亚风格的文本",
-                success_criteria=params.get("success_criteria") or "训练后的测试损失低于训练前",
-            ), db, identity)
-        elif tool == "create_llmweb_runner_pairing":
-            result = create_pairing(db, identity)
-        elif tool == "revoke_llmweb_runner":
-            result = revoke_runner(
-                db, identity, str(params.get("runner_id") or ""), str(params.get("confirm_runner_id") or ""),
-            )
-        elif tool == "prepare_llmweb_starter_dataset":
-            result = _create_dataset(DatasetCreate(
-                project_id=params.get("project_id", ""), runner_id=params.get("runner_id", ""),
-                name="莎士比亚文本练习集", source_type="starter", source_ref="tiny-shakespeare",
-                format="txt", train_percent=80, validation_percent=10, test_percent=10, preview_allowed=True,
-            ), db, identity, commit=False)
-        elif tool == "start_llmweb_starter_training":
-            profile = params.get("profile") or "balanced"
-            epochs = {"fast": 1, "balanced": 3, "thorough": 5}.get(profile)
-            if epochs is None:
-                raise HTTPException(status_code=400, detail="profile 必须是 fast、balanced 或 thorough")
-            result = _create_experiment(ExperimentCreate(
-                project_id=params.get("project_id", ""), runner_id=params.get("runner_id", ""),
-                dataset_id=params.get("dataset_id", ""), name=params.get("name") or "第一次入门训练",
-                model_id="karpathy/nanoGPT", method="starter", epochs=epochs,
-                learning_rate=0.001, max_length=128, batch_size=12, gradient_accumulation=1,
-                export_formats=["model"], evaluation_preview_allowed=True,
-                output_destination="local", license_confirmed=params.get("license_confirmed") is True,
-            ), db, identity, commit=False)
-        elif tool == "get_llmweb_training_run":
-            summary = user_api_state_summary(db, identity, params.get("project_id"))
-            experiment_id = params.get("experiment_id")
-            run = next((item for item in summary["training_runs"] if item["id"] == experiment_id), None)
-            if run is None:
-                raise HTTPException(status_code=404, detail="训练不存在")
-            result = {"training_run": run, "jobs": [item for item in summary["jobs"] if item["experiment_id"] == experiment_id]}
-        elif tool == "select_llmweb_training_result":
-            experiment_id = str(params.get("experiment_id") or "")
-            experiment = db.get(Experiment, experiment_id)
-            if experiment is None or experiment.workspace_id != identity.workspace_id:
-                raise HTTPException(status_code=404, detail="训练不存在")
-            reference = params.get("checkpoint_ref")
-            if not reference:
-                recommended = next((item for item in experiment.checkpoints or [] if item.get("recommended")), None)
-                reference = recommended.get("reference") if recommended else None
-            if not reference:
-                raise HTTPException(status_code=409, detail="训练还没有可选择的结果")
-            result = select_checkpoint(experiment_id, CheckpointSelect(checkpoint_ref=reference), db, identity)
-        elif tool == "control_llmweb_training_job":
-            result = control_job(str(params.get("job_id") or ""), JobControl(action=params.get("action")), db, identity)
-        if tool in DURABLE_SUBMISSION_TOOLS:
-            db.add(ApiRequestReceipt(
-                connection_id=connection.id,
-                workspace_id=connection.workspace_id,
-                request_id=request_id,
-                action=tool,
-                request_fingerprint=fingerprint,
-                result=result,
-            ))
-            record_api_audit(db, connection, request_id, tool, "succeeded", params, commit=False)
-            try:
-                db.commit()
-            except IntegrityError:
-                db.rollback()
-                accepted_result = read_api_request_receipt(db, connection, request_id, tool, fingerprint)
-                if accepted_result is None:
-                    raise
-                return {"success": True, "result": accepted_result}
-        else:
-            record_api_audit(db, connection, request_id, tool, "succeeded", params)
-        return {"success": True, "result": result}
-    except HTTPException as error:
-        db.rollback()
-        record_api_audit(db, connection, request_id, tool, "failed", params)
-        return {"success": False, "error": str(error.detail), "status": error.status_code}
-    except (TypeError, ValueError) as error:
-        db.rollback()
-        record_api_audit(db, connection, request_id, tool, "failed", params)
-        return {"success": False, "error": str(error), "status": 400}
-    except Exception:
-        db.rollback()
-        record_api_audit(db, connection, request_id, tool, "failed", params)
-        logger.exception("Unexpected user API provider adapter failure for tool %s", tool)
-        return {"success": False, "error": "LLMWEB 工具暂时无法完成请求", "status": 500}

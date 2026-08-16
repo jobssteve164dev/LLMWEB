@@ -367,148 +367,6 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
         assert baseline["payload"]["training"]["iterations"] == 500
 
 
-def test_user_api_connection_governs_provider_bridge_and_audit() -> None:
-    reset_database()
-    with TestClient(app) as client:
-        rejected = client.post("/api/provider-bridge", json={"tool": "list_tools", "params": {}})
-        assert rejected.status_code == 401
-        created = client.post("/v1/api-connections", headers=WEB_HEADERS, json={
-            "name": "团队训练助手",
-            "purpose": "从内部自动化服务管理训练",
-            "capabilities": ["workspace:read", "project:write"],
-        })
-        assert created.status_code == 201, created.text
-        connection = created.json()["connection"]
-        credential = created.json()["credential"]
-        resolved = client.post("/v1/api-connections/resolve", headers={
-            "Authorization": f"Bearer {get_settings().web_token}",
-            "X-LLMWEB-API-Credential": credential,
-        })
-        assert resolved.status_code == 200
-        headers = {**WEB_HEADERS, "X-LLMWEB-API-Connection-ID": connection["id"], "X-Request-ID": "request-list-tools"}
-        tools_response = client.post("/api/provider-bridge", headers=headers, json={"tool": "list_tools", "params": {}})
-        assert tools_response.status_code == 200
-        names = {item["name"] for item in tools_response.json()["result"]}
-        assert {
-            "create_llmweb_starter_project",
-            "create_llmweb_runner_pairing",
-            "revoke_llmweb_runner",
-            "start_llmweb_starter_training",
-        }.issubset(names)
-        assert "command" not in str(tools_response.json())
-        project_response = client.post(
-            "/api/provider-bridge", headers={**headers, "X-Request-ID": "request-create-project"},
-            json={"tool": "create_llmweb_starter_project", "params": {}},
-        ).json()
-        assert project_response["success"] is True
-        forbidden = client.post(
-            "/api/provider-bridge", headers=headers,
-            json={"tool": "create_llmweb_runner_pairing", "params": {}},
-        )
-        assert forbidden.status_code == 403
-        listed = client.get("/v1/api-connections", headers=WEB_HEADERS).json()
-        assert {item["action"] for item in listed["recent_activity"]} >= {"list_tools", "create_llmweb_starter_project"}
-        client.post(f"/v1/api-connections/{connection['id']}/revoke", headers=WEB_HEADERS, json={})
-        rejected_after_revoke = client.post("/v1/api-connections/resolve", headers={
-            "Authorization": f"Bearer {get_settings().web_token}",
-            "X-LLMWEB-API-Credential": credential,
-        })
-        assert rejected_after_revoke.status_code == 401
-
-
-def test_training_submission_replays_durable_ids_after_lost_response_without_duplicates() -> None:
-    reset_database()
-    with TestClient(app) as client:
-        project_id = client.post(
-            "/v1/projects",
-            headers=WEB_HEADERS,
-            json={"name": "可靠受理", "goal": "完成一次训练", "success_criteria": "导出模型"},
-        ).json()["id"]
-        pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
-        runner = client.post(
-            "/v1/runners/pair",
-            json={"code": pairing["code"], "name": "可靠受理节点", "capabilities": ready_capabilities()},
-        ).json()
-        runner_headers = {"Authorization": f"Bearer {runner['device_token']}"}
-        connection = client.post("/v1/api-connections", headers=WEB_HEADERS, json={
-            "name": "可靠训练连接",
-            "purpose": "验证响应丢失后的唯一受理",
-            "capabilities": ["workspace:read", "project:write", "training:write"],
-        }).json()["connection"]
-        bridge_headers = {**WEB_HEADERS, "X-LLMWEB-API-Connection-ID": connection["id"]}
-
-        dataset_request_headers = {**bridge_headers, "X-Request-ID": "stable-dataset-submission"}
-        dataset_payload = {
-            "tool": "prepare_llmweb_starter_dataset",
-            "params": {"project_id": project_id, "runner_id": runner["runner_id"]},
-        }
-        first_dataset_response = client.post(
-            "/api/provider-bridge", headers=dataset_request_headers, json=dataset_payload,
-        ).json()
-        assert first_dataset_response["success"] is True
-
-        # Simulate a lost response by discarding it and recovering with the same request identity.
-        recovered_dataset_response = client.post(
-            "/api/provider-bridge", headers=dataset_request_headers, json=dataset_payload,
-        ).json()
-        assert recovered_dataset_response == first_dataset_response
-        dataset_result = recovered_dataset_response["result"]
-
-        training_request_headers = {**bridge_headers, "X-Request-ID": "stable-training-submission"}
-        training_payload = {
-            "tool": "start_llmweb_starter_training",
-            "params": {
-                "project_id": project_id,
-                "runner_id": runner["runner_id"],
-                "dataset_id": dataset_result["id"],
-                "profile": "fast",
-                "license_confirmed": True,
-            },
-        }
-
-        # Failure before the creation transaction commits must remain safely retryable.
-        rejected_before_commit = client.post(
-            "/api/provider-bridge", headers=training_request_headers, json=training_payload,
-        ).json()
-        assert rejected_before_commit["success"] is False
-        assert rejected_before_commit["status"] == 409
-
-        inspect_lease = client.post("/v1/runners/jobs/lease", headers=runner_headers).json()
-        assert inspect_lease["job_id"] == dataset_result["job_id"]
-        complete_job(
-            client,
-            runner_headers,
-            inspect_lease,
-            {"version_hash": "sha256:reliable", "statistics": {"characters": 1000}},
-        )
-
-        first_training_response = client.post(
-            "/api/provider-bridge", headers=training_request_headers, json=training_payload,
-        ).json()
-        assert first_training_response["success"] is True
-
-        # The committed response is lost; recovery must read the same Experiment and Job ids.
-        recovered_training_response = client.post(
-            "/api/provider-bridge", headers=training_request_headers, json=training_payload,
-        ).json()
-        assert recovered_training_response == first_training_response
-
-        conflicting_reuse = client.post(
-            "/api/provider-bridge",
-            headers=training_request_headers,
-            json={**training_payload, "params": {**training_payload["params"], "profile": "balanced"}},
-        ).json()
-        assert conflicting_reuse["success"] is False
-        assert conflicting_reuse["status"] == 409
-
-        with Session(engine) as db:
-            assert len(db.query(Dataset).all()) == 1
-            assert len(db.query(Experiment).all()) == 1
-            jobs = db.query(Job).all()
-            assert len(jobs) == 5
-            assert {job.id for job in jobs if job.experiment_id} == set(first_training_response["result"]["job_ids"])
-
-
 def test_standard_user_api_submission_owns_the_durable_receipt() -> None:
     reset_database()
     with TestClient(app) as client:
@@ -594,31 +452,20 @@ def test_user_api_revokes_one_exact_idle_runner_and_blocks_its_device_identity()
             "capabilities": ["workspace:read", "runner:pair"],
         })
         assert created.status_code == 201, created.text
-        connection = created.json()["connection"]
-        bridge_headers = {
-            **WEB_HEADERS,
-            "X-LLMWEB-API-Connection-ID": connection["id"],
-            "X-Request-ID": "request-revoke-old-runner",
-        }
-        revoked = client.post("/api/provider-bridge", headers=bridge_headers, json={
-            "tool": "revoke_llmweb_runner",
-            "params": {"runner_id": runner["runner_id"], "confirm_runner_id": runner["runner_id"]},
+        revoked = client.post(f"/v1/runners/{runner['runner_id']}/revoke", headers=WEB_HEADERS, json={
+            "confirm_runner_id": runner["runner_id"],
         })
         assert revoked.status_code == 200, revoked.text
-        assert revoked.json()["result"] == {
+        assert revoked.json() == {
             "runner_id": runner["runner_id"], "revoked": True, "already_revoked": False,
         }
         assert client.post(
             "/v1/runners/heartbeat", headers=runner_headers,
             json={"capabilities": ready_capabilities(), "active_job_id": None},
         ).status_code == 401
-        pool_response = client.post(
-            "/api/provider-bridge", headers={**bridge_headers, "X-Request-ID": "request-list-after-revoke"},
-            json={"tool": "list_llmweb_training_pool", "params": {}},
-        )
+        pool_response = client.get("/v1/training-pool", headers=WEB_HEADERS)
         assert pool_response.status_code == 200, pool_response.text
-        assert pool_response.json()["success"] is True, pool_response.text
-        pool = pool_response.json()["result"]
+        pool = pool_response.json()
         assert pool["training_pool"] == []
 
 
@@ -630,17 +477,10 @@ def test_user_api_refuses_runner_revocation_with_wrong_confirmation_or_active_wo
             "/v1/runners/pair",
             json={"code": pairing["code"], "name": "忙碌训练节点", "capabilities": ready_capabilities()},
         ).json()
-        created = client.post("/v1/api-connections", headers=WEB_HEADERS, json={
-            "name": "算力治理连接", "purpose": "保护运行任务", "capabilities": ["runner:pair"],
-        }).json()["connection"]
-        bridge_headers = {**WEB_HEADERS, "X-LLMWEB-API-Connection-ID": created["id"]}
-        wrong = client.post("/api/provider-bridge", headers=bridge_headers, json={
-            "tool": "revoke_llmweb_runner",
-            "params": {"runner_id": runner["runner_id"], "confirm_runner_id": "run_wrong"},
+        wrong = client.post(f"/v1/runners/{runner['runner_id']}/revoke", headers=WEB_HEADERS, json={
+            "confirm_runner_id": "run_wrong",
         })
-        assert wrong.status_code == 200
-        assert wrong.json()["success"] is False
-        assert wrong.json()["status"] == 400
+        assert wrong.status_code == 400
 
         with Session(engine) as db:
             db.add(Job(
@@ -651,16 +491,13 @@ def test_user_api_refuses_runner_revocation_with_wrong_confirmation_or_active_wo
                 status="running",
             ))
             db.commit()
-        busy = client.post("/api/provider-bridge", headers=bridge_headers, json={
-            "tool": "revoke_llmweb_runner",
-            "params": {"runner_id": runner["runner_id"], "confirm_runner_id": runner["runner_id"]},
+        busy = client.post(f"/v1/runners/{runner['runner_id']}/revoke", headers=WEB_HEADERS, json={
+            "confirm_runner_id": runner["runner_id"],
         })
-        assert busy.status_code == 200
-        assert busy.json()["success"] is False
-        assert busy.json()["status"] == 409
+        assert busy.status_code == 409
 
 
-def test_cloudmcp_provider_bridge_compose_delegates_governed_credentials() -> None:
+def test_user_api_compose_has_no_bridge_credentials() -> None:
     compose = (Path(__file__).parents[3] / "compose.yaml").read_text()
     assert "CLOUDMCP_BRIDGE_CLIENT_ID:" not in compose
     assert "CLOUDMCP_BRIDGE_CLIENT_SECRET:" not in compose
