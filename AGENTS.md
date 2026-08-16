@@ -9,6 +9,7 @@ This repository is a Research / experiment. Keep changes focused on the user-fac
 - Read `README.md` and `PROJECT_MEMORY.md` first.
 - Inspect the smallest relevant code or content path before proposing broad changes.
 - Preserve existing architecture, routes, and user workflows unless the task explicitly changes them.
+- Before deploying, identify the repository's established release entrypoint from its scripts, documentation, and last successful production evidence. If the user explicitly names that entrypoint, use it directly; an unrelated CI or Runner failure does not authorize introducing or repairing a different deployment path.
 
 ## Verification
 
