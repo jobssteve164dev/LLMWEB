@@ -166,6 +166,20 @@ class ApiConnection(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ApiRequestReceipt(Base):
+    __tablename__ = "api_request_receipts"
+    __table_args__ = (UniqueConstraint("connection_id", "request_id", name="uq_api_request_connection_request"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("receipt"))
+    connection_id: Mapped[str] = mapped_column(ForeignKey("api_connections.id"), index=True)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"), index=True)
+    request_id: Mapped[str] = mapped_column(String(80))
+    action: Mapped[str] = mapped_column(String(120))
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    result: Mapped[dict[str, Any]] = mapped_column(JSON)
+    accepted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
 class ApiAuditEvent(Base):
     __tablename__ = "api_audit_events"
     __table_args__ = (UniqueConstraint("connection_id", "request_id", name="uq_api_audit_connection_request"),)

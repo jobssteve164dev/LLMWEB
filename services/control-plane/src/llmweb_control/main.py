@@ -1,5 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import timedelta, timezone
+import hashlib
+import json
 import logging
 import secrets
 import shlex
@@ -11,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
-from .models import ApiAuditEvent, ApiConnection, Dataset, Experiment, Job, JobEvent, PairingCode, Project, Runner, Workspace, new_id, utc_now
+from .models import ApiAuditEvent, ApiConnection, ApiRequestReceipt, Dataset, Experiment, Job, JobEvent, PairingCode, Project, Runner, Workspace, new_id, utc_now
 from .schemas import ApiAuditCreate, ApiConnectionCreate, CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate, RunnerUpgradeAuthorization
 from .security import WebIdentity, digest_secret, require_internal_web, require_runner, require_web, resolve_api_connection
 from .settings import get_settings
@@ -557,8 +559,13 @@ def revoke_runner(db: Session, identity: WebIdentity, runner_id: str, confirm_ru
     return {"runner_id": runner.id, "revoked": True, "already_revoked": False}
 
 
-@app.post("/v1/datasets", status_code=status.HTTP_201_CREATED, tags=["web"])
-def create_dataset(body: DatasetCreate, db: Db, identity: WebAuth) -> dict[str, str]:
+def _create_dataset(
+    body: DatasetCreate,
+    db: Session,
+    identity: WebIdentity,
+    *,
+    commit: bool = True,
+) -> dict[str, str]:
     project = db.get(Project, body.project_id)
     runner = db.get(Runner, body.runner_id)
     if project is None or project.workspace_id != identity.workspace_id:
@@ -601,8 +608,16 @@ def create_dataset(body: DatasetCreate, db: Db, identity: WebAuth) -> dict[str, 
         },
     )
     db.add(job)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return {"id": dataset.id, "job_id": job.id}
+
+
+@app.post("/v1/datasets", status_code=status.HTTP_201_CREATED, tags=["web"])
+def create_dataset(body: DatasetCreate, db: Db, identity: WebAuth) -> dict[str, str]:
+    return _create_dataset(body, db, identity)
 
 
 def infer_template(model_id: str) -> str:
@@ -618,8 +633,13 @@ def infer_template(model_id: str) -> str:
     return "default"
 
 
-@app.post("/v1/experiments", status_code=status.HTTP_201_CREATED, tags=["web"])
-def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict[str, Any]:
+def _create_experiment(
+    body: ExperimentCreate,
+    db: Session,
+    identity: WebIdentity,
+    *,
+    commit: bool = True,
+) -> dict[str, Any]:
     project = db.get(Project, body.project_id)
     runner = db.get(Runner, body.runner_id)
     dataset = db.get(Dataset, body.dataset_id)
@@ -723,8 +743,16 @@ def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict
         )
         db.add(job)
         jobs.append(job)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return {"id": experiment.id, "job_ids": [job.id for job in jobs]}
+
+
+@app.post("/v1/experiments", status_code=status.HTTP_201_CREATED, tags=["web"])
+def create_experiment(body: ExperimentCreate, db: Db, identity: WebAuth) -> dict[str, Any]:
+    return _create_experiment(body, db, identity)
 
 
 def previous_jobs_complete(db: Session, job: Job) -> bool:
@@ -993,19 +1021,66 @@ def record_api_audit(
     action: str,
     outcome: str,
     params: dict[str, Any],
+    *,
+    commit: bool = True,
 ) -> None:
-    db.add(ApiAuditEvent(
-        connection_id=connection.id,
-        workspace_id=connection.workspace_id,
-        actor_user_id=connection.passport_user_id,
-        request_id=request_id,
-        action=action,
-        target_type=next((key.removesuffix("_id") for key in ("experiment_id", "job_id", "project_id", "runner_id", "dataset_id") if params.get(key)), None),
-        target_id=next((str(params[key]) for key in ("experiment_id", "job_id", "project_id", "runner_id", "dataset_id") if params.get(key)), None),
-        outcome=outcome,
-        safe_request_summary={"parameter_names": sorted(params.keys())},
+    target_type = next((key.removesuffix("_id") for key in ("experiment_id", "job_id", "project_id", "runner_id", "dataset_id") if params.get(key)), None)
+    target_id = next((str(params[key]) for key in ("experiment_id", "job_id", "project_id", "runner_id", "dataset_id") if params.get(key)), None)
+    event = db.scalar(select(ApiAuditEvent).where(
+        ApiAuditEvent.connection_id == connection.id,
+        ApiAuditEvent.request_id == request_id,
     ))
-    db.commit()
+    if event is None:
+        event = ApiAuditEvent(
+            connection_id=connection.id,
+            workspace_id=connection.workspace_id,
+            actor_user_id=connection.passport_user_id,
+            request_id=request_id,
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            outcome=outcome,
+            safe_request_summary={"parameter_names": sorted(params.keys())},
+        )
+        db.add(event)
+    else:
+        event.action = action
+        event.target_type = target_type
+        event.target_id = target_id
+        event.outcome = outcome
+        event.safe_request_summary = {"parameter_names": sorted(params.keys())}
+        event.occurred_at = utc_now()
+    if commit:
+        db.commit()
+
+
+DURABLE_SUBMISSION_TOOLS = {
+    "prepare_llmweb_starter_dataset",
+    "start_llmweb_starter_training",
+}
+
+
+def api_request_fingerprint(action: str, params: dict[str, Any]) -> str:
+    canonical = json.dumps({"action": action, "params": params}, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def read_api_request_receipt(
+    db: Session,
+    connection: ApiConnection,
+    request_id: str,
+    action: str,
+    fingerprint: str,
+) -> dict[str, Any] | None:
+    receipt = db.scalar(select(ApiRequestReceipt).where(
+        ApiRequestReceipt.connection_id == connection.id,
+        ApiRequestReceipt.request_id == request_id,
+    ))
+    if receipt is None:
+        return None
+    if receipt.action != action or receipt.request_fingerprint != fingerprint:
+        raise HTTPException(status_code=409, detail="同一请求身份不能用于不同的训练提交")
+    return receipt.result
 
 
 @app.post("/v1/api-connections/audit", status_code=status.HTTP_201_CREATED, tags=["internal"])
@@ -1066,7 +1141,13 @@ async def user_api_provider_bridge(
     if tool == "control_llmweb_training_job" and params.get("action") == "cancel" and params.get("confirmation") != "CONFIRM_CANCEL_TRAINING":
         raise HTTPException(status_code=400, detail="取消训练需要本次调用的明确确认")
     request_id = request.headers.get("X-Request-ID") or new_id("request")
+    fingerprint = api_request_fingerprint(tool, params)
     try:
+        if tool in DURABLE_SUBMISSION_TOOLS:
+            accepted_result = read_api_request_receipt(db, connection, request_id, tool, fingerprint)
+            if accepted_result is not None:
+                record_api_audit(db, connection, request_id, tool, "succeeded", params)
+                return {"success": True, "result": accepted_result}
         if tool == "list_tools":
             result: Any = USER_API_TOOL_CATALOG
         elif tool == "list_llmweb_training_pool":
@@ -1084,24 +1165,24 @@ async def user_api_provider_bridge(
                 db, identity, str(params.get("runner_id") or ""), str(params.get("confirm_runner_id") or ""),
             )
         elif tool == "prepare_llmweb_starter_dataset":
-            result = create_dataset(DatasetCreate(
+            result = _create_dataset(DatasetCreate(
                 project_id=params.get("project_id", ""), runner_id=params.get("runner_id", ""),
                 name="莎士比亚文本练习集", source_type="starter", source_ref="tiny-shakespeare",
                 format="txt", train_percent=80, validation_percent=10, test_percent=10, preview_allowed=True,
-            ), db, identity)
+            ), db, identity, commit=False)
         elif tool == "start_llmweb_starter_training":
             profile = params.get("profile") or "balanced"
             epochs = {"fast": 1, "balanced": 3, "thorough": 5}.get(profile)
             if epochs is None:
                 raise HTTPException(status_code=400, detail="profile 必须是 fast、balanced 或 thorough")
-            result = create_experiment(ExperimentCreate(
+            result = _create_experiment(ExperimentCreate(
                 project_id=params.get("project_id", ""), runner_id=params.get("runner_id", ""),
                 dataset_id=params.get("dataset_id", ""), name=params.get("name") or "第一次入门训练",
                 model_id="karpathy/nanoGPT", method="starter", epochs=epochs,
                 learning_rate=0.001, max_length=128, batch_size=12, gradient_accumulation=1,
                 export_formats=["model"], evaluation_preview_allowed=True,
                 output_destination="local", license_confirmed=params.get("license_confirmed") is True,
-            ), db, identity)
+            ), db, identity, commit=False)
         elif tool == "get_llmweb_training_run":
             summary = user_api_state_summary(db, identity, params.get("project_id"))
             experiment_id = params.get("experiment_id")
@@ -1123,12 +1204,33 @@ async def user_api_provider_bridge(
             result = select_checkpoint(experiment_id, CheckpointSelect(checkpoint_ref=reference), db, identity)
         elif tool == "control_llmweb_training_job":
             result = control_job(str(params.get("job_id") or ""), JobControl(action=params.get("action")), db, identity)
-        record_api_audit(db, connection, request_id, tool, "succeeded", params)
+        if tool in DURABLE_SUBMISSION_TOOLS:
+            db.add(ApiRequestReceipt(
+                connection_id=connection.id,
+                workspace_id=connection.workspace_id,
+                request_id=request_id,
+                action=tool,
+                request_fingerprint=fingerprint,
+                result=result,
+            ))
+            record_api_audit(db, connection, request_id, tool, "succeeded", params, commit=False)
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
+                accepted_result = read_api_request_receipt(db, connection, request_id, tool, fingerprint)
+                if accepted_result is None:
+                    raise
+                return {"success": True, "result": accepted_result}
+        else:
+            record_api_audit(db, connection, request_id, tool, "succeeded", params)
         return {"success": True, "result": result}
     except HTTPException as error:
+        db.rollback()
         record_api_audit(db, connection, request_id, tool, "failed", params)
         return {"success": False, "error": str(error.detail), "status": error.status_code}
     except (TypeError, ValueError) as error:
+        db.rollback()
         record_api_audit(db, connection, request_id, tool, "failed", params)
         return {"success": False, "error": str(error), "status": 400}
     except Exception:

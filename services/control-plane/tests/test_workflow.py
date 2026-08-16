@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from llmweb_control.database import Base, engine
 from llmweb_control.main import DEFAULT_WORKSPACE_ID, app
-from llmweb_control.models import Dataset, Job, Runner, Workspace
+from llmweb_control.models import Dataset, Experiment, Job, Runner, Workspace
 from llmweb_control.security import digest_secret
 from llmweb_control.settings import get_settings
 
@@ -414,6 +414,99 @@ def test_user_api_connection_governs_provider_bridge_and_audit() -> None:
             "X-LLMWEB-API-Credential": credential,
         })
         assert rejected_after_revoke.status_code == 401
+
+
+def test_training_submission_replays_durable_ids_after_lost_response_without_duplicates() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        project_id = client.post(
+            "/v1/projects",
+            headers=WEB_HEADERS,
+            json={"name": "可靠受理", "goal": "完成一次训练", "success_criteria": "导出模型"},
+        ).json()["id"]
+        pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
+        runner = client.post(
+            "/v1/runners/pair",
+            json={"code": pairing["code"], "name": "可靠受理节点", "capabilities": ready_capabilities()},
+        ).json()
+        runner_headers = {"Authorization": f"Bearer {runner['device_token']}"}
+        connection = client.post("/v1/api-connections", headers=WEB_HEADERS, json={
+            "name": "可靠训练连接",
+            "purpose": "验证响应丢失后的唯一受理",
+            "capabilities": ["workspace:read", "project:write", "training:write"],
+        }).json()["connection"]
+        bridge_headers = {**WEB_HEADERS, "X-LLMWEB-API-Connection-ID": connection["id"]}
+
+        dataset_request_headers = {**bridge_headers, "X-Request-ID": "stable-dataset-submission"}
+        dataset_payload = {
+            "tool": "prepare_llmweb_starter_dataset",
+            "params": {"project_id": project_id, "runner_id": runner["runner_id"]},
+        }
+        first_dataset_response = client.post(
+            "/api/provider-bridge", headers=dataset_request_headers, json=dataset_payload,
+        ).json()
+        assert first_dataset_response["success"] is True
+
+        # Simulate a lost response by discarding it and recovering with the same request identity.
+        recovered_dataset_response = client.post(
+            "/api/provider-bridge", headers=dataset_request_headers, json=dataset_payload,
+        ).json()
+        assert recovered_dataset_response == first_dataset_response
+        dataset_result = recovered_dataset_response["result"]
+
+        training_request_headers = {**bridge_headers, "X-Request-ID": "stable-training-submission"}
+        training_payload = {
+            "tool": "start_llmweb_starter_training",
+            "params": {
+                "project_id": project_id,
+                "runner_id": runner["runner_id"],
+                "dataset_id": dataset_result["id"],
+                "profile": "fast",
+                "license_confirmed": True,
+            },
+        }
+
+        # Failure before the creation transaction commits must remain safely retryable.
+        rejected_before_commit = client.post(
+            "/api/provider-bridge", headers=training_request_headers, json=training_payload,
+        ).json()
+        assert rejected_before_commit["success"] is False
+        assert rejected_before_commit["status"] == 409
+
+        inspect_lease = client.post("/v1/runners/jobs/lease", headers=runner_headers).json()
+        assert inspect_lease["job_id"] == dataset_result["job_id"]
+        complete_job(
+            client,
+            runner_headers,
+            inspect_lease,
+            {"version_hash": "sha256:reliable", "statistics": {"characters": 1000}},
+        )
+
+        first_training_response = client.post(
+            "/api/provider-bridge", headers=training_request_headers, json=training_payload,
+        ).json()
+        assert first_training_response["success"] is True
+
+        # The committed response is lost; recovery must read the same Experiment and Job ids.
+        recovered_training_response = client.post(
+            "/api/provider-bridge", headers=training_request_headers, json=training_payload,
+        ).json()
+        assert recovered_training_response == first_training_response
+
+        conflicting_reuse = client.post(
+            "/api/provider-bridge",
+            headers=training_request_headers,
+            json={**training_payload, "params": {**training_payload["params"], "profile": "balanced"}},
+        ).json()
+        assert conflicting_reuse["success"] is False
+        assert conflicting_reuse["status"] == 409
+
+        with Session(engine) as db:
+            assert len(db.query(Dataset).all()) == 1
+            assert len(db.query(Experiment).all()) == 1
+            jobs = db.query(Job).all()
+            assert len(jobs) == 5
+            assert {job.id for job in jobs if job.experiment_id} == set(first_training_response["result"]["job_ids"])
 
 
 def test_user_api_revokes_one_exact_idle_runner_and_blocks_its_device_identity() -> None:
