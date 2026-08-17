@@ -1,4 +1,4 @@
-import { projectLimitForUser } from "./passport";
+import { planAccessForUser } from "./passport";
 
 type ResolvedApiConnection = {
   connection: { id: string; capabilities: string[] };
@@ -28,8 +28,9 @@ export async function resolveApiConnection(credential: string) {
   }
   const resolved = await response.json() as ResolvedApiConnection;
   const user = { id: resolved.identity.user_id, email: resolved.identity.email, name: resolved.identity.name };
-  const projectLimit = await projectLimitForUser(user);
-  return { ...resolved, projectLimit, webToken };
+  const planAccess = await planAccessForUser(user);
+  if (!planAccess.paid) throw new ApiConnectionError(403, "API 连接仅对 Pro 用户开放。");
+  return { ...resolved, projectLimit: planAccess.limit, webToken };
 }
 
 export function trustedApiHeaders(resolved: Awaited<ReturnType<typeof resolveApiConnection>>) {
@@ -39,6 +40,7 @@ export function trustedApiHeaders(resolved: Awaited<ReturnType<typeof resolveApi
     "X-LLMWEB-User-Email": Buffer.from(resolved.identity.email).toString("base64url"),
     "X-LLMWEB-User-Name": Buffer.from(resolved.identity.name || "").toString("base64url"),
     "X-LLMWEB-Project-Limit": String(resolved.projectLimit),
+    "X-LLMWEB-Paid-Plan": "true",
     "X-LLMWEB-API-Connection-ID": resolved.connection.id,
   };
 }

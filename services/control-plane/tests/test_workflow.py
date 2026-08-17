@@ -12,13 +12,14 @@ from llmweb_control.security import digest_secret
 from llmweb_control.settings import get_settings
 
 
-def web_headers(user_id: str = "passport-user-1", email: str = "owner@example.com", project_limit: int = 2) -> dict[str, str]:
+def web_headers(user_id: str = "passport-user-1", email: str = "owner@example.com", project_limit: int = 2, paid_plan: bool = True) -> dict[str, str]:
     return {
         "Authorization": f"Bearer {get_settings().web_token}",
         "X-LLMWEB-User-ID": user_id,
         "X-LLMWEB-User-Email": base64.urlsafe_b64encode(email.encode()).decode().rstrip("="),
         "X-LLMWEB-User-Name": "",
         "X-LLMWEB-Project-Limit": str(project_limit),
+        "X-LLMWEB-Paid-Plan": str(paid_plan).lower(),
     }
 
 
@@ -550,6 +551,42 @@ def test_project_limits_and_user_isolation() -> None:
             f"/v1/state?project_id={first_project.json()['id']}",
             headers=other_headers,
         ).status_code == 404
+
+
+def test_free_plan_allows_one_project_and_blocks_api_settings() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        free_headers = web_headers("passport-free-user", "free@example.com", 1, False)
+        first = client.post("/v1/projects", headers=free_headers, json={
+            "name": "免费项目", "goal": "完成一次训练", "success_criteria": "生成模型",
+        })
+        assert first.status_code == 201
+        assert client.post("/v1/projects", headers=free_headers, json={
+            "name": "第二个项目", "goal": "目标", "success_criteria": "标准",
+        }).status_code == 409
+        assert client.get("/v1/api-connections", headers=free_headers).status_code == 403
+        assert client.post("/v1/api-connections", headers=free_headers, json={
+            "name": "不可创建", "purpose": "免费用户不可用", "capabilities": ["workspace:read"],
+        }).status_code == 403
+
+
+def test_project_can_be_renamed_and_deleted_without_cross_workspace_access() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        project_id = client.post("/v1/projects", headers=WEB_HEADERS, json={
+            "name": "旧名称", "goal": "目标", "success_criteria": "标准",
+        }).json()["id"]
+        renamed = client.patch(f"/v1/projects/{project_id}", headers=WEB_HEADERS, json={"name": "新名称"})
+        assert renamed.status_code == 200
+        assert renamed.json() == {"id": project_id, "name": "新名称"}
+        assert client.patch(
+            f"/v1/projects/{project_id}",
+            headers=web_headers("passport-user-2", "other@example.com"),
+            json={"name": "越权修改"},
+        ).status_code == 404
+        deleted = client.delete(f"/v1/projects/{project_id}", headers=WEB_HEADERS)
+        assert deleted.status_code == 204
+        assert client.get("/v1/state", headers=WEB_HEADERS).json()["projects"] == []
 
 
 def test_control_plane_enforces_the_positive_catalog_quota_without_a_local_plan_matrix() -> None:

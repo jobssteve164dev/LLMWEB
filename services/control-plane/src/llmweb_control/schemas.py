@@ -10,6 +10,18 @@ class ProjectCreate(BaseModel):
     success_criteria: str = Field(min_length=1, max_length=2000)
 
 
+class ProjectUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("项目名称不能为空")
+        return normalized
+
+
 class PairRequest(BaseModel):
     code: str = Field(min_length=4, max_length=64)
     name: str = Field(min_length=1, max_length=120)

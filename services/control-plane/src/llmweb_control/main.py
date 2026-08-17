@@ -7,13 +7,13 @@ import shlex
 from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
 from .models import ApiAuditEvent, ApiConnection, ApiRequestReceipt, Dataset, Experiment, Job, JobEvent, PairingCode, Project, Runner, Workspace, new_id, utc_now
-from .schemas import ApiAuditCreate, ApiConnectionCreate, CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate, RunnerUpgradeAuthorization
+from .schemas import ApiAuditCreate, ApiConnectionCreate, CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate, ProjectUpdate, RunnerUpgradeAuthorization
 from .security import WebIdentity, digest_secret, require_internal_web, require_runner, require_web, resolve_api_connection
 from .settings import get_settings
 
@@ -261,6 +261,7 @@ def state(
         "account": {
             "email": identity.email,
             "name": identity.name,
+            "plan": "paid" if identity.paid_plan else "free",
         },
         "project_quota": {
             "used": len(projects),
@@ -341,8 +342,14 @@ def issue_api_credential() -> tuple[str, str, str]:
     return credential, digest_secret(credential), credential[-6:]
 
 
+def require_paid_plan(identity: WebIdentity) -> None:
+    if not identity.paid_plan:
+        raise HTTPException(status_code=403, detail="API 连接仅对 Pro 用户开放")
+
+
 @app.get("/v1/api-connections", tags=["web"])
 def list_api_connections(db: Db, identity: WebAuth) -> dict[str, Any]:
+    require_paid_plan(identity)
     ensure_workspace(db, identity)
     connections = list(db.scalars(select(ApiConnection).where(
         ApiConnection.workspace_id == identity.workspace_id,
@@ -368,6 +375,7 @@ def list_api_connections(db: Db, identity: WebAuth) -> dict[str, Any]:
 
 @app.post("/v1/api-connections", status_code=status.HTTP_201_CREATED, tags=["web"])
 def create_api_connection(body: ApiConnectionCreate, db: Db, identity: WebAuth) -> dict[str, Any]:
+    require_paid_plan(identity)
     ensure_workspace(db, identity)
     credential, credential_hash, credential_hint = issue_api_credential()
     connection = ApiConnection(
@@ -395,6 +403,7 @@ def owned_api_connection(db: Session, connection_id: str, identity: WebIdentity)
 
 @app.post("/v1/api-connections/{connection_id}/rotate", tags=["web"])
 def rotate_api_connection(connection_id: str, db: Db, identity: WebAuth) -> dict[str, Any]:
+    require_paid_plan(identity)
     connection = owned_api_connection(db, connection_id, identity)
     if connection.status != "active" or connection.revoked_at is not None:
         raise HTTPException(status_code=409, detail="已撤销的 API 连接不能轮换")
@@ -450,6 +459,57 @@ def create_project(body: ProjectCreate, db: Db, identity: WebAuth) -> dict[str, 
     db.add(project)
     db.commit()
     return {"id": project.id}
+
+
+def owned_project(db: Session, project_id: str, identity: WebIdentity) -> Project:
+    project = db.get(Project, project_id)
+    if project is None or project.workspace_id != identity.workspace_id:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    return project
+
+
+@app.patch("/v1/projects/{project_id}", tags=["web"])
+def update_project(project_id: str, body: ProjectUpdate, db: Db, identity: WebAuth) -> dict[str, Any]:
+    project = owned_project(db, project_id, identity)
+    project.name = body.name
+    db.commit()
+    return {"id": project.id, "name": project.name}
+
+
+@app.delete("/v1/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["web"])
+def delete_project(project_id: str, db: Db, identity: WebAuth) -> Response:
+    project = owned_project(db, project_id, identity)
+    dataset_ids = list(db.scalars(select(Dataset.id).where(
+        Dataset.workspace_id == identity.workspace_id,
+        Dataset.project_id == project.id,
+    )))
+    experiment_ids = list(db.scalars(select(Experiment.id).where(
+        Experiment.workspace_id == identity.workspace_id,
+        Experiment.project_id == project.id,
+    )))
+    job_scope = []
+    if dataset_ids:
+        job_scope.append(Job.dataset_id.in_(dataset_ids))
+    if experiment_ids:
+        job_scope.append(Job.experiment_id.in_(experiment_ids))
+    jobs = list(db.scalars(select(Job).where(
+        Job.workspace_id == identity.workspace_id,
+        or_(*job_scope),
+    ))) if job_scope else []
+    if any(job.status not in {"completed", "failed", "cancelled"} for job in jobs):
+        raise HTTPException(status_code=409, detail="项目仍有进行中的任务，请先完成或取消任务后再删除")
+    job_ids = [job.id for job in jobs]
+    if job_ids:
+        db.execute(update(Runner).where(Runner.current_job_id.in_(job_ids)).values(current_job_id=None))
+        db.execute(delete(JobEvent).where(JobEvent.job_id.in_(job_ids)))
+        db.execute(delete(Job).where(Job.id.in_(job_ids)))
+    if experiment_ids:
+        db.execute(delete(Experiment).where(Experiment.id.in_(experiment_ids)))
+    if dataset_ids:
+        db.execute(delete(Dataset).where(Dataset.id.in_(dataset_ids)))
+    db.delete(project)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post("/v1/runners/pairing", status_code=status.HTTP_201_CREATED, tags=["web"])

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { projectLimitForUser } from "../../../lib/passport";
+import { planAccessForUser } from "../../../lib/passport";
 import { readSession, sessionCookie } from "../../../lib/session";
 
 export const runtime = "nodejs";
@@ -13,9 +13,9 @@ async function proxy(request: NextRequest, context: RouteContext) {
   const { path } = await context.params;
   const baseUrl = process.env.LLMWEB_CONTROL_URL ?? "http://localhost:8000";
   const token = process.env.LLMWEB_WEB_TOKEN ?? "local-dev-token";
-  let projectLimit: number;
+  let planAccess: Awaited<ReturnType<typeof planAccessForUser>>;
   try {
-    projectLimit = await projectLimitForUser(user);
+    planAccess = await planAccessForUser(user);
   } catch (error) {
     console.error("[LLMWEB] Passport plan decision unavailable", error);
     return NextResponse.json({ detail: "当前无法确认项目方案，请稍后重试。" }, { status: 503 });
@@ -31,7 +31,8 @@ async function proxy(request: NextRequest, context: RouteContext) {
         "X-LLMWEB-User-ID": user.id,
         "X-LLMWEB-User-Email": Buffer.from(user.email).toString("base64url"),
         "X-LLMWEB-User-Name": Buffer.from(user.name || "").toString("base64url"),
-        "X-LLMWEB-Project-Limit": String(projectLimit),
+        "X-LLMWEB-Project-Limit": String(planAccess.limit),
+        "X-LLMWEB-Paid-Plan": String(planAccess.paid),
         ...(body ? { "Content-Type": request.headers.get("content-type") ?? "application/json" } : {}),
       },
       body,
@@ -54,3 +55,5 @@ async function proxy(request: NextRequest, context: RouteContext) {
 
 export const GET = proxy;
 export const POST = proxy;
+export const PATCH = proxy;
+export const DELETE = proxy;

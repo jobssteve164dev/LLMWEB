@@ -7,7 +7,7 @@ export const passportProduct = process.env.PASSPORT_PRODUCT || "llmweb";
 const paidProjectFeature = "project_limit_10";
 
 let client: ReturnType<typeof createPassportClient> | null = null;
-const projectLimitCache = new Map<string, { limit: number; checkedAt: number }>();
+const planAccessCache = new Map<string, { limit: number; paid: boolean; checkedAt: number }>();
 
 type CatalogPlan = {
   planId: string;
@@ -90,7 +90,7 @@ export async function getLlmwebPlanTruth(): Promise<LlmwebPlanTruth> {
   if (freeTier.amountCents !== 0) throw new Error("Passport catalog free tier price is invalid");
   const free = requiredPositiveInteger(projects.free, "free project quota");
   const paid = requiredPositiveInteger(projects.paid, "paid project quota");
-  if (paid <= free || projects.unit !== "active_projects") throw new Error("Passport catalog project quotas are invalid");
+  if (free !== 1 || paid <= free || projects.unit !== "active_projects") throw new Error("Passport catalog project quotas are invalid");
   if (raw.interval !== "year" || raw.currency !== "usd" || metadata.includesCompute !== false || metadata.includesStorage !== false) {
     throw new Error("Passport catalog LLMWEB billing boundary is invalid");
   }
@@ -136,9 +136,9 @@ export async function linkPassportIdentity(user: SessionUser) {
   });
 }
 
-export async function projectLimitForUser(user: SessionUser): Promise<number> {
-  const cached = projectLimitCache.get(user.id);
-  if (cached && Date.now() - cached.checkedAt < 60_000) return cached.limit;
+export async function planAccessForUser(user: SessionUser): Promise<{ limit: number; paid: boolean }> {
+  const cached = planAccessCache.get(user.id);
+  if (cached && Date.now() - cached.checkedAt < 60_000) return { limit: cached.limit, paid: cached.paid };
 
   const plan = await getLlmwebPlanTruth();
   const access = await getPassportClient().checkAccess({
@@ -148,7 +148,12 @@ export async function projectLimitForUser(user: SessionUser): Promise<number> {
     featureKey: paidProjectFeature,
   }) as { allowed?: boolean; entitlements?: unknown };
   const exactEntitlement = Array.isArray(access.entitlements) && access.entitlements.includes(paidProjectFeature);
-  const limit = access.allowed === true && exactEntitlement ? plan.metadata.quotas.projects.paid : plan.metadata.quotas.projects.free;
-  projectLimitCache.set(user.id, { limit, checkedAt: Date.now() });
-  return limit;
+  const paid = access.allowed === true && exactEntitlement;
+  const limit = paid ? plan.metadata.quotas.projects.paid : plan.metadata.quotas.projects.free;
+  planAccessCache.set(user.id, { limit, paid, checkedAt: Date.now() });
+  return { limit, paid };
+}
+
+export async function projectLimitForUser(user: SessionUser): Promise<number> {
+  return (await planAccessForUser(user)).limit;
 }

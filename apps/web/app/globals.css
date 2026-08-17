@@ -73,7 +73,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .previewBoundary strong { font-size: 10px; }
 .previewBoundary small { color: var(--green-dark); font-size: 8px; margin-top: 3px; }
 
-.trustBand { background: var(--ink); color: white; display: grid; gap: 1px; grid-template-columns: repeat(3, 1fr); margin: 0 auto; max-width: var(--workspace-max); padding: 0 var(--page-gutter); }
+.trustBand { background: var(--ink); color: white; display: grid; gap: 1px; grid-template-columns: repeat(3, 1fr); margin: 0 auto; max-width: var(--site-max); padding: 0 var(--page-gutter); }
 .trustBand div { border-right: 1px solid rgba(255, 255, 255, .12); padding: 34px 38px; }
 .trustBand div:last-child { border-right: 0; }
 .trustBand strong, .trustBand span { display: block; }
@@ -180,7 +180,28 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .headerMain { align-items: center; display: flex; gap: 20px; min-width: 0; padding: 0 28px; }
 .headerContext { align-items: center; display: flex; flex: 1; gap: 12px; justify-content: center; color: var(--muted); font-size: 13px; min-width: 0; }
 .headerContext > span:first-child { color: var(--ink); font-weight: 700; }
-.headerContext select { background: transparent; border: 0; font-weight: 750; max-width: 220px; padding: 7px 28px 7px 9px; width: auto; }
+.projectMenu { max-width: min(360px, 38vw); position: relative; }
+.projectMenuTrigger { align-items: center; background: transparent; border: 0; border-radius: 10px; color: var(--ink); cursor: pointer; display: flex; font-size: 13px; font-weight: 750; gap: 7px; min-height: 44px; min-width: 0; padding: 8px 9px; }
+.projectMenuTrigger:hover, .projectMenuTrigger[aria-expanded="true"] { background: #f0f1ed; }
+.projectMenuTrigger > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.projectMenuTrigger svg, .projectMenuRow svg, .projectRename svg { fill: none; flex: 0 0 auto; height: 18px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 18px; }
+.projectMenuPanel { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 22px 55px rgba(24, 33, 29, .16); left: 0; min-width: 340px; padding: 8px; position: absolute; top: calc(100% + 8px); z-index: 40; }
+.projectMenuHeading { align-items: center; color: var(--muted); display: flex; font-size: 10px; font-weight: 800; justify-content: space-between; letter-spacing: .1em; min-height: 42px; padding: 5px 8px 7px 11px; text-transform: uppercase; }
+.projectMenuHeading button { background: transparent; border: 0; border-radius: 8px; color: var(--green); cursor: pointer; font-size: 11px; font-weight: 750; letter-spacing: 0; min-height: 36px; padding: 7px 9px; text-transform: none; }
+.projectMenuHeading button:hover { background: var(--green-soft); }
+.projectMenuList { display: grid; gap: 4px; }
+.projectMenuRow, .projectRename { align-items: center; border-radius: 11px; display: grid; gap: 3px; grid-template-columns: minmax(0, 1fr) 44px 44px; margin: 0; min-height: 52px; padding: 4px; }
+.projectMenuRow:hover, .projectMenuRow.active { background: #f3f4f0; }
+.projectMenuRow.active { color: var(--green-dark); }
+.projectSelectButton { align-items: center; background: transparent; border: 0; color: inherit; cursor: pointer; display: flex; font-size: 12px; font-weight: 700; gap: 8px; justify-content: space-between; min-height: 44px; min-width: 0; padding: 8px 10px; text-align: left; }
+.projectSelectButton span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.projectIconButton { align-items: center; background: transparent; border: 0; border-radius: 9px; color: var(--muted); cursor: pointer; display: inline-flex; height: 44px; justify-content: center; padding: 0; width: 44px; }
+.projectIconButton:hover { background: var(--paper); color: var(--green); }
+.projectIconButton.danger:hover { background: #f8e9e7; color: var(--red); }
+.projectIconButton.confirm { color: var(--green); }
+.projectIconButton:disabled { cursor: wait; opacity: .45; }
+.projectRename { background: var(--green-soft); grid-template-columns: minmax(0, 1fr) 44px 44px; }
+.projectRename input { background: var(--paper); min-width: 0; padding: 9px 10px; }
 .quotaPill { background: #f0f1ed; border-radius: 999px; color: var(--muted); font-size: 11px; padding: 7px 10px; white-space: nowrap; }
 .headerAction { background: transparent; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--green); cursor: pointer; font-size: 11px; font-weight: 750; padding: 7px 10px; white-space: nowrap; }
 .privacyPill { align-items: center; background: var(--green-soft); border-radius: 999px; color: var(--green-dark); display: inline-flex; font-weight: 650; gap: 7px; padding: 8px 11px; }
@@ -544,7 +565,8 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .headerMain { gap: 8px; padding-right: 10px; }
   .headerContext { justify-content: flex-end; }
   .headerContext > span:first-child, .privacyPill, .quotaPill { display: none; }
-  .headerContext select { max-width: 130px; }
+  .projectMenu { max-width: min(190px, 44vw); }
+  .projectMenuPanel { left: auto; min-width: min(340px, calc(100vw - 20px)); right: 0; }
   .headerAction { display: none; }
   .headerUtilities { gap: 2px; }
   .headerUtilities .languageSwitcher { min-width: 38px; padding: 0 8px; }

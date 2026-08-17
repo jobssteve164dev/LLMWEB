@@ -22,6 +22,7 @@ class WebIdentity:
     email: str
     name: str | None
     project_limit: int
+    paid_plan: bool
     workspace_id: str
 
 
@@ -41,6 +42,7 @@ def require_web(
     encoded_email: str | None = Header(default=None, alias="X-LLMWEB-User-Email"),
     encoded_name: str | None = Header(default=None, alias="X-LLMWEB-User-Name"),
     project_limit: str | None = Header(default=None, alias="X-LLMWEB-Project-Limit"),
+    paid_plan: str | None = Header(default=None, alias="X-LLMWEB-Paid-Plan"),
 ) -> WebIdentity:
     expected = f"Bearer {get_settings().web_token}"
     if authorization is None or not hmac.compare_digest(authorization, expected):
@@ -55,6 +57,8 @@ def require_web(
         limit = 0
     if limit <= 0:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="网页项目配额无效")
+    if paid_plan not in {"true", "false"}:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="网页方案权限无效")
     settings = get_settings()
     if settings.legacy_owner_email and hmac.compare_digest(email, settings.legacy_owner_email.strip().lower()):
         workspace_id = "ws_default"
@@ -65,6 +69,7 @@ def require_web(
         email=email,
         name=name or None,
         project_limit=limit,
+        paid_plan=paid_plan == "true",
         workspace_id=workspace_id,
     )
 

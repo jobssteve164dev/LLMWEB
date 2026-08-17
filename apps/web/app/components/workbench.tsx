@@ -22,6 +22,71 @@ function saveCurrentProject(projectId: string | null) {
   } catch {}
 }
 
+function ProjectMenu({ projects, currentProjectId, busy, canCreate, onSelect, onCreate, onRename, onDelete }: {
+  projects: Project[];
+  currentProjectId: string | null;
+  busy: boolean;
+  canCreate: boolean;
+  onSelect: (projectId: string) => void;
+  onCreate: () => void;
+  onRename: (projectId: string, name: string) => Promise<boolean>;
+  onDelete: (project: Project) => Promise<boolean>;
+}) {
+  const { locale } = useLanguage();
+  const english = locale === "en";
+  const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const current = projects.find((project) => project.id === currentProjectId) ?? projects[0];
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setEditingId(null);
+        setOpen(false);
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
+
+  if (!current) return <span>{english ? "Create your first project" : "建立第一个项目"}</span>;
+
+  return <div className="projectMenu" ref={rootRef}>
+    <button className="projectMenuTrigger" type="button" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+      <span>{current.name}</span>
+      <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m6 8 4 4 4-4" /></svg>
+    </button>
+    {open ? <div className="projectMenuPanel" role="dialog" aria-label={english ? "Projects" : "项目列表"}>
+      <div className="projectMenuHeading"><span>{english ? "Projects" : "项目"}</span>{canCreate ? <button type="button" onClick={() => { setOpen(false); onCreate(); }}>{english ? "New project" : "新建项目"}</button> : null}</div>
+      <div className="projectMenuList">
+        {projects.map((project) => editingId === project.id ? <form className="projectRename" key={project.id} onSubmit={(event) => {
+          event.preventDefault();
+          const name = draftName.trim();
+          if (!name || name === project.name) { setEditingId(null); return; }
+          void onRename(project.id, name).then((saved) => { if (saved) setEditingId(null); });
+        }}>
+          <input autoFocus aria-label={english ? `Rename ${project.name}` : `重命名${project.name}`} value={draftName} maxLength={120} onChange={(event) => setDraftName(event.target.value)} />
+          <button className="projectIconButton confirm" disabled={busy || !draftName.trim()} type="submit" aria-label={english ? "Save project name" : "保存项目名称"} title={english ? "Save" : "保存"}><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m4 10 4 4 8-9" /></svg></button>
+          <button className="projectIconButton" disabled={busy} type="button" onClick={() => setEditingId(null)} aria-label={english ? "Cancel renaming" : "取消重命名"} title={english ? "Cancel" : "取消"}><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 5 10 10M15 5 5 15" /></svg></button>
+        </form> : <div className={project.id === currentProjectId ? "projectMenuRow active" : "projectMenuRow"} key={project.id}>
+          <button className="projectSelectButton" type="button" onClick={() => { onSelect(project.id); setOpen(false); }}><span>{project.name}</span>{project.id === currentProjectId ? <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m4 10 4 4 8-9" /></svg> : null}</button>
+          <button className="projectIconButton" type="button" onClick={() => { setEditingId(project.id); setDraftName(project.name); }} aria-label={english ? `Rename ${project.name}` : `重命名${project.name}`} title={english ? "Rename" : "编辑名称"}><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m4 14-.5 2.5L6 16l9-9-2-2-9 9Zm7.5-7.5 2 2" /></svg></button>
+          <button className="projectIconButton danger" disabled={busy} type="button" onClick={() => void onDelete(project).then((deleted) => { if (deleted) setOpen(false); })} aria-label={english ? `Delete ${project.name}` : `删除${project.name}`} title={english ? "Delete" : "删除"}><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 6h12M8 3h4l1 3H7l1-3Zm-2 3 1 11h6l1-11M9 9v5m2-5v5" /></svg></button>
+        </div>)}
+      </div>
+    </div> : null}
+  </div>;
+}
+
 function workflowSteps(locale: Locale): Array<{ id: Step; label: string; short: string }> { return locale === "en" ? [
   { id: "project", label: "Define goal", short: "Project" }, { id: "compute", label: "Connect computer", short: "Compute" }, { id: "data", label: "Prepare data", short: "Data" }, { id: "train", label: "Start training", short: "Train" }, { id: "monitor", label: "Review results", short: "Evaluate" }, { id: "model", label: "Get model", short: "Model" },
 ] : [
@@ -185,7 +250,7 @@ export function Workbench() {
     setLocked(true);
   };
 
-  const perform = async (action: () => Promise<unknown>, success: string) => {
+  const perform = async (action: () => Promise<unknown>, success: string): Promise<boolean> => {
     setBusy(true);
     setNotice(null);
     try {
@@ -194,11 +259,32 @@ export function Workbench() {
       setManualStep(false);
       setNotice({ kind: "success", text: success });
       window.setTimeout(() => setNotice((current) => current?.text === success ? null : current), 4500);
+      return true;
     } catch (error) {
       setNotice({ kind: "error", text: error instanceof Error ? error.message : english ? "The action could not be completed." : "操作没有完成。" });
+      return false;
     } finally {
       setBusy(false);
     }
+  };
+
+  const renameProject = (projectId: string, name: string) => perform(
+    () => api(`projects/${projectId}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+    english ? "Project name updated." : "项目名称已更新。",
+  );
+
+  const deleteProject = async (target: Project) => {
+    const confirmed = window.confirm(english
+      ? `Delete “${target.name}”? Its data checks, training records, and model references will be removed from the workbench. Files already saved on your computer will remain.`
+      : `确定删除“${target.name}”吗？工作台中的数据检查、训练记录和模型引用会一并删除；已经保存在你电脑上的文件不会被删除。`);
+    if (!confirmed) return false;
+    return perform(async () => {
+      await api(`projects/${target.id}`, { method: "DELETE" });
+      if (selectedProjectId.current === target.id) {
+        selectedProjectId.current = null;
+        saveCurrentProject(null);
+      }
+    }, english ? "Project deleted." : "项目已删除。");
   };
 
   if (!state) {
@@ -224,15 +310,15 @@ export function Workbench() {
           </button>
           <div className="headerMain">
             <div className="headerContext">
-              {state.projects.length ? <select aria-label={english ? "Switch project" : "切换项目"} value={state.current_project_id ?? ""} onChange={(event) => selectProject(event.target.value)}>{state.projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : <span>{english ? "Create your first project" : "建立第一个项目"}</span>}
+              <ProjectMenu projects={state.projects} currentProjectId={state.current_project_id} busy={busy} canCreate={state.project_quota.remaining > 0} onSelect={selectProject} onCreate={() => { setCreatingProject(true); moveTo("project"); }} onRename={renameProject} onDelete={deleteProject} />
               <span className="quotaPill">{state.project_quota.used}/{state.project_quota.limit} {english ? "projects" : "个项目"}</span>
-              <button className="headerAction" type="button" onClick={() => { setCreatingProject(true); moveTo("project"); }}>{english ? "New project" : "新建项目"}</button>
+              {state.project_quota.remaining > 0 ? <button className="headerAction" type="button" onClick={() => { setCreatingProject(true); moveTo("project"); }}>{english ? "New project" : "新建项目"}</button> : null}
               <span className="privacyPill"><span aria-hidden="true">●</span> {english ? "Raw data stays in your environment" : "原始数据留在你的环境"}</span>
             </div>
             <div className="headerUtilities">
               <LanguageSwitcher />
               <div className="mobileAccountActions">
-                <button type="button" onClick={() => moveTo("settings")}>{english ? "Settings" : "设置"}</button>
+                {state.account.plan === "paid" ? <button type="button" onClick={() => moveTo("settings")}>{english ? "Settings" : "设置"}</button> : null}
                 <button type="button" onClick={() => void signOut()}>{english ? "Sign out" : "退出"}</button>
               </div>
             </div>
@@ -275,7 +361,7 @@ export function Workbench() {
                 <div><strong>{state.account.name || (english ? "My account" : "我的账户")}</strong><small>{state.account.email}</small></div>
               </div>
               <div className="railAccountActions">
-                <button className={activeStep === "settings" ? "active" : ""} type="button" onClick={() => moveTo("settings")} aria-current={activeStep === "settings" ? "page" : undefined}>{english ? "Settings" : "设置"}</button>
+                {state.account.plan === "paid" ? <button className={activeStep === "settings" ? "active" : ""} type="button" onClick={() => moveTo("settings")} aria-current={activeStep === "settings" ? "page" : undefined}>{english ? "Settings" : "设置"}</button> : null}
                 <button type="button" onClick={() => void signOut()}>{english ? "Sign out" : "退出账户"}</button>
               </div>
             </div>
@@ -290,7 +376,7 @@ export function Workbench() {
           {activeStep === "train" ? <TrainStep project={project} runner={runner} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} /> : null}
           {activeStep === "monitor" ? <MonitorStep experiment={experiment} jobs={state.jobs} runner={runner} busy={busy} perform={perform} moveTo={moveTo} /> : null}
           {activeStep === "model" ? <ModelStep experiment={experiment} moveTo={moveTo} /> : null}
-          {activeStep === "settings" ? <SettingsStep account={state.account} /> : null}
+          {activeStep === "settings" ? state.account.plan === "paid" ? <SettingsStep account={state.account} /> : <Prerequisite title={english ? "API connections are a Pro feature" : "API 连接仅对 Pro 用户开放"} text={english ? "Upgrade to connect the workbench to automation services and manage multiple projects." : "升级后即可连接自动化服务，并同时管理多个训练项目。"} action={english ? "Upgrade to Pro" : "升级 Pro"} onClick={() => { window.location.href = "/api/billing/checkout"; }} /> : null}
         </section>
       </div>
     </main>
@@ -375,7 +461,7 @@ function SettingsStep({ account }: { account: WorkspaceState["account"] }) {
   </>;
 }
 
-type Perform = (action: () => Promise<unknown>, success: string) => Promise<void>;
+type Perform = (action: () => Promise<unknown>, success: string) => Promise<boolean>;
 
 function SectionIntro({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
   return <header className="sectionIntro"><p>{eyebrow}</p><h1>{title}</h1><span>{description}</span></header>;
@@ -386,10 +472,10 @@ function ProjectStep({ project, quota, forceCreate, busy, perform, moveTo, onCre
   if (project && !forceCreate) {
     return <><SectionIntro eyebrow={english ? "Project goal" : "项目目标"} title={project.name} description={english ? "These two decisions guide data preparation, training, and evaluation." : "这两个判断会贯穿数据准备、训练与效果比较。"} />
       <div className="summaryGrid"><article><span>{english ? "What the model should do" : "模型要完成什么"}</span><p>{project.goal}</p></article><article><span>{english ? "What success looks like" : "怎样算成功"}</span><p>{project.success_criteria}</p></article></div>
-      <div className="formActions"><button className="secondaryButton" type="button" onClick={onStartCreate}>{english ? "New project" : "新建项目"}</button><button className="primaryButton" type="button" onClick={() => moveTo("compute")}>{english ? "Continue to compute" : "继续连接算力"}</button></div></>;
+      <div className="formActions">{quota.remaining > 0 ? <button className="secondaryButton" type="button" onClick={onStartCreate}>{english ? "New project" : "新建项目"}</button> : null}<button className="primaryButton" type="button" onClick={() => moveTo("compute")}>{english ? "Continue to compute" : "继续连接算力"}</button></div></>;
   }
   if (quota.remaining <= 0) return <Prerequisite title={english ? "Project limit reached" : "项目名额已用完"} text={english ? `Your current plan allows ${quota.limit} active projects. Existing projects and results are unaffected.` : `当前方案最多同时保留 ${quota.limit} 个项目；已有项目和训练结果不会受影响。`} action={english ? "Upgrade plan" : "升级方案"} onClick={() => { window.location.href = "/api/billing/checkout"; }} />;
-  return <><SectionIntro eyebrow={project ? (english ? "New project" : "新项目") : (english ? "Step one" : "第一步")} title={english ? "Define what the model should become." : "先说清模型要变成什么样。"} description={english ? `You can create ${quota.remaining} more projects. Each project keeps its data, training, and results separate.` : `还可以建立 ${quota.remaining} 个项目。每个项目的数据、训练和模型结果独立保存。`} />
+  return <><SectionIntro eyebrow={project ? (english ? "New project" : "新项目") : (english ? "Step one" : "第一步")} title={english ? "Define what the model should become." : "先说清模型要变成什么样。"} description={english ? quota.remaining === 1 ? "You can create one more project. Its data, training, and results stay separate." : `You can create ${quota.remaining} more projects. Each project keeps its data, training, and results separate.` : `还可以建立 ${quota.remaining} 个项目。每个项目的数据、训练和模型结果独立保存。`} />
     <form className="formCard" onSubmit={(event) => {
       event.preventDefault();
       const form = new FormData(event.currentTarget);
