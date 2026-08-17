@@ -100,10 +100,14 @@ func TestInspectDatasetCreatesLocalImmutableVersion(t *testing.T) {
 		t.Fatalf("expected one empty row, got %#v", statistics["empty_rows"])
 	}
 	versionDirectory := filepath.Join(outputRoot, "llmweb", "datasets", "data_test")
-	for _, name := range []string{"train.json", "validation.json", "test.json", "dataset_info.json"} {
+	for _, name := range []string{"train.json", "validation.json", "test.json", "train.txt", "validation.txt", "test.txt", "dataset_info.json"} {
 		if _, err := os.Stat(filepath.Join(versionDirectory, name)); err != nil {
 			t.Fatalf("expected generated %s: %v", name, err)
 		}
+	}
+	trainingText, err := os.ReadFile(filepath.Join(versionDirectory, "train.txt"))
+	if err != nil || !strings.Contains(string(trainingText), "问题") || !strings.Contains(string(trainingText), "答案") {
+		t.Fatalf("expected CPU-ready text to preserve the instruction and answer: %v", err)
 	}
 	original, err := os.ReadFile(sourcePath)
 	if err != nil || len(original) == 0 {

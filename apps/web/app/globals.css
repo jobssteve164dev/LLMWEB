@@ -374,6 +374,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .computeCard p { margin: 0; }
 
 .runnerList, .datasetVersions { display: grid; gap: 10px; }
+.runnerList { margin-bottom: 24px; }
 .runnerChoice { align-items: stretch; background: var(--paper); border: 1px solid var(--line); border-radius: 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto; overflow: hidden; }
 .runnerChoice.selected { border-color: rgba(33, 110, 80, .58); box-shadow: 0 0 0 3px rgba(33, 110, 80, .09); }
 .runnerChoice > button:first-child { align-items: center; background: transparent; border: 0; color: var(--ink); cursor: pointer; display: grid; gap: 12px; grid-template-columns: 10px minmax(0, 1fr) auto; min-height: 76px; padding: 16px 18px; text-align: left; }
@@ -388,6 +389,12 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .datasetVersions strong, .datasetVersions small { display: block; }
 .datasetVersions small { color: var(--muted); margin-top: 3px; }
 .datasetVersions em { color: var(--green-dark); font-size: 11px; font-style: normal; font-weight: 800; }
+.datasetVersionCard { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); margin-bottom: 24px; padding: 24px; }
+.datasetVersionCard .cardHeading { margin-bottom: 16px; }
+.dataReadyGuide { margin-top: 24px; }
+.dataReadyGuide .datasetGuide { margin-bottom: 0; }
+.trainingDatasetSetup { display: grid; gap: 20px; margin-bottom: 28px; }
+.trainingDatasetSetup .datasetVersionCard, .trainingDatasetSetup .datasetGuide, .trainingDatasetSetup .formActions { margin: 0; }
 .sourceChoices { border: 0; margin: 0 0 23px; padding: 0; }
 .sourceChoices legend { color: var(--ink); font-size: 13px; font-weight: 750; margin-bottom: 9px; }
 .sourceChoices { display: grid; gap: 6px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -407,7 +414,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .confirmDialog p { color: var(--muted); line-height: 1.65; margin: 0; }
 .dialogActions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
 
-.modelChat { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); padding: 24px; }
+.modelChat { background: var(--paper); border: 1px solid var(--line); border-radius: 20px; box-shadow: var(--shadow); margin-top: 24px; padding: 24px; }
 .chatTranscript { background: #f4f5f1; border-radius: 14px; display: grid; gap: 16px; margin-top: 18px; max-height: 440px; min-height: 150px; overflow-y: auto; padding: 18px; }
 .chatEmpty { align-self: center; color: var(--muted); line-height: 1.6; margin: auto; max-width: 560px; text-align: center; }
 .chatTurn { display: grid; gap: 9px; }

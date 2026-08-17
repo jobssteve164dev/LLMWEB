@@ -729,8 +729,8 @@ def _create_experiment(
         raise HTTPException(status_code=400, detail="请选择工作台提供的训练方案")
     backend = runner.capabilities.get("backend")
     if backend == "docker_cpu":
-        if body.method != "starter" or body.model_id != "karpathy/nanoGPT" or dataset.source_type != "starter":
-            raise HTTPException(status_code=400, detail="这台普通电脑使用入门训练方案；模型、练习数据和训练设置会由系统自动匹配")
+        if body.method != "starter" or body.model_id != "karpathy/nanoGPT":
+            raise HTTPException(status_code=400, detail="这台普通电脑使用入门训练方案；模型和训练设置会由系统自动匹配")
         disk_free_mb = runner.capabilities.get("disk_free_mb")
         if isinstance(disk_free_mb, (int, float)) and disk_free_mb < 20 * 1024:
             raise HTTPException(status_code=409, detail="这台电脑的可用空间不足 20GB，请先扩充或腾出空间再开始训练")

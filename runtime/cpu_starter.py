@@ -175,7 +175,7 @@ def main():
         metadata = {
             "format": "pytorch",
             "architecture": "nanoGPT character model",
-            "dataset": "Tiny Shakespeare",
+            "dataset": "LLMWEB prepared dataset",
             "vocabulary": vocabulary,
         }
         (artifact_directory / "model.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")

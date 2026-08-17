@@ -399,6 +399,54 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
         assert baseline["payload"]["training"]["iterations"] == 500
 
 
+def test_cpu_runner_accepts_a_checked_user_dataset_version() -> None:
+    reset_database()
+    with TestClient(app) as client:
+        project_id = client.post(
+            "/v1/projects",
+            headers=WEB_HEADERS,
+            json={"name": "自己的数据", "goal": "学习问答样例", "success_criteria": "能够续写样例文本"},
+        ).json()["id"]
+        pairing = client.post("/v1/runners/pairing", headers=WEB_HEADERS).json()
+        paired = client.post(
+            "/v1/runners/pair",
+            json={
+                "code": pairing["code"],
+                "name": "普通电脑",
+                "capabilities": {
+                    "ready": True, "backend": "docker_cpu", "disk_free_mb": 80 * 1024,
+                    "training_environment_version": "0.2.1",
+                },
+            },
+        ).json()
+        runner_headers = {"Authorization": f"Bearer {paired['device_token']}"}
+        created = client.post(
+            "/v1/datasets",
+            headers=WEB_HEADERS,
+            json={
+                "project_id": project_id, "runner_id": paired["runner_id"], "name": "客服问答 v2",
+                "source_type": "local", "source_ref": "support/train.zip", "format": "archive",
+            },
+        )
+        assert created.status_code == 201, created.text
+        inspect_lease = client.post("/v1/runners/jobs/lease", headers=runner_headers).json()
+        assert inspect_lease["payload"]["source_type"] == "local"
+        complete_job(client, runner_headers, inspect_lease, {
+            "version_hash": "sha256:user-data",
+            "statistics": {"rows": 30, "valid_rows": 30, "splits": {"train": 24, "validation": 3, "test": 3}},
+        })
+        experiment = client.post(
+            "/v1/experiments",
+            headers=WEB_HEADERS,
+            json={
+                "project_id": project_id, "runner_id": paired["runner_id"], "dataset_id": created.json()["id"],
+                "name": "自己的数据训练", "model_id": "karpathy/nanoGPT", "method": "starter",
+                "export_formats": ["model"], "license_confirmed": True,
+            },
+        )
+        assert experiment.status_code == 201, experiment.text
+
+
 def test_standard_user_api_submission_owns_the_durable_receipt() -> None:
     reset_database()
     with TestClient(app) as client:

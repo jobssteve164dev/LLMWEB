@@ -116,6 +116,13 @@ func inspectDatasetFile(payload map[string]any, sourcePath, outputRoot string) (
 	if err := writeRecords(filepath.Join(datasetDirectory, "test.json"), unique[validationEnd:]); err != nil {
 		return nil, err
 	}
+	for name, items := range map[string][]inspectedRecord{
+		"train": unique[:trainEnd], "validation": unique[trainEnd:validationEnd], "test": unique[validationEnd:],
+	} {
+		if err := writeTextRecords(filepath.Join(datasetDirectory, name+".txt"), items); err != nil {
+			return nil, err
+		}
+	}
 	datasetInfo := map[string]any{}
 	for _, name := range []string{"train", "validation", "test"} {
 		datasetInfo["llmweb_"+name] = map[string]any{
@@ -434,6 +441,28 @@ func writeRecords(path string, items []inspectedRecord) error {
 		records[index] = item.record
 	}
 	return writeJSON(path, records)
+}
+
+func writeTextRecords(path string, items []inspectedRecord) error {
+	var text strings.Builder
+	for _, item := range items {
+		text.WriteString(item.record.Instruction)
+		text.WriteByte('\n')
+		if item.record.Input != "" {
+			text.WriteString(item.record.Input)
+			text.WriteByte('\n')
+		}
+		text.WriteString(item.record.Output)
+		text.WriteString("\n\n")
+	}
+	temporary := path + ".tmp"
+	if err := os.WriteFile(temporary, []byte(text.String()), 0o640); err != nil {
+		return fmt.Errorf("写入 CPU 训练文本: %w", err)
+	}
+	if err := os.Rename(temporary, path); err != nil {
+		return fmt.Errorf("保存 CPU 训练文本: %w", err)
+	}
+	return nil
 }
 
 func writeJSON(path string, value any) error {
