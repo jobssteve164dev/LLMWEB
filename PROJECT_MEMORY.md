@@ -19,7 +19,7 @@ This file stores stable project facts future agents should reuse. Do not paste r
 - 没有同一测试集上的基础模型与微调模型对比，不得宣称效果已经提升。
 - 首版基础模型固定为 Qwen2.5 0.5B、1.5B、3B 指令模型的精确 revision；不接受用户输入任意镜像或命令。
 - 账号密码、邮箱验证和密码重置由 SZLKPassport Headless Auth 统一负责；LLMWEB 维护自己的签名会话，不保存本地密码真相。
-- 每个 Passport 用户映射到独立工作区，项目数据按当前选中项目隔离；免费用户只允许 1 个项目且不开放 API 设置或调用，`project_limit_10` access decision 同时开放 Pro 多项目额度与 API 连接。
+- 每个 Passport 用户映射到独立工作区，项目数据按当前选中项目隔离；LLMWEB 始终把免费额度收紧为 1 个项目且不开放 API 设置或调用，不能因 Passport catalog 暂存的旧免费额度阻断登录；`project_limit_10` access decision 开放 Pro 多项目额度与 API 连接。
 - 项目配额只约束新建；权益降级时不删除或隐藏已有项目。升级前的 `ws_default` 数据只有在明确配置旧工作区归属邮箱时才会被认领。
 - 生产 PostgreSQL 由 GitOps 数据库池治理并注入控制面，根 `compose.yaml` 只定义 Web 与控制面；本地 PostgreSQL 只存在于 `compose.local.yaml`。
 - 生产 GitOps 权威节点是 `onex-nextterminal`；`onex-pmp` 不再承载 LLMWEB 运行时。公网契约固定为 `llmweb.szlk.ai:3000`，健康检查 `/api/health` 必须返回 `service=llmweb-web`。

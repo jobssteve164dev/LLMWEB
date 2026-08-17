@@ -5,6 +5,7 @@ export { PassportClientError };
 
 export const passportProduct = process.env.PASSPORT_PRODUCT || "llmweb";
 const paidProjectFeature = "project_limit_10";
+const freeProjectLimit = 1;
 
 let client: ReturnType<typeof createPassportClient> | null = null;
 const planAccessCache = new Map<string, { limit: number; paid: boolean; checkedAt: number }>();
@@ -31,6 +32,7 @@ type CatalogPlan = {
 };
 
 export type LlmwebPlanTruth = CatalogPlan & { catalogVersion: string | null };
+type BillingCatalogClient = Pick<ReturnType<typeof createPassportClient>, "getBillingCatalog">;
 
 export function getPassportClient() {
   const secret = process.env.SZLK_PASSPORT_SECRET;
@@ -63,8 +65,8 @@ function requiredPositiveInteger(value: unknown, field: string) {
   return Number(value);
 }
 
-export async function getLlmwebPlanTruth(): Promise<LlmwebPlanTruth> {
-  const catalog = await getPassportClient().getBillingCatalog({ product: passportProduct }) as {
+export async function getLlmwebPlanTruth(catalogClient: BillingCatalogClient = getPassportClient()): Promise<LlmwebPlanTruth> {
+  const catalog = await catalogClient.getBillingCatalog({ product: passportProduct }) as {
     version?: unknown;
     catalogVersion?: unknown;
     plans?: unknown;
@@ -88,9 +90,9 @@ export async function getLlmwebPlanTruth(): Promise<LlmwebPlanTruth> {
   const features = metadata?.features;
   if (!metadata || !projects || !zh || !freeTier || !freeName || !freeSummary || !Array.isArray(features)) throw new Error("Passport catalog LLMWEB metadata is incomplete");
   if (freeTier.amountCents !== 0) throw new Error("Passport catalog free tier price is invalid");
-  const free = requiredPositiveInteger(projects.free, "free project quota");
+  requiredPositiveInteger(projects.free, "free project quota");
   const paid = requiredPositiveInteger(projects.paid, "paid project quota");
-  if (free !== 1 || paid <= free || projects.unit !== "active_projects") throw new Error("Passport catalog project quotas are invalid");
+  if (paid <= freeProjectLimit || projects.unit !== "active_projects") throw new Error("Passport catalog project quotas are invalid");
   if (raw.interval !== "year" || raw.currency !== "usd" || metadata.includesCompute !== false || metadata.includesStorage !== false) {
     throw new Error("Passport catalog LLMWEB billing boundary is invalid");
   }
@@ -115,7 +117,7 @@ export async function getLlmwebPlanTruth(): Promise<LlmwebPlanTruth> {
       trialDays: Number(metadata.trialDays),
       includesCompute: false,
       includesStorage: false,
-      quotas: { projects: { free, paid, unit: "active_projects" } },
+      quotas: { projects: { free: freeProjectLimit, paid, unit: "active_projects" } },
       features: features.map((feature, index) => {
         const item = feature as Record<string, unknown>;
         const name = item.name as Record<string, unknown>;

@@ -45,7 +45,7 @@ Web 工作台 ── 控制面 API ── PostgreSQL
 
 负责按可信身份隔离工作区与项目、Runner 配对、项目配额硬约束、任务定义、任务租约、实验元数据、事件接收和用户可见状态。控制面不持有训练进程，也不把浏览器连接当作任务生命线。
 
-身份与权益只有一套真相：SZLKPassport catalog 负责客户方案、免费与付费项目额度，`project_limit_10` access decision 决定当前用户适用的中央额度与 Pro 功能；免费额度必须为 1 个项目，Pro 才开放多项目与 API 连接。LLMWEB 只缓存短期决策并在控制面再次强制校验，不能只靠前端隐藏按钮；catalog 缺失、未知或歧义时必须拒绝创建、API 访问和购买。
+身份与付费权益只有一套真相：SZLKPassport catalog 负责客户方案与付费项目额度，`project_limit_10` access decision 决定当前用户是否拥有 Pro 多项目与 API 功能；LLMWEB 自身始终把免费额度收紧为 1 个项目，Passport catalog 中暂存的旧免费额度不得扩大权限，也不得阻断免费工作台登录。LLMWEB 只缓存短期决策并在控制面再次强制校验，不能只靠前端隐藏按钮；catalog 缺失、未知或歧义时必须拒绝创建、API 访问和购买。
 
 ### 2.3 Runner
 
