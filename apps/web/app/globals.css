@@ -172,22 +172,21 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .legalFooter a:hover { color: var(--green); }
 
 .appShell { min-height: 100vh; }
-.appHeader { align-items: center; background: rgba(255, 254, 251, .92); border-bottom: 1px solid var(--line); display: flex; gap: 24px; height: 72px; justify-content: space-between; padding: 0 28px; position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px); }
+.appHeader { background: rgba(255, 254, 251, .92); border-bottom: 1px solid var(--line); height: 72px; position: sticky; top: 0; z-index: 20; backdrop-filter: blur(14px); }
+.appHeaderInner { display: grid; grid-template-columns: clamp(248px, 16vw, 280px) minmax(0, 1fr); height: 100%; margin: 0 auto; max-width: var(--workspace-max); width: 100%; }
 .brandButton { align-items: center; background: none; border: 0; color: var(--ink); cursor: pointer; display: flex; font-size: 14px; font-weight: 850; gap: 10px; letter-spacing: .08em; padding: 0; }
+.appHeader .brandButton { padding: 0 28px; }
 .brandMark { align-items: center; background: var(--ink); border-radius: 10px; color: white; display: inline-flex; font-weight: 850; height: 34px; justify-content: center; width: 34px; }
-.headerContext { align-items: center; display: flex; flex: 1; gap: 12px; justify-content: center; color: var(--muted); font-size: 13px; }
+.headerMain { align-items: center; display: flex; gap: 20px; min-width: 0; padding: 0 28px; }
+.headerContext { align-items: center; display: flex; flex: 1; gap: 12px; justify-content: center; color: var(--muted); font-size: 13px; min-width: 0; }
 .headerContext > span:first-child { color: var(--ink); font-weight: 700; }
 .headerContext select { background: transparent; border: 0; font-weight: 750; max-width: 220px; padding: 7px 28px 7px 9px; width: auto; }
 .quotaPill { background: #f0f1ed; border-radius: 999px; color: var(--muted); font-size: 11px; padding: 7px 10px; white-space: nowrap; }
 .headerAction { background: transparent; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--green); cursor: pointer; font-size: 11px; font-weight: 750; padding: 7px 10px; white-space: nowrap; }
 .privacyPill { align-items: center; background: var(--green-soft); border-radius: 999px; color: var(--green-dark); display: inline-flex; font-weight: 650; gap: 7px; padding: 8px 11px; }
 .privacyPill > span { color: #39a276; font-size: 9px; }
-.accountMenu { align-items: center; display: grid; grid-template-columns: auto auto; line-height: 1.15; max-width: 260px; }
-.accountMenu > span { font-size: 11px; font-weight: 750; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.accountMenu > small { color: var(--muted); font-size: 9px; margin-top: 3px; }
-.accountMenu > div { display: flex; grid-column: 2; grid-row: 1 / 3; }
-.accountMenu button { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 10px; padding: 7px; }
-.accountMenu button:hover { color: var(--green); }
+.headerUtilities { align-items: center; display: flex; gap: 8px; }
+.mobileAccountActions { display: none; }
 
 .workspaceLayout { display: grid; grid-template-columns: clamp(248px, 16vw, 280px) minmax(0, 1fr); margin: 0 auto; max-width: var(--workspace-max); min-height: calc(100vh - 72px); }
 .pricingSection { background: #f5f4ef; }
@@ -202,7 +201,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .pricingGrid .featuredPrice > span, .pricingGrid .featuredPrice p, .pricingGrid .featuredPrice h3 small { color: #c7cbc3; }
 .pricingBoundary { grid-column: 1 / -1; text-align: center; }
 .pricingUnavailable { background: #fff; border: 1px solid #d9dbd3; border-radius: 18px; color: var(--muted); margin-top: 36px; padding: 22px; }
-.stepRail { border-right: 1px solid var(--line); padding: 38px 20px 26px; position: relative; }
+.stepRail { border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 38px 20px 26px; }
 .railTitle { color: #8b938e; font-size: 11px; font-weight: 800; letter-spacing: .14em; margin: 0 12px 17px; text-transform: uppercase; }
 .stepRail ol { list-style: none; margin: 0; padding: 0; }
 .stepRail li { margin: 3px 0; }
@@ -213,10 +212,21 @@ a:focus-visible, button:focus-visible, input:focus-visible, textarea:focus-visib
 .stepNumber.complete { background: var(--green-soft); border-color: transparent; color: var(--green); }
 .stepRail a strong { display: block; font-size: 13px; }
 .stepRail a small { display: none; }
-.railSummary { align-items: center; bottom: 26px; display: flex; gap: 10px; left: 30px; position: absolute; right: 26px; }
+.railFooter { border-top: 1px solid var(--line); margin-top: auto; padding: 20px 10px 0; }
+.railSummary { align-items: center; display: flex; gap: 10px; }
 .railSummary strong, .railSummary small { display: block; max-width: 155px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .railSummary strong { font-size: 12px; }
 .railSummary small { color: var(--muted); font-size: 11px; margin-top: 2px; }
+.railAccount { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 18px; }
+.railAccountIdentity { align-items: center; display: flex; gap: 10px; min-width: 0; }
+.railAccountIdentity > span { align-items: center; background: var(--green-soft); border-radius: 10px; color: var(--green-dark); display: inline-flex; flex: 0 0 34px; font-size: 12px; font-weight: 850; height: 34px; justify-content: center; }
+.railAccountIdentity > div { min-width: 0; }
+.railAccountIdentity strong, .railAccountIdentity small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.railAccountIdentity strong { font-size: 12px; }
+.railAccountIdentity small { color: var(--muted); font-size: 10px; margin-top: 3px; }
+.railAccountActions { display: flex; gap: 6px; margin-top: 12px; }
+.railAccountActions button, .mobileAccountActions button { background: transparent; border: 0; border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 11px; min-height: 36px; padding: 8px 10px; }
+.railAccountActions button:hover, .railAccountActions button.active, .mobileAccountActions button:hover { background: var(--paper); color: var(--green); }
 .liveDot, .idleDot { border-radius: 50%; flex: 0 0 9px; height: 9px; }
 .liveDot { background: #2b9b6d; box-shadow: 0 0 0 5px #e0efe7; }
 .idleDot { background: #aeb5b0; box-shadow: 0 0 0 5px #e9ebe8; }
@@ -514,9 +524,13 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 @media (max-width: 900px) {
   .privacyPill { display: none; }
+  .appHeaderInner { display: flex; }
+  .appHeader .brandButton { padding: 0 18px; }
+  .headerMain { flex: 1; padding: 0 18px 0 0; }
+  .mobileAccountActions { display: flex; }
   .workspaceLayout { grid-template-columns: 1fr; }
   .stepRail { background: var(--canvas); border-bottom: 1px solid var(--line); border-right: 0; overflow-x: auto; padding: 12px 18px; position: sticky; top: 72px; z-index: 10; }
-  .railTitle, .railSummary { display: none; }
+  .railTitle, .railFooter { display: none; }
   .stepRail ol { display: flex; min-width: max-content; }
   .stepRail li a { padding: 7px 10px; }
   .stepRail a span:last-child { display: none; }
@@ -524,13 +538,18 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 }
 
 @media (max-width: 640px) {
-  .appHeader { height: 62px; padding: 0 17px; }
+  .appHeader { height: 62px; }
+  .appHeader .brandButton { padding: 0 10px 0 17px; }
+  .appHeader .brandButton > span:last-child { display: none; }
+  .headerMain { gap: 8px; padding-right: 10px; }
   .headerContext { justify-content: flex-end; }
-  .headerContext > span:first-child, .privacyPill, .quotaPill, .accountMenu > span, .accountMenu > small { display: none; }
-  .headerContext select { max-width: 145px; }
+  .headerContext > span:first-child, .privacyPill, .quotaPill { display: none; }
+  .headerContext select { max-width: 130px; }
   .headerAction { display: none; }
-  .accountMenu { display: block; }
-  .accountMenu > div { display: flex; }
+  .headerUtilities { gap: 2px; }
+  .headerUtilities .languageSwitcher { min-width: 38px; padding: 0 8px; }
+  .mobileAccountActions { gap: 0; }
+  .mobileAccountActions button { min-height: 36px; padding: 7px 6px; }
   .stepRail { top: 62px; }
   .workArea { padding: 36px 18px 70px; }
   .sectionIntro { margin-bottom: 27px; }

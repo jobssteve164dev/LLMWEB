@@ -217,17 +217,27 @@ export function Workbench() {
   return (
     <main className="appShell">
       <header className="appHeader">
-        <button className="brandButton" type="button" onClick={() => moveTo(deriveStep(state))}>
-          <span className="brandMark" aria-hidden="true">L</span>
-          <span>LLMWEB</span>
-        </button>
-        <div className="headerContext">
-          {state.projects.length ? <select aria-label={english ? "Switch project" : "切换项目"} value={state.current_project_id ?? ""} onChange={(event) => selectProject(event.target.value)}>{state.projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : <span>{english ? "Create your first project" : "建立第一个项目"}</span>}
-          <span className="quotaPill">{state.project_quota.used}/{state.project_quota.limit} {english ? "projects" : "个项目"}</span>
-          <button className="headerAction" type="button" onClick={() => { setCreatingProject(true); moveTo("project"); }}>{english ? "New project" : "新建项目"}</button>
-          <span className="privacyPill"><span aria-hidden="true">●</span> {english ? "Raw data stays in your environment" : "原始数据留在你的环境"}</span>
+        <div className="appHeaderInner">
+          <button className="brandButton" type="button" onClick={() => moveTo(deriveStep(state))}>
+            <span className="brandMark" aria-hidden="true">L</span>
+            <span>LLMWEB</span>
+          </button>
+          <div className="headerMain">
+            <div className="headerContext">
+              {state.projects.length ? <select aria-label={english ? "Switch project" : "切换项目"} value={state.current_project_id ?? ""} onChange={(event) => selectProject(event.target.value)}>{state.projects.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : <span>{english ? "Create your first project" : "建立第一个项目"}</span>}
+              <span className="quotaPill">{state.project_quota.used}/{state.project_quota.limit} {english ? "projects" : "个项目"}</span>
+              <button className="headerAction" type="button" onClick={() => { setCreatingProject(true); moveTo("project"); }}>{english ? "New project" : "新建项目"}</button>
+              <span className="privacyPill"><span aria-hidden="true">●</span> {english ? "Raw data stays in your environment" : "原始数据留在你的环境"}</span>
+            </div>
+            <div className="headerUtilities">
+              <LanguageSwitcher />
+              <div className="mobileAccountActions">
+                <button type="button" onClick={() => moveTo("settings")}>{english ? "Settings" : "设置"}</button>
+                <button type="button" onClick={() => void signOut()}>{english ? "Sign out" : "退出"}</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="accountMenu"><LanguageSwitcher /><span>{state.account.name || state.account.email}</span><small>{state.project_quota.used}/{state.project_quota.limit} {english ? "projects" : "个项目"}</small><div><button type="button" onClick={() => moveTo("settings")}>{english ? "Settings" : "设置"}</button><button type="button" onClick={() => void signOut()}>{english ? "Sign out" : "退出"}</button></div></div>
       </header>
 
       <div className="workspaceLayout">
@@ -254,9 +264,21 @@ export function Workbench() {
               );
             })}
           </ol>
-          <div className="railSummary">
-            <span className={runner?.status === "online" || runner?.status === "busy" ? "liveDot" : "idleDot"} />
-            <div><strong>{runner?.name ?? (english ? "No compute connected" : "尚未连接算力")}</strong><small>{runnerStatus(runner, locale)}</small></div>
+          <div className="railFooter">
+            <div className="railSummary">
+              <span className={runner?.status === "online" || runner?.status === "busy" ? "liveDot" : "idleDot"} />
+              <div><strong>{runner?.name ?? (english ? "No compute connected" : "尚未连接算力")}</strong><small>{runnerStatus(runner, locale)}</small></div>
+            </div>
+            <div className="railAccount">
+              <div className="railAccountIdentity">
+                <span aria-hidden="true">{(state.account.name || state.account.email).trim().charAt(0).toUpperCase()}</span>
+                <div><strong>{state.account.name || (english ? "My account" : "我的账户")}</strong><small>{state.account.email}</small></div>
+              </div>
+              <div className="railAccountActions">
+                <button className={activeStep === "settings" ? "active" : ""} type="button" onClick={() => moveTo("settings")} aria-current={activeStep === "settings" ? "page" : undefined}>{english ? "Settings" : "设置"}</button>
+                <button type="button" onClick={() => void signOut()}>{english ? "Sign out" : "退出账户"}</button>
+              </div>
+            </div>
           </div>
         </aside>
 
