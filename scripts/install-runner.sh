@@ -129,6 +129,7 @@ install_apple_silicon() {
   "$RUNTIME_ROOT/bin/python" -m pip install -r "$LLAMA_CPP_ROOT/requirements/requirements-convert_hf_to_gguf.txt"
   mkdir -p "$RUNTIME_ROOT/llmweb"
   install -m 0644 "$SOURCE_ROOT/runtime/evaluate.py" "$RUNTIME_ROOT/llmweb/evaluate.py"
+  install -m 0644 "$SOURCE_ROOT/runtime/chat.py" "$RUNTIME_ROOT/llmweb/chat.py"
   install -m 0644 "$SOURCE_ROOT/runtime/prepare_dataset.py" "$RUNTIME_ROOT/llmweb/prepare_dataset.py"
   install -m 0644 "$SOURCE_ROOT/runtime/upload_artifacts.py" "$RUNTIME_ROOT/llmweb/upload_artifacts.py"
 

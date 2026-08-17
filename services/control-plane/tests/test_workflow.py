@@ -208,6 +208,37 @@ def test_complete_local_training_workflow() -> None:
         assert dataset["status"] == "ready"
         assert dataset["statistics"]["valid_rows"] == 118
 
+        chat_response = client.post(
+            f"/v1/experiments/{experiment_id}/chat",
+            headers=WEB_HEADERS,
+            json={"prompt": "请介绍这个产品"},
+        )
+        assert chat_response.status_code == 201, chat_response.text
+        chat_lease = client.post("/v1/runners/jobs/lease", headers=runner_headers).json()
+        assert chat_lease["kind"] == "chat"
+        assert chat_lease["payload"]["prompt"] == "请介绍这个产品"
+        complete_job(client, runner_headers, chat_lease, {"response": "这是训练模型的真实回复"})
+        chat_state = client.get("/v1/state", headers=WEB_HEADERS).json()
+        assert next(item for item in chat_state["experiments"] if item["id"] == experiment_id)["status"] == "completed"
+        chat_job = next(item for item in chat_state["jobs"] if item["id"] == chat_response.json()["job_id"])
+        assert chat_job["prompt"] == "请介绍这个产品"
+        assert chat_job["events"][-1]["payload"]["response"] == "这是训练模型的真实回复"
+
+        failed_chat = client.post(
+            f"/v1/experiments/{experiment_id}/chat",
+            headers=WEB_HEADERS,
+            json={"prompt": "再试一次"},
+        ).json()
+        failed_lease = client.post("/v1/runners/jobs/lease", headers=runner_headers).json()
+        failed_event = client.post(
+            f"/v1/runners/jobs/{failed_chat['job_id']}/events",
+            headers=runner_headers,
+            json={"lease_id": failed_lease["lease_id"], "events": [{"event_id": "chat-failed", "type": "failed", "message": "本地模型暂时不可用", "payload": {}}]},
+        )
+        assert failed_event.status_code == 202
+        failed_state = client.get("/v1/state", headers=WEB_HEADERS).json()
+        assert next(item for item in failed_state["experiments"] if item["id"] == experiment_id)["status"] == "completed"
+
 
 def test_resume_control_reaches_paused_job() -> None:
     reset_database()

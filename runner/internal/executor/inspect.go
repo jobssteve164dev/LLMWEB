@@ -1,13 +1,18 @@
 package executor
 
 import (
+	"archive/tar"
+	"archive/zip"
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"math/bits"
 	"os"
 	"path/filepath"
@@ -45,7 +50,14 @@ func inspectDatasetFile(payload map[string]any, sourcePath, outputRoot string) (
 	datasetID := stringValue(payload, "dataset_id")
 	format := stringValue(payload, "format")
 	mapping := stringMap(payload["mapping"])
-	records, rows, invalid, empty, err := readRecords(sourcePath, format, mapping)
+	var records []instructionRecord
+	var rows, invalid, empty int
+	var err error
+	if format == "archive" {
+		records, rows, invalid, empty, err = readArchiveRecords(sourcePath, mapping)
+	} else {
+		records, rows, invalid, empty, err = readRecords(sourcePath, format, mapping)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -161,6 +173,10 @@ func readRecords(path, format string, mapping map[string]string) ([]instructionR
 		return nil, 0, 0, 0, fmt.Errorf("读取本地数据文件 %q: %w", filepath.Base(path), err)
 	}
 	defer file.Close()
+	return readRecordsFromReader(file, format, mapping)
+}
+
+func readRecordsFromReader(file io.Reader, format string, mapping map[string]string) ([]instructionRecord, int, int, int, error) {
 	records := make([]instructionRecord, 0)
 	rows, invalid, empty := 0, 0, 0
 	consume := func(item map[string]any) {
@@ -244,6 +260,95 @@ func readRecords(path, format string, mapping map[string]string) ([]instructionR
 		return nil, 0, 0, 0, fmt.Errorf("不支持的数据格式 %q", format)
 	}
 	return records, rows, invalid, empty, nil
+}
+
+const maxArchiveDatasetBytes = 256 * 1024 * 1024
+
+func archiveFormat(name string) string {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".jsonl":
+		return "jsonl"
+	case ".json":
+		return "json"
+	case ".csv":
+		return "csv"
+	default:
+		return ""
+	}
+}
+
+func readArchiveRecords(path string, mapping map[string]string) ([]instructionRecord, int, int, int, error) {
+	if strings.HasSuffix(strings.ToLower(path), ".zip") {
+		reader, err := zip.OpenReader(path)
+		if err != nil {
+			return nil, 0, 0, 0, fmt.Errorf("ZIP 压缩包无效: %w", err)
+		}
+		defer reader.Close()
+		var selected *zip.File
+		for _, entry := range reader.File {
+			if entry.FileInfo().IsDir() || archiveFormat(entry.Name) == "" {
+				continue
+			}
+			if selected != nil {
+				return nil, 0, 0, 0, fmt.Errorf("压缩包只能包含一个 JSONL、JSON 或 CSV 数据文件")
+			}
+			selected = entry
+		}
+		if selected == nil {
+			return nil, 0, 0, 0, fmt.Errorf("压缩包中没有找到 JSONL、JSON 或 CSV 数据文件")
+		}
+		if selected.UncompressedSize64 > maxArchiveDatasetBytes {
+			return nil, 0, 0, 0, fmt.Errorf("解压后的数据文件不能超过 256 MB")
+		}
+		file, err := selected.Open()
+		if err != nil {
+			return nil, 0, 0, 0, fmt.Errorf("读取压缩包数据文件: %w", err)
+		}
+		defer file.Close()
+		return readRecordsFromReader(io.LimitReader(file, maxArchiveDatasetBytes+1), archiveFormat(selected.Name), mapping)
+	}
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, 0, 0, 0, fmt.Errorf("读取本地数据压缩包: %w", err)
+	}
+	defer file.Close()
+	gzipReader, err := gzip.NewReader(file)
+	if err != nil {
+		return nil, 0, 0, 0, fmt.Errorf("TAR.GZ 压缩包无效: %w", err)
+	}
+	defer gzipReader.Close()
+	tarReader := tar.NewReader(gzipReader)
+	var selected []byte
+	selectedFormat := ""
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, 0, 0, 0, fmt.Errorf("读取 TAR.GZ 压缩包: %w", err)
+		}
+		format := archiveFormat(header.Name)
+		if header.Typeflag != tar.TypeReg || format == "" {
+			continue
+		}
+		if selected != nil {
+			return nil, 0, 0, 0, fmt.Errorf("压缩包只能包含一个 JSONL、JSON 或 CSV 数据文件")
+		}
+		if header.Size > maxArchiveDatasetBytes {
+			return nil, 0, 0, 0, fmt.Errorf("解压后的数据文件不能超过 256 MB")
+		}
+		selected, err = io.ReadAll(io.LimitReader(tarReader, maxArchiveDatasetBytes+1))
+		if err != nil {
+			return nil, 0, 0, 0, fmt.Errorf("读取压缩包数据文件: %w", err)
+		}
+		selectedFormat = format
+	}
+	if selected == nil {
+		return nil, 0, 0, 0, fmt.Errorf("压缩包中没有找到 JSONL、JSON 或 CSV 数据文件")
+	}
+	return readRecordsFromReader(bytes.NewReader(selected), selectedFormat, mapping)
 }
 
 func safeJoin(root, relative string) (string, error) {

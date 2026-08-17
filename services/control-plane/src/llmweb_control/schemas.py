@@ -53,7 +53,7 @@ class DatasetCreate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     source_type: Literal["local", "huggingface", "modelscope", "s3", "starter"] = "local"
     source_ref: str = Field(min_length=1, max_length=500)
-    format: Literal["json", "jsonl", "csv", "txt"]
+    format: Literal["json", "jsonl", "csv", "txt", "archive"]
     instruction_field: str = Field(default="instruction", min_length=1, max_length=120)
     input_field: str = Field(default="input", min_length=1, max_length=120)
     output_field: str = Field(default="output", min_length=1, max_length=120)
@@ -131,6 +131,18 @@ class JobControl(BaseModel):
 
 class CheckpointSelect(BaseModel):
     checkpoint_ref: str = Field(min_length=1, max_length=500)
+
+
+class ChatCreate(BaseModel):
+    prompt: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("prompt")
+    @classmethod
+    def normalize_prompt(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("请输入要测试的内容")
+        return normalized
 
 
 class ApiConnectionCreate(BaseModel):

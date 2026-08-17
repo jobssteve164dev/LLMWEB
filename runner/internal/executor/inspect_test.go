@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"archive/zip"
 	"context"
 	"encoding/json"
 	"os"
@@ -10,6 +11,45 @@ import (
 
 	"llmweb/runner/internal/controlplane"
 )
+
+func TestInspectDatasetReadsSingleFileZipArchive(t *testing.T) {
+	dataRoot := t.TempDir()
+	outputRoot := t.TempDir()
+	archivePath := filepath.Join(dataRoot, "support.zip")
+	archiveFile, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer := zip.NewWriter(archiveFile)
+	entry, err := writer.Create("support.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoder := json.NewEncoder(entry)
+	for index := 0; index < 10; index++ {
+		if err := encoder.Encode(map[string]string{"instruction": "问题 " + string(rune('A'+index)), "input": "", "output": "答案 " + string(rune('A'+index))}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := archiveFile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := inspectDataset(map[string]any{
+		"dataset_id": "data_zip", "source_ref": "support.zip", "format": "archive",
+		"mapping": map[string]any{"instruction": "instruction", "input": "input", "output": "output"},
+		"split":   map[string]any{"train": float64(80), "validation": float64(10), "test": float64(10)},
+	}, dataRoot, outputRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result["statistics"].(map[string]any)["valid_rows"] != 10 {
+		t.Fatalf("expected 10 valid rows, got %#v", result)
+	}
+}
 
 func TestInspectDatasetCreatesLocalImmutableVersion(t *testing.T) {
 	dataRoot := t.TempDir()
@@ -127,6 +167,23 @@ func TestNativeMPSRuntimeConfigUsesHostPathsAndLoRA(t *testing.T) {
 	}
 	if strings.Contains(config, "bitsandbytes") {
 		t.Fatal("MPS LoRA config must not include CUDA quantization")
+	}
+}
+
+func TestChatRequestKeepsPromptOutOfProcessArguments(t *testing.T) {
+	spec := runtimeSpec{
+		ModelID: "Qwen/Qwen2.5-0.5B-Instruct", Revision: approvedModels["Qwen/Qwen2.5-0.5B-Instruct"], Template: "qwen",
+		Method: "lora", Prompt: "包含空格和敏感内容的测试问题", MaxNewTokens: 128, Checkpoint: "adapter",
+	}
+	config, command, _, err := buildRuntimeConfig("chat", spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(config, spec.Prompt) {
+		t.Fatal("expected prompt in the local request file")
+	}
+	if strings.Contains(strings.Join(command, " "), spec.Prompt) {
+		t.Fatal("prompt must not be exposed in process arguments")
 	}
 }
 

@@ -13,11 +13,12 @@ from model import GPT, GPTConfig
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("task", choices=("baseline", "train", "evaluate", "export"))
+    parser.add_argument("task", choices=("baseline", "train", "evaluate", "export", "chat"))
     parser.add_argument("--data", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--checkpoint", default="model.pt")
     parser.add_argument("--iterations", type=int, default=500)
+    parser.add_argument("--request")
     return parser.parse_args()
 
 
@@ -167,7 +168,7 @@ def main():
     elif args.task == "evaluate":
         model = load_checkpoint(checkpoint)
         write_evaluation(output_directory / "evaluation", model, tensors["test"], texts["test"][:48], vocabulary, decode)
-    else:
+    elif args.task == "export":
         artifact_directory = output_directory / "model"
         artifact_directory.mkdir(parents=True, exist_ok=True)
         shutil.copy2(checkpoint, artifact_directory / "model.pt")
@@ -179,6 +180,20 @@ def main():
         }
         (artifact_directory / "model.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps({"artifact": "model"}), flush=True)
+    else:
+        if not args.request:
+            raise RuntimeError("对话测试缺少请求文件")
+        request = json.loads(Path(args.request).read_text(encoding="utf-8"))
+        prompt = str(request.get("prompt", "")).strip()
+        if not prompt:
+            raise RuntimeError("请输入要测试的内容")
+        model = load_checkpoint(checkpoint)
+        visible_prompt = "".join(character for character in prompt if character in vocabulary)[-model.config.block_size:]
+        generated = generate_sample(model, prompt, vocabulary, decode)
+        response = generated[len(visible_prompt):].strip() or generated
+        (output_directory / "chat-response.json").write_text(
+            json.dumps({"response": response}, ensure_ascii=False), encoding="utf-8"
+        )
 
 
 if __name__ == "__main__":

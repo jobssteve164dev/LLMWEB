@@ -31,7 +31,9 @@ export type Dataset = {
   name: string;
   source_type: "local" | "huggingface" | "modelscope" | "s3" | "starter";
   source_ref: string;
-  format: "json" | "jsonl" | "csv" | "txt";
+  format: "json" | "jsonl" | "csv" | "txt" | "archive";
+  mapping: { instruction: string; input: string; output: string };
+  split: { train: number; validation: number; test: number };
   status: "checking" | "ready" | "failed";
   version_hash: string | null;
   statistics: null | {
@@ -60,13 +62,14 @@ export type JobEvent = {
 
 export type Job = {
   id: string;
-  kind: "inspect" | "baseline" | "train" | "evaluate" | "export";
+  kind: "inspect" | "baseline" | "train" | "evaluate" | "export" | "chat";
   status: "blocked" | "queued" | "leased" | "running" | "paused" | "completed" | "failed" | "cancelled";
   desired_state: "running" | "paused" | "cancelled";
   progress: number;
   error: string | null;
   experiment_id: string | null;
   dataset_id: string | null;
+  prompt?: string;
   events: JobEvent[];
 };
 

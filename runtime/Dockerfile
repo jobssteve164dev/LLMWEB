@@ -25,6 +25,7 @@ RUN apt-get update \
     && apt-get clean
 
 COPY runtime/evaluate.py /opt/llmweb/evaluate.py
+COPY runtime/chat.py /opt/llmweb/chat.py
 COPY runtime/prepare_dataset.py /opt/llmweb/prepare_dataset.py
 COPY runtime/upload_artifacts.py /opt/llmweb/upload_artifacts.py
 WORKDIR /workspace

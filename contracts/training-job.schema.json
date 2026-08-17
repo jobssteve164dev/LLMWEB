@@ -23,7 +23,8 @@
     "project_id": { "type": "string", "minLength": 1 },
     "experiment_id": { "type": "string", "minLength": 1 },
     "dataset_id": { "type": "string", "minLength": 1 },
-    "task": { "enum": ["baseline", "train", "evaluate", "export"] },
+    "task": { "enum": ["baseline", "train", "evaluate", "export", "chat"] },
+    "prompt": { "type": "string", "minLength": 1, "maxLength": 4000 },
     "selected_checkpoint": { "type": "string", "minLength": 1 },
     "model": {
       "type": "object",
@@ -77,19 +78,24 @@
         "destination": { "enum": ["local", "user_s3"] },
         "s3_uri": { "type": ["string", "null"] },
         "s3_endpoint": { "type": ["string", "null"] },
+        "max_new_tokens": { "type": "integer", "minimum": 16, "maximum": 512 },
         "formats": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "enum": ["adapter", "huggingface", "gguf"] }
+          "items": { "enum": ["adapter", "huggingface", "gguf", "model"] }
         }
       }
     }
   },
   "allOf": [
     {
-      "if": { "properties": { "task": { "enum": ["evaluate", "export"] } } },
+      "if": { "properties": { "task": { "enum": ["evaluate", "export", "chat"] } } },
       "then": { "required": ["selected_checkpoint"] }
+    },
+    {
+      "if": { "properties": { "task": { "const": "chat" } } },
+      "then": { "required": ["prompt"] }
     }
   ]
 }

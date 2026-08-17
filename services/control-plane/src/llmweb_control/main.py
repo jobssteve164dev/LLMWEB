@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
 from .models import ApiAuditEvent, ApiConnection, ApiRequestReceipt, Dataset, Experiment, Job, JobEvent, PairingCode, Project, Runner, Workspace, new_id, utc_now
-from .schemas import ApiAuditCreate, ApiConnectionCreate, CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate, ProjectUpdate, RunnerUpgradeAuthorization
+from .schemas import ApiAuditCreate, ApiConnectionCreate, ChatCreate, CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate, ProjectUpdate, RunnerUpgradeAuthorization
 from .security import WebIdentity, digest_secret, require_internal_web, require_runner, require_web, resolve_api_connection
 from .settings import get_settings
 
@@ -185,6 +185,8 @@ def job_view(job: Job, events: list[JobEvent] | None = None) -> dict[str, Any]:
             }
             for event in events
         ]
+    if job.kind == "chat":
+        result["prompt"] = str(job.payload.get("prompt") or "")
     return result
 
 
@@ -836,6 +838,8 @@ def create_experiment(
 
 
 def previous_jobs_complete(db: Session, job: Job) -> bool:
+    if job.kind == "chat":
+        return True
     if job.experiment_id is None:
         return True
     previous = list(db.scalars(select(Job).where(Job.experiment_id == job.experiment_id, Job.sequence < job.sequence)))
@@ -857,7 +861,7 @@ def lease_job(db: Db, response: Response, authorization: Annotated[str | None, H
     runner.current_job_id = job.id
     runner.status = "busy"
     runner.last_seen_at = utc_now()
-    if job.experiment_id:
+    if job.experiment_id and job.kind != "chat":
         experiment = db.get(Experiment, job.experiment_id)
         if experiment:
             experiment.status = "running"
@@ -874,7 +878,7 @@ def update_completed_result(db: Session, job: Job, payload: dict[str, Any]) -> N
             dataset.version_hash = payload.get("version_hash")
             dataset.statistics = payload.get("statistics", {})
             dataset.preview = payload.get("preview") if dataset.preview_allowed else None
-    if not job.experiment_id:
+    if not job.experiment_id or job.kind == "chat":
         return
     experiment = db.get(Experiment, job.experiment_id)
     if experiment is None:
@@ -945,7 +949,7 @@ def ingest_events(job_id: str, body: EventBatch, db: Db, authorization: Annotate
                 dataset = db.get(Dataset, job.dataset_id)
                 if dataset:
                     dataset.status = "failed"
-            if job.experiment_id:
+            if job.experiment_id and job.kind != "chat":
                 experiment = db.get(Experiment, job.experiment_id)
                 if experiment:
                     experiment.status = "failed"
@@ -959,7 +963,7 @@ def ingest_events(job_id: str, body: EventBatch, db: Db, authorization: Annotate
             job.finished_at = utc_now()
             runner.current_job_id = None
             runner.status = "online"
-            if job.experiment_id:
+            if job.experiment_id and job.kind != "chat":
                 experiment = db.get(Experiment, job.experiment_id)
                 if experiment:
                     experiment.status = "cancelled"
@@ -996,6 +1000,54 @@ def select_checkpoint(experiment_id: str, body: CheckpointSelect, db: Db, identi
     return {"experiment_id": experiment.id, "selected_checkpoint": body.checkpoint_ref}
 
 
+@app.post("/v1/experiments/{experiment_id}/chat", status_code=status.HTTP_201_CREATED, tags=["web"])
+def create_chat(experiment_id: str, body: ChatCreate, db: Db, identity: WebAuth) -> dict[str, str]:
+    experiment = db.get(Experiment, experiment_id)
+    if experiment is None or experiment.workspace_id != identity.workspace_id:
+        raise HTTPException(status_code=404, detail="训练不存在")
+    if experiment.status != "completed" or not experiment.selected_checkpoint:
+        raise HTTPException(status_code=409, detail="模型完成训练并选定版本后才能开始对话测试")
+    runner = db.get(Runner, experiment.runner_id)
+    if runner is None or runner.revoked:
+        raise HTTPException(status_code=409, detail="训练这份模型的电脑已断开")
+    runner_state = web_runner(runner)
+    if runner_state["status"] == "offline":
+        raise HTTPException(status_code=409, detail="请先让训练这份模型的电脑上线")
+    if runner.current_job_id or runner_state["status"] == "busy":
+        raise HTTPException(status_code=409, detail="训练电脑正在执行其他任务，请稍候再试")
+    active_chat = db.scalar(select(Job).where(
+        Job.experiment_id == experiment.id,
+        Job.kind == "chat",
+        Job.status.in_(["queued", "leased", "running"]),
+    ))
+    if active_chat is not None:
+        raise HTTPException(status_code=409, detail="上一条消息还在生成，请稍候")
+    source_job = db.scalar(select(Job).where(Job.experiment_id == experiment.id, Job.kind == "export"))
+    if source_job is None:
+        raise HTTPException(status_code=409, detail="训练任务缺少可用于测试的模型信息")
+    max_sequence = db.scalar(select(func.max(Job.sequence)).where(Job.experiment_id == experiment.id)) or 0
+    payload = dict(source_job.payload)
+    payload.update({
+        "task": "chat",
+        "prompt": body.prompt,
+        "selected_checkpoint": experiment.selected_checkpoint,
+        "output": {**dict(payload.get("output") or {}), "max_new_tokens": 256},
+    })
+    job = Job(
+        workspace_id=identity.workspace_id,
+        runner_id=experiment.runner_id,
+        dataset_id=experiment.dataset_id,
+        experiment_id=experiment.id,
+        kind="chat",
+        sequence=max_sequence + 1,
+        payload=payload,
+        status="queued",
+    )
+    db.add(job)
+    db.commit()
+    return {"job_id": job.id}
+
+
 @app.post("/v1/jobs/{job_id}/control", tags=["web"])
 def control_job(job_id: str, body: JobControl, db: Db, identity: WebAuth) -> dict[str, str]:
     job = db.get(Job, job_id)
@@ -1012,7 +1064,7 @@ def control_job(job_id: str, body: JobControl, db: Db, identity: WebAuth) -> dic
         if job.status == "queued":
             job.status = "cancelled"
             job.finished_at = utc_now()
-            if job.experiment_id:
+            if job.experiment_id and job.kind != "chat":
                 experiment = db.get(Experiment, job.experiment_id)
                 if experiment:
                     experiment.status = "cancelled"

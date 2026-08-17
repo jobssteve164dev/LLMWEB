@@ -53,6 +53,8 @@ type runtimeSpec struct {
 	Destination        string
 	S3URI              string
 	S3Endpoint         string
+	Prompt             string
+	MaxNewTokens       int
 }
 
 type runtimePaths struct {
@@ -61,6 +63,7 @@ type runtimePaths struct {
 	config       string
 	python       string
 	evaluator    string
+	chat         string
 	llamaConvert string
 	cli          string
 }
@@ -192,6 +195,16 @@ func (executor *Executor) runRuntime(ctx context.Context, lease controlplane.Lea
 			artifacts = append(artifacts, map[string]any{"format": format, "reference": reference})
 		}
 		return map[string]any{"artifacts": artifacts}, nil
+	case "chat":
+		payload, err := os.ReadFile(filepath.Join(experimentDirectory, "chat-response.json"))
+		if err != nil {
+			return nil, fmt.Errorf("读取模型回复: %w", err)
+		}
+		var result map[string]any
+		if err := json.Unmarshal(payload, &result); err != nil {
+			return nil, fmt.Errorf("解析模型回复: %w", err)
+		}
+		return result, nil
 	}
 	return map[string]any{}, nil
 }
@@ -210,7 +223,7 @@ func environmentBackend(backend string) string {
 }
 
 func buildCPUStarterCommand(kind string, spec runtimeSpec, paths runtimePaths) (string, []string, bool, error) {
-	if !contains([]string{"baseline", "train", "evaluate", "export"}, kind) {
+	if !contains([]string{"baseline", "train", "evaluate", "export", "chat"}, kind) {
 		return "", nil, false, fmt.Errorf("不支持的入门训练阶段 %q", kind)
 	}
 	command := []string{
@@ -219,6 +232,10 @@ func buildCPUStarterCommand(kind string, spec runtimeSpec, paths runtimePaths) (
 		"--output", paths.output,
 		"--checkpoint", spec.Checkpoint,
 		"--iterations", strconv.Itoa(spec.Iterations),
+	}
+	if kind == "chat" {
+		command = append(command, "--request", paths.config)
+		return chatRequest(spec), command, false, nil
 	}
 	return "# LLMWEB fixed CPU starter preset.\n", command, false, nil
 }
@@ -248,7 +265,7 @@ func buildRuntimeConfig(kind string, spec runtimeSpec) (string, []string, bool, 
 func containerRuntimePaths() runtimePaths {
 	return runtimePaths{
 		data: "/workspace/data", output: "/workspace/output", config: "/workspace/config/task.yaml",
-		python: "python", evaluator: "/opt/llmweb/evaluate.py", llamaConvert: "/opt/llama.cpp/convert_hf_to_gguf.py", cli: "llamafactory-cli",
+		python: "python", evaluator: "/opt/llmweb/evaluate.py", chat: "/opt/llmweb/chat.py", llamaConvert: "/opt/llama.cpp/convert_hf_to_gguf.py", cli: "llamafactory-cli",
 	}
 }
 
@@ -257,6 +274,7 @@ func (executor *Executor) nativeRuntimePaths(datasetDirectory, experimentDirecto
 		data: datasetDirectory, output: experimentDirectory, config: configPath,
 		python:       filepath.Join(executor.runtimeRoot, "bin", "python"),
 		evaluator:    filepath.Join(executor.runtimeRoot, "llmweb", "evaluate.py"),
+		chat:         filepath.Join(executor.runtimeRoot, "llmweb", "chat.py"),
 		llamaConvert: filepath.Join(executor.runtimeRoot, "llama.cpp", "convert_hf_to_gguf.py"),
 		cli:          filepath.Join(executor.runtimeRoot, "bin", "llamafactory-cli"),
 	}
@@ -279,6 +297,12 @@ func buildRuntimeConfigForPaths(kind string, spec runtimeSpec, paths runtimePath
 		base += "quantization_bit: 4\nquantization_method: bitsandbytes\n"
 	}
 	switch kind {
+	case "chat":
+		command := []string{paths.python, paths.chat, "--request", paths.config, "--output", filepath.Join(paths.output, "chat-response.json"), "--model", spec.ModelID, "--revision", spec.Revision, "--adapter", filepath.Join(paths.output, spec.Checkpoint)}
+		if spec.Method == "qlora" {
+			command = append(command, "--quantization", "4")
+		}
+		return chatRequest(spec), command, true, nil
 	case "train":
 		config := base +
 			"do_train: true\n" +
@@ -339,6 +363,11 @@ func buildRuntimeConfigForPaths(kind string, spec runtimeSpec, paths runtimePath
 
 func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+}
+
+func chatRequest(spec runtimeSpec) string {
+	payload, _ := json.Marshal(map[string]any{"prompt": spec.Prompt, "max_new_tokens": spec.MaxNewTokens})
+	return string(payload) + "\n"
 }
 
 func runDocker(ctx context.Context, containerName string, args []string, emit EmitFunc) error {
@@ -515,9 +544,19 @@ func parseRuntimeSpec(payload map[string]any) (runtimeSpec, error) {
 		Destination:        stringValue(output, "destination"),
 		S3URI:              stringValue(output, "s3_uri"),
 		S3Endpoint:         stringValue(output, "s3_endpoint"),
+		Prompt:             stringValue(payload, "prompt"),
+		MaxNewTokens:       int(numberValue(output, "max_new_tokens", 256)),
 	}
 	if spec.ExperimentID == "" || spec.DatasetID == "" || spec.ModelID == "" {
 		return runtimeSpec{}, errors.New("训练任务缺少实验、数据或模型信息")
+	}
+	if stringValue(payload, "task") == "chat" {
+		if spec.Prompt == "" {
+			return runtimeSpec{}, errors.New("对话测试缺少用户输入")
+		}
+		if spec.MaxNewTokens < 16 || spec.MaxNewTokens > 512 {
+			return runtimeSpec{}, errors.New("对话生成长度超出允许范围")
+		}
 	}
 	if approvedModels[spec.ModelID] != spec.Revision {
 		return runtimeSpec{}, errors.New("基础模型或版本不在首版批准范围内")
@@ -695,6 +734,8 @@ func stageMessage(kind string) string {
 		return "正在用同一测试集复测"
 	case "export":
 		return "正在生成模型产物"
+	case "chat":
+		return "正在用训练后的模型生成回复"
 	default:
 		return "正在执行"
 	}

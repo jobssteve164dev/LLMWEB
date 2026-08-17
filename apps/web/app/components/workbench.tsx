@@ -30,7 +30,7 @@ function ProjectMenu({ projects, currentProjectId, busy, canCreate, onSelect, on
   onSelect: (projectId: string) => void;
   onCreate: () => void;
   onRename: (projectId: string, name: string) => Promise<boolean>;
-  onDelete: (project: Project) => Promise<boolean>;
+  onDelete: (project: Project) => void;
 }) {
   const { locale } = useLanguage();
   const english = locale === "en";
@@ -80,10 +80,31 @@ function ProjectMenu({ projects, currentProjectId, busy, canCreate, onSelect, on
         </form> : <div className={project.id === currentProjectId ? "projectMenuRow active" : "projectMenuRow"} key={project.id}>
           <button className="projectSelectButton" type="button" onClick={() => { onSelect(project.id); setOpen(false); }}><span>{project.name}</span>{project.id === currentProjectId ? <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m4 10 4 4 8-9" /></svg> : null}</button>
           <button className="projectIconButton" type="button" onClick={() => { setEditingId(project.id); setDraftName(project.name); }} aria-label={english ? `Rename ${project.name}` : `重命名${project.name}`} title={english ? "Rename" : "编辑名称"}><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m4 14-.5 2.5L6 16l9-9-2-2-9 9Zm7.5-7.5 2 2" /></svg></button>
-          <button className="projectIconButton danger" disabled={busy} type="button" onClick={() => void onDelete(project).then((deleted) => { if (deleted) setOpen(false); })} aria-label={english ? `Delete ${project.name}` : `删除${project.name}`} title={english ? "Delete" : "删除"}><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 6h12M8 3h4l1 3H7l1-3Zm-2 3 1 11h6l1-11M9 9v5m2-5v5" /></svg></button>
+          <button className="projectIconButton danger" disabled={busy} type="button" onClick={() => onDelete(project)} aria-label={english ? `Delete ${project.name}` : `删除${project.name}`} title={english ? "Delete" : "删除"}><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M4 6h12M8 3h4l1 3H7l1-3Zm-2 3 1 11h6l1-11M9 9v5m2-5v5" /></svg></button>
         </div>)}
       </div>
     </div> : null}
+  </div>;
+}
+
+type Confirmation = { title: string; description: string; confirmLabel: string; onConfirm: () => Promise<boolean> };
+
+function ConfirmDialog({ confirmation, busy, onClose }: { confirmation: Confirmation; busy: boolean; onClose: () => void }) {
+  const { locale } = useLanguage();
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    confirmRef.current?.focus();
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape" && !busy) onClose(); };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [busy, onClose]);
+  return <div className="dialogScrim" onPointerDown={(event) => { if (event.target === event.currentTarget && !busy) onClose(); }}>
+    <section className="confirmDialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-description">
+      <span className="confirmIcon" aria-hidden="true">!</span>
+      <h2 id="confirm-title">{confirmation.title}</h2>
+      <p id="confirm-description">{confirmation.description}</p>
+      <div className="dialogActions"><button className="secondaryButton" disabled={busy} type="button" onClick={onClose}>{locale === "en" ? "Cancel" : "取消"}</button><button ref={confirmRef} className="dangerButton" disabled={busy} type="button" onClick={() => void confirmation.onConfirm().then((completed) => { if (completed) onClose(); })}>{busy ? (locale === "en" ? "Working…" : "正在处理…") : confirmation.confirmLabel}</button></div>
+    </section>
   </div>;
 }
 
@@ -122,6 +143,7 @@ const jobLabels: Record<Job["kind"], string> = {
   train: "模型微调",
   evaluate: "训练后评测",
   export: "生成模型",
+  chat: "模型对话",
 };
 
 const modelOptions = [
@@ -167,6 +189,9 @@ export function Workbench() {
   const [busy, setBusy] = useState(false);
   const [locked, setLocked] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
+  const [selectedRunnerId, setSelectedRunnerId] = useState<string | null>(null);
+  const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const selectedProjectId = useRef<string | null>(null);
 
   const refresh = useCallback(async (quiet = false) => {
@@ -222,8 +247,9 @@ export function Workbench() {
   }, [locked, refresh]);
 
   const project = state?.projects.find((item) => item.id === state.current_project_id) ?? null;
-  const runner = state?.runners.find((item) => item.status !== "offline") ?? state?.runners[0] ?? null;
-  const dataset = state?.datasets.find((item) => item.status === "ready") ?? state?.datasets[0] ?? null;
+  const runner = state?.runners.find((item) => item.id === selectedRunnerId) ?? state?.runners.find((item) => item.status !== "offline") ?? state?.runners[0] ?? null;
+  const runnerDatasets = state?.datasets.filter((item) => !runner || item.runner_id === runner.id) ?? [];
+  const dataset = runnerDatasets.find((item) => item.id === selectedDatasetId) ?? runnerDatasets.find((item) => item.status === "ready") ?? runnerDatasets[0] ?? null;
   const experiment = state?.experiments[0] ?? null;
   const activeStep = stepFromPath(pathname);
 
@@ -274,19 +300,25 @@ export function Workbench() {
     false,
   );
 
-  const deleteProject = async (target: Project) => {
-    const confirmed = window.confirm(english
-      ? `Delete “${target.name}”? Its data checks, training records, and model references will be removed from the workbench. Files already saved on your computer will remain.`
-      : `确定删除“${target.name}”吗？工作台中的数据检查、训练记录和模型引用会一并删除；已经保存在你电脑上的文件不会被删除。`);
-    if (!confirmed) return false;
-    return perform(async () => {
+  const deleteProject = (target: Project) => setConfirmation({
+    title: english ? `Delete “${target.name}”?` : `删除“${target.name}”？`,
+    description: english ? "Its data checks, training records, and model references will be removed from the workbench. Files saved on your computer will remain." : "工作台中的数据检查、训练记录和模型引用会一并删除；已经保存在你电脑上的文件仍会保留。",
+    confirmLabel: english ? "Delete project" : "删除项目",
+    onConfirm: () => perform(async () => {
       await api(`projects/${target.id}`, { method: "DELETE" });
       if (selectedProjectId.current === target.id) {
         selectedProjectId.current = null;
         saveCurrentProject(null);
       }
-    }, english ? "Project deleted." : "项目已删除。");
-  };
+    }, english ? "Project deleted." : "项目已删除。"),
+  });
+
+  const disconnectRunner = (target: Runner) => setConfirmation({
+    title: english ? `Disconnect “${target.name}”?` : `断开“${target.name}”？`,
+    description: english ? "This computer will stop receiving new tasks immediately. Data and model files already stored on it will not be deleted." : "这台电脑会立即停止接收新任务；电脑上已有的数据和模型文件不会被删除。",
+    confirmLabel: english ? "Disconnect computer" : "断开电脑",
+    onConfirm: () => perform(() => api(`runners/${target.id}/revoke`, { method: "POST", body: JSON.stringify({ confirm_runner_id: target.id }) }), english ? "Computer disconnected." : "电脑已断开。", false),
+  });
 
   if (!state) {
     if (locked) {
@@ -375,15 +407,16 @@ export function Workbench() {
           <div className="workArea">
             {notice ? <div className={`notice ${notice.kind}`} role="status">{notice.text}<button type="button" onClick={() => setNotice(null)} aria-label={english ? "Dismiss" : "关闭提示"}>×</button></div> : null}
             {activeStep === "project" ? <ProjectStep project={project} quota={state.project_quota} forceCreate={creatingProject} busy={busy} perform={perform} moveTo={moveTo} onCreated={selectProject} onStartCreate={() => setCreatingProject(true)} onCancel={() => setCreatingProject(false)} /> : null}
-            {activeStep === "compute" ? <ComputeStep runner={runner} busy={busy} perform={perform} /> : null}
-            {activeStep === "data" ? <DataStep project={project} runner={runner} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} /> : null}
+            {activeStep === "compute" ? <ComputeStep runners={state.runners} selectedRunner={runner} busy={busy} perform={perform} onSelect={(runnerId) => { setSelectedRunnerId(runnerId); setSelectedDatasetId(null); }} onDisconnect={disconnectRunner} /> : null}
+            {activeStep === "data" ? <DataStep project={project} runner={runner} datasets={runnerDatasets} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} onSelect={setSelectedDatasetId} /> : null}
             {activeStep === "train" ? <TrainStep project={project} runner={runner} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} /> : null}
-            {activeStep === "monitor" ? <MonitorStep experiment={experiment} jobs={state.jobs} runner={runner} busy={busy} perform={perform} moveTo={moveTo} /> : null}
+            {activeStep === "monitor" ? <MonitorStep experiment={experiment} jobs={state.jobs} runner={state.runners.find((item) => item.id === experiment?.runner_id) ?? runner} busy={busy} perform={perform} moveTo={moveTo} /> : null}
             {activeStep === "model" ? <ModelStep experiment={experiment} moveTo={moveTo} /> : null}
             {activeStep === "settings" ? state.account.plan === "paid" ? <SettingsStep account={state.account} /> : <Prerequisite title={english ? "API connections are a Pro feature" : "API 连接仅对 Pro 用户开放"} text={english ? "Upgrade to connect the workbench to automation services and manage multiple projects." : "升级后即可连接自动化服务，并同时管理多个训练项目。"} action={english ? "Upgrade to Pro" : "升级 Pro"} onClick={() => { window.location.href = "/api/billing/checkout"; }} /> : null}
           </div>
         </section>
       </div>
+      {confirmation ? <ConfirmDialog confirmation={confirmation} busy={busy} onClose={() => setConfirmation(null)} /> : null}
     </main>
   );
 }
@@ -507,52 +540,51 @@ function ProjectStep({ project, quota, forceCreate, busy, perform, moveTo, onCre
     </form></>;
 }
 
-function ComputeStep({ runner, busy, perform }: { runner: Runner | null; busy: boolean; perform: Perform }) {
+function ComputeStep({ runners, selectedRunner, busy, perform, onSelect, onDisconnect }: { runners: Runner[]; selectedRunner: Runner | null; busy: boolean; perform: Perform; onSelect: (runnerId: string) => void; onDisconnect: (runner: Runner) => void }) {
   const { locale } = useLanguage(); const english = locale === "en";
   const [pairing, setPairing] = useState<{ command: string; expires_at: string } | null>(null);
   const [copied, setCopied] = useState(false);
-  if (runner && runner.status !== "offline") {
-    const gpu = runner.capabilities.gpus?.[0];
-    const isAppleSilicon = runner.capabilities.backend === "native_mps";
-    const isCPU = runner.capabilities.backend === "docker_cpu";
-    const deviceName = isCPU ? (english ? "Starter training on CPU" : "普通电脑入门训练") : gpu?.name ?? (isAppleSilicon ? "Apple Silicon GPU" : "NVIDIA GPU");
-    const deviceDetail = isCPU
-      ? `${runner.capabilities.cpu_cores ?? "—"} ${english ? "CPU cores" : "核处理器"} · ${runner.capabilities.memory_total_mb ? `${(runner.capabilities.memory_total_mb / 1024).toFixed(0)} GB ${english ? "memory" : "内存"}` : (english ? "Memory information syncing" : "内存信息同步中")}${typeof runner.capabilities.disk_free_mb === "number" ? ` · ${(runner.capabilities.disk_free_mb / 1024).toFixed(0)} GB ${english ? "free" : "可用空间"}` : ""}`
-      : gpu ? `${isAppleSilicon ? "Metal / MPS" : `${runner.capabilities.gpus?.length ?? 1} GPU`} · ${(gpu.memory_total_mb / 1024).toFixed(0)} GB ${gpu.shared_memory ? (english ? "unified memory" : "统一内存") : (english ? "VRAM" : "显存")}` : (english ? "Capabilities syncing" : "能力信息正在同步");
-    return <><SectionIntro eyebrow={english ? "Compute connected" : "算力已连接"} title={runner.name} description={english ? "This computer can now receive data-check, training, and evaluation tasks." : "这台机器已经可以接收数据检查、训练和评测任务。"} />
-      <div className="computeCard ready"><div className="computeIcon">✓</div><div><span>{english ? "Available" : "当前可用"}</span><h2>{deviceName}</h2><p>{deviceDetail}</p></div><span className="statusBadge">{english ? "Online" : "在线"}</span></div>
-      <div className="privacyCallout"><strong>{english ? "Your data boundary is unchanged" : "数据边界保持不变"}</strong><p>{english ? "The web app receives only statistics, progress, and previews you approve. Raw files and training results stay on this computer." : "网页只接收统计、进度和你主动授权的少量预览；原始文件和训练结果都留在这台机器。"}</p></div></>;
-  }
-  return <><SectionIntro eyebrow={english ? "Step two" : "第二步"} title={english ? "Connect a computer you control." : "连接一台你控制的电脑。"} description={english ? "An Ubuntu computer with 4 CPU cores, 8 GB RAM, and 20 GB free can complete the starter run. A compatible GPU is used automatically when available." : "4 核 8G、至少 20GB 可用空间的 Ubuntu 普通电脑就能完成入门训练；有 GPU 时系统也会自动使用。"} />
-    {!pairing ? <div className="connectionStart"><div className="computeIllustration" aria-hidden="true"><span>{english ? "Computer" : "电脑"}</span><i /></div><h2>{english ? "Prepare an Ubuntu computer" : "准备一台 Ubuntu 电脑"}</h2><p>{english ? "Run one installation command. The system checks the machine and selects the appropriate training mode." : "只需运行一次安装命令。系统会检查机器并选择适合它的训练方式。"}</p><button className="primaryButton" disabled={busy} type="button" onClick={() => void perform(async () => setPairing(await api("runners/pairing", { method: "POST", body: "{}" })), english ? "Connection command created. Run it on the computer you will use for training." : "安装命令已生成，复制到要用于训练的电脑运行即可。")}>{busy ? (english ? "Generating…" : "正在生成…") : (english ? "Generate connection command" : "生成连接命令")}</button></div> :
+  const startPairing = () => void perform(async () => setPairing(await api("runners/pairing", { method: "POST", body: "{}" })), english ? "Connection command created. Run it on the computer you will use for training." : "安装命令已生成，复制到要用于训练的电脑运行即可。", false);
+  return <><SectionIntro eyebrow={runners.length ? (english ? "Connected computers" : "已连接电脑") : (english ? "Step two" : "第二步")} title={runners.length ? (english ? "Choose the computer for this run." : "选择本次要使用的电脑。") : (english ? "Connect a computer you control." : "连接一台你控制的电脑。")} description={english ? "You can keep multiple computers connected, switch between them, or disconnect one that is no longer used." : "你可以同时连接多台电脑，按本次任务选择使用，也可以断开不再使用的电脑。"} />
+    {runners.length ? <div className="runnerList">{runners.map((runner) => {
+      const gpu = runner.capabilities.gpus?.[0];
+      const device = runner.capabilities.backend === "docker_cpu" ? (english ? "CPU starter training" : "CPU 入门训练") : gpu?.name ?? (runner.capabilities.backend === "native_mps" ? "Apple Silicon GPU" : (english ? "Capabilities syncing" : "能力同步中"));
+      return <article className={selectedRunner?.id === runner.id ? "runnerChoice selected" : "runnerChoice"} key={runner.id}><button type="button" onClick={() => onSelect(runner.id)} aria-pressed={selectedRunner?.id === runner.id}><span className={runner.status === "offline" ? "idleDot" : "liveDot"} /><span><strong>{runner.name}</strong><small>{device} · {runnerStatus(runner, locale)}</small></span><em>{selectedRunner?.id === runner.id ? (english ? "Selected" : "已选择") : (english ? "Use this computer" : "使用这台电脑")}</em></button><button className="runnerDisconnect" disabled={busy || runner.status === "busy"} type="button" onClick={() => onDisconnect(runner)}>{runner.status === "busy" ? (english ? "Task running" : "任务执行中") : (english ? "Disconnect" : "断开")}</button></article>;
+    })}</div> : null}
+    {!pairing ? <div className="connectionStart"><div className="computeIllustration" aria-hidden="true"><span>{english ? "Computer" : "电脑"}</span><i /></div><h2>{runners.length ? (english ? "Connect another computer" : "连接另一台电脑") : (english ? "Prepare an Ubuntu computer" : "准备一台 Ubuntu 电脑")}</h2><p>{english ? "Run one installation command. The system checks the machine and selects the appropriate training mode." : "只需运行一次安装命令。系统会检查机器并选择适合它的训练方式。"}</p><button className="primaryButton" disabled={busy} type="button" onClick={startPairing}>{busy ? (english ? "Generating…" : "正在生成…") : runners.length ? (english ? "Generate another connection command" : "生成新电脑连接命令") : (english ? "Generate connection command" : "生成连接命令")}</button></div> :
       <div className="pairingCard"><div className="pairingHeader"><div><span>{english ? "Run once on the training computer" : "在训练电脑运行一次"}</span><strong>{english ? "Copy the command below" : "复制下面的命令"}</strong></div><small>{english ? "Start before" : "请在"} {new Date(pairing.expires_at).toLocaleTimeString(localeTag(locale), { hour: "2-digit", minute: "2-digit" })}{english ? "" : " 前开始运行"}</small></div>
         <div className="connectionCommand"><p>{english ? "The command installs the environment, registers this machine, and keeps it connected. It may take a few minutes." : "命令会自动安装环境、注册这台机器并保持连接，过程可能需要几分钟。"}</p><pre>{pairing.command}</pre><button className="primaryButton" type="button" onClick={async () => { await navigator.clipboard.writeText(pairing.command); setCopied(true); }}>{copied ? (english ? "Command copied" : "命令已复制") : (english ? "Copy install command" : "复制安装命令")}</button></div>
         <p className="waitingLine"><span className="pulseDot" />{english ? "Waiting for compute to connect. This page updates automatically." : "正在等待算力连接，连接成功后本页会自动更新。"}</p></div>}
+    {runners.length ? <div className="privacyCallout"><strong>{english ? "Raw data and models stay on the selected computer" : "原始数据和模型留在所选电脑"}</strong><p>{english ? "Switching computers changes where the next data check and training task runs; it does not copy files between computers." : "切换电脑只会改变下一次数据检查和训练在哪台电脑执行，不会在电脑之间复制文件。"}</p></div> : null}
   </>;
 }
 
-function DataStep({ project, runner, dataset, busy, perform, moveTo }: { project: Project | null; runner: Runner | null; dataset: Dataset | null; busy: boolean; perform: Perform; moveTo: (step: Step) => void }) {
+function DataStep({ project, runner, datasets, dataset, busy, perform, moveTo, onSelect }: { project: Project | null; runner: Runner | null; datasets: Dataset[]; dataset: Dataset | null; busy: boolean; perform: Perform; moveTo: (step: Step) => void; onSelect: (datasetId: string) => void }) {
   const { locale } = useLanguage(); const english = locale === "en";
   const [sourceType, setSourceType] = useState<Dataset["source_type"]>("local");
+  const [editing, setEditing] = useState(false);
   if (!project || !runner || runner.status === "offline") return <Prerequisite title={english ? "Complete the first two steps" : "先完成前两步"} text={english ? "Create a project and connect online compute before checking data in your environment." : "建立项目并连接在线算力后，才能在用户环境中检查数据。"} action={english ? "Connect compute" : "去连接算力"} onClick={() => moveTo("compute")} />;
   const isCPU = runner.capabilities.backend === "docker_cpu";
   if (dataset?.status === "checking") return <><SectionIntro eyebrow={english ? "Preparing data" : "正在准备练习"} title={isCPU ? (english ? "Splitting the practice text into three sets." : "正在把练习文本分成三份。") : (english ? "Checks are running in your environment." : "检查在你的环境中进行。")} description={isCPU ? (english ? "One set for learning, one for selecting results, and one for the final test. You do not need to manage the files." : "一份用来学习，一份用来挑选效果，一份留到最后考试。你不需要处理文件。") : (english ? "Raw files are not uploaded. Quality issues, splits, and length risks appear here when complete." : "原始文件不会上传。完成后这里会显示质量问题、切分和长度风险。")} /><ProgressPanel label={isCPU ? (english ? "Downloading and checking practice text" : "正在下载并检查练习文本") : (english ? "Reading, deduplicating, and creating a data version" : "正在读取、去重并建立数据版本")} progress={35} /></>;
-  if (dataset?.status === "ready" && dataset.statistics) return <><SectionIntro eyebrow={english ? "Data ready" : "数据已就绪"} title={dataset.name} description={english ? "An immutable data version is ready, with separate training and test splits." : "已形成不可变数据版本，训练和测试使用各自独立的切分。"} /><DatasetReport dataset={dataset} /><div className="formActions"><button className="primaryButton" type="button" onClick={() => moveTo("train")}>{english ? "Train with this data" : "用这份数据开始训练"}</button></div></>;
+  if (dataset?.status === "ready" && dataset.statistics && !editing) return <><SectionIntro eyebrow={english ? "Data ready" : "数据已就绪"} title={dataset.name} description={english ? "Choose any checked version for training, or edit its settings to create a new immutable version." : "你可以选择任一已检查版本用于训练，也可以修改设置并建立一个新的不可变版本。"} />
+    {datasets.length > 1 ? <div className="datasetVersions" aria-label={english ? "Data versions" : "数据版本列表"}>{datasets.filter((item) => item.status === "ready").map((item) => <button className={item.id === dataset.id ? "selected" : ""} type="button" key={item.id} onClick={() => onSelect(item.id)}><span><strong>{item.name}</strong><small>{item.statistics?.valid_rows ?? 0} {english ? "usable samples" : "条可用样本"}</small></span><em>{item.id === dataset.id ? (english ? "In use" : "当前使用") : (english ? "Choose" : "选择")}</em></button>)}</div> : null}
+    <DatasetReport dataset={dataset} /><div className="formActions">{dataset.source_type !== "starter" && !isCPU ? <button className="secondaryButton" type="button" onClick={() => { setSourceType(dataset.source_type); setEditing(true); }}>{english ? "Edit and create new version" : "编辑并建立新版本"}</button> : null}<button className="primaryButton" type="button" onClick={() => moveTo("train")}>{english ? "Train with this data" : "用这份数据开始训练"}</button></div></>;
   if (isCPU) return <><SectionIntro eyebrow={english ? "Step three" : "第三步"} title={english ? "Complete your first run with an example." : "先用示例完成第一次训练。"} description={english ? "LLMWEB prepares Shakespeare text so a small model can learn next-character prediction. After this run, you will understand every training stage." : "LLMWEB 会准备一份莎士比亚文本，让小模型学习如何逐字续写。完成这一遍后，你会看懂训练的每个阶段。"} />
     {dataset?.status === "failed" ? <div className="inlineError">{english ? "Practice data was not prepared. Try again; the system will use the same fixed dataset." : "练习数据没有准备完成，请重新开始；系统会继续使用同一份固定数据。"}</div> : null}
     <section className="starterCard"><div className="starterBadge">{english ? "No upload required" : "无需上传文件"}</div><h2>{english ? "Shakespeare text completion practice" : "莎士比亚文本续写练习"}</h2><p>{english ? "About 1.1 million characters, automatically split into training, validation, and test sets. Preparation usually takes under a minute." : "约 110 万个字符，系统自动分成学习、验证和考试三份。预计准备时间不到 1 分钟。"}</p><ul><li>{english ? "Raw text goes directly to your training computer" : "原始文本直接进入你的训练电脑"}</li><li>{english ? "Final test text is never used for training" : "最后考试内容不会参与训练"}</li><li>{english ? "Before-and-after results use the same test text" : "训练前后使用同一份考试内容比较"}</li></ul><button className="primaryButton" disabled={busy} type="button" onClick={() => void perform(() => api("datasets", { method: "POST", body: JSON.stringify({ project_id: project.id, runner_id: runner.id, name: english ? "Shakespeare practice dataset" : "莎士比亚文本练习集", source_type: "starter", source_ref: "tiny-shakespeare", format: "txt", train_percent: 80, validation_percent: 10, test_percent: 10, preview_allowed: true }) }), english ? "Practice data preparation started. Results appear automatically." : "练习数据开始准备，完成后会自动显示结果。")}>{busy ? (english ? "Starting…" : "正在开始…") : (english ? "Prepare practice data" : "准备练习数据")}</button></section></>;
-  return <><SectionIntro eyebrow={english ? "Step three" : "第三步"} title={english ? "Choose local data, check it, then train." : "选择本地数据，先检查再训练。"} description={english ? "Enter a path relative to the compute data directory. The platform does not store your full local path." : "填写算力数据目录内的相对路径；平台不会保存你的完整本地路径。"} />
+  return <><SectionIntro eyebrow={editing ? (english ? "New data version" : "建立新数据版本") : (english ? "Step three" : "第三步")} title={english ? "Choose your data, check it, then train." : "选择自己的数据，先检查再训练。"} description={english ? "Files are read directly on the selected computer. They are never uploaded to LLMWEB." : "文件由所选训练电脑直接读取，不会上传到 LLMWEB。"} />
     {dataset?.status === "failed" ? <div className="inlineError">{english ? "The previous data check failed. Verify the path, format, and fields, then submit again." : "上一次数据检查失败，请确认文件路径、格式和字段后重新提交。"}</div> : null}
     <form className="formCard" onSubmit={(event) => {
       event.preventDefault(); const form = new FormData(event.currentTarget);
       void perform(() => api("datasets", { method: "POST", body: JSON.stringify({ project_id: project.id, runner_id: runner.id, name: form.get("name"), source_type: sourceType, source_ref: form.get("path"), format: form.get("format") ?? "json", instruction_field: form.get("instruction"), input_field: form.get("input"), output_field: form.get("output"), train_percent: 80, validation_percent: 10, test_percent: 10, preview_allowed: form.get("preview") === "on" }) }), english ? "Data check started. Raw files remain in your environment." : "数据检查已开始，原始文件仍留在你的环境。 ");
     }}>
-      <div className="formGrid"><label><span>{english ? "Data name" : "数据名称"}</span><input name="name" required placeholder={english ? "For example: Support Q&A v1" : "例如：客服问答 v1"} /></label><label><span>{english ? "Data source" : "数据来源"}</span><select name="source_type" value={sourceType} onChange={(event) => setSourceType(event.target.value as Dataset["source_type"])}><option value="local">{english ? "File on compute host" : "算力主机上的文件"}</option><option value="huggingface">Hugging Face {english ? "dataset" : "数据集"}</option><option value="modelscope">ModelScope {english ? "dataset" : "数据集"}</option><option value="s3">{english ? "My S3 storage" : "自己的 S3 存储"}</option></select></label></div>
-      <div className="formGrid"><label><span>{sourceType === "local" ? (english ? "File path inside the data directory" : "数据目录内的文件路径") : sourceType === "s3" ? (english ? "S3 data URI" : "S3 数据地址") : (english ? "Dataset identifier" : "数据集标识")}</span><input name="path" required placeholder={sourceType === "local" ? (english ? "For example: support/train.jsonl" : "例如：support/train.jsonl") : sourceType === "s3" ? (english ? "For example: s3://my-bucket/train.jsonl" : "例如：s3://my-bucket/train.jsonl") : (english ? "For example: organization/dataset" : "例如：组织名/数据集名")} /><small>{sourceType === "local" ? (english ? "Do not include the data root configured when compute was connected." : "不需要填写连接算力时设置的数据根目录。") : (english ? "Your compute host downloads data directly; it does not pass through the platform." : "数据由你的算力主机直接下载，不经过平台。")}</small></label><label><span>{english ? "Source format" : "源数据格式"}</span><select name="format" defaultValue="jsonl"><option value="jsonl">JSONL</option><option value="json">JSON</option><option value="csv">CSV</option></select></label></div>
-      <details className="advanced"><summary>{english ? "Field mapping" : "字段对应关系"}</summary><div className="formGrid three"><label><span>{english ? "Instruction field" : "指令字段"}</span><input name="instruction" defaultValue="instruction" required /></label><label><span>{english ? "Additional input field" : "补充输入字段"}</span><input name="input" defaultValue="input" required /></label><label><span>{english ? "Expected answer field" : "正确答案字段"}</span><input name="output" defaultValue="output" required /></label></div></details>
+      <div className="formGrid"><label><span>{english ? "Data name" : "数据名称"}</span><input name="name" required defaultValue={editing ? `${dataset?.name ?? ""} v2` : ""} placeholder={english ? "For example: Support Q&A v1" : "例如：客服问答 v1"} /></label><fieldset className="sourceChoices"><legend>{english ? "Data source" : "数据来源"}</legend>{(["local", "huggingface", "modelscope", "s3"] as Dataset["source_type"][]).map((value) => <label className={sourceType === value ? "selected" : ""} key={value}><input type="radio" name="source_type" value={value} checked={sourceType === value} onChange={() => setSourceType(value)} /><span>{value === "local" ? (english ? "Training computer" : "训练电脑") : value === "s3" ? (english ? "My S3" : "我的 S3") : value === "huggingface" ? "Hugging Face" : "ModelScope"}</span></label>)}</fieldset></div>
+      <div className="formGrid"><label><span>{sourceType === "local" ? (english ? "File or archive in the data directory" : "数据目录内的文件或压缩包") : sourceType === "s3" ? (english ? "S3 data URI" : "S3 数据地址") : (english ? "Dataset identifier" : "数据集标识")}</span><input name="path" required defaultValue={editing ? dataset?.source_ref : ""} placeholder={sourceType === "local" ? (english ? "For example: support/train.zip" : "例如：support/train.zip") : sourceType === "s3" ? (english ? "For example: s3://my-bucket/train.jsonl" : "例如：s3://my-bucket/train.jsonl") : (english ? "For example: organization/dataset" : "例如：组织名/数据集名")} /><small>{sourceType === "local" ? (english ? "Put the file under this computer’s configured data directory, then enter its relative path." : "先把文件放进这台电脑配置的数据目录，再填写相对路径。") : (english ? "Your compute host downloads data directly; it does not pass through the platform." : "数据由你的算力主机直接下载，不经过平台。")}</small></label><label><span>{english ? "Source format" : "源数据格式"}</span><select name="format" defaultValue={editing ? dataset?.format : "archive"}><option value="archive">ZIP / TAR.GZ</option><option value="jsonl">JSONL</option><option value="json">JSON</option><option value="csv">CSV</option></select></label></div>
+      <details className="datasetGuide" open><summary>{english ? "How to prepare a trainable dataset" : "怎样准备可直接训练的数据集"}</summary><div><p>{english ? "Use UTF-8. An archive must contain exactly one JSONL, JSON, or CSV file and expand to no more than 256 MB." : "文件使用 UTF-8 编码。压缩包内只能有一个 JSONL、JSON 或 CSV 文件，解压后不超过 256 MB。"}</p><pre>{'{"instruction":"用户的问题","input":"可选的补充信息","output":"期望模型给出的回答"}'}</pre><ul><li>{english ? "instruction and output are required; input may be empty." : "instruction 和 output 必填，input 可以为空字符串。"}</li><li>{english ? "Use one object per line for JSONL; JSON uses an array; CSV uses a header row." : "JSONL 每行一条对象；JSON 使用对象数组；CSV 第一行是字段名。"}</li><li>{english ? "Prepare at least 30 high-quality, non-duplicate samples; 3 is only the technical minimum." : "建议至少准备 30 条高质量、不重复样本；3 条只是技术最低值。"}</li></ul></div></details>
+      <details className="advanced"><summary>{english ? "Field mapping" : "字段对应关系"}</summary><div className="formGrid three"><label><span>{english ? "Instruction field" : "指令字段"}</span><input name="instruction" defaultValue={editing ? dataset?.mapping.instruction : "instruction"} required /></label><label><span>{english ? "Additional input field" : "补充输入字段"}</span><input name="input" defaultValue={editing ? dataset?.mapping.input : "input"} required /></label><label><span>{english ? "Expected answer field" : "正确答案字段"}</span><input name="output" defaultValue={editing ? dataset?.mapping.output : "output"} required /></label></div></details>
       <label className="checkRow"><input name="preview" type="checkbox" /><span><strong>{english ? "Allow 3 sample previews in the web app" : "允许网页显示 3 条样本预览"}</strong><small>{english ? "When off, the platform receives statistics only, never sample text." : "关闭时平台只接收统计结果，不接收任何样本文本。"}</small></span></label>
       <div className="splitPreview"><span>{english ? "Automatic split" : "自动切分"}</span><strong>{english ? "Train 80%" : "训练 80%"}</strong><strong>{english ? "Validation 10%" : "验证 10%"}</strong><strong>{english ? "Test 10%" : "测试 10%"}</strong></div>
-      <div className="formActions"><button className="primaryButton" disabled={busy} type="submit">{busy ? (english ? "Submitting…" : "正在提交…") : (english ? "Check and create data version" : "检查并建立数据版本")}</button></div>
+      <div className="formActions">{editing ? <button className="secondaryButton" type="button" onClick={() => setEditing(false)}>{english ? "Cancel" : "取消"}</button> : null}<button className="primaryButton" disabled={busy} type="submit">{busy ? (english ? "Submitting…" : "正在提交…") : (english ? "Check and create data version" : "检查并建立数据版本")}</button></div>
     </form></>;
 }
 
@@ -608,7 +640,8 @@ function TrainStep({ project, runner, dataset, busy, perform, moveTo }: { projec
 function MonitorStep({ experiment, jobs, runner, busy, perform, moveTo }: { experiment: Experiment | null; jobs: Job[]; runner: Runner | null; busy: boolean; perform: Perform; moveTo: (step: Step) => void }) {
   const { locale } = useLanguage(); const english = locale === "en";
   if (!experiment) return <Prerequisite title={english ? "No training run yet" : "还没有训练实验"} text={english ? "After you choose a model and intensity, real progress and results appear here." : "选择模型与训练强度后，这里会持续显示真实进度与效果。"} action={english ? "Configure training" : "设置训练"} onClick={() => moveTo("train")} />;
-  const experimentJobs = jobs.filter((job) => job.experiment_id === experiment.id).reverse();
+  const chatJobs = jobs.filter((job) => job.experiment_id === experiment.id && job.kind === "chat");
+  const experimentJobs = jobs.filter((job) => job.experiment_id === experiment.id && job.kind !== "chat").reverse();
   const activeJob = experimentJobs.find((job) => ["leased", "running", "paused"].includes(job.status));
   const logs = experimentJobs.flatMap((job) => job.events.filter((event) => event.message && ["log", "failed", "progress"].includes(event.type)).map((event) => ({ ...event, job: job.kind }))).slice(-30).reverse();
   const percent = Math.round(experimentJobs.reduce((sum, job) => sum + (job.status === "completed" ? 100 : job.progress), 0) / Math.max(experimentJobs.length, 1));
@@ -623,8 +656,25 @@ function MonitorStep({ experiment, jobs, runner, busy, perform, moveTo }: { expe
     {activeJob?.kind === "train" ? <div className="controlRow"><button className="secondaryButton" disabled={busy} type="button" onClick={() => void perform(() => api(`jobs/${activeJob.id}/control`, { method: "POST", body: JSON.stringify({ action: activeJob.status === "paused" ? "resume" : "pause" }) }), activeJob.status === "paused" ? (english ? "Training will resume from the pause point." : "训练将从暂停处继续。") : (english ? "Training will preserve progress and pause." : "训练会保留当前进度并暂停。"))}>{activeJob.status === "paused" ? (english ? "Resume training" : "继续训练") : (english ? "Pause training" : "暂停训练")}</button><button className="dangerButton" disabled={busy} type="button" onClick={() => { if (window.confirm(english ? "Cancel this training run? Existing local artifacts will not be deleted automatically." : "确定取消这次训练吗？已经生成的本地产物不会被自动删除。")) void perform(() => api(`jobs/${activeJob.id}/control`, { method: "POST", body: JSON.stringify({ action: "cancel" }) }), english ? "Cancellation sent." : "取消指令已发送。 "); }}>{english ? "Cancel training" : "取消训练"}</button></div> : null}
     {(experiment.baseline_metrics || experiment.tuned_metrics) ? <><Comparison baseline={experiment.baseline_metrics} tuned={experiment.tuned_metrics} /><Performance metrics={experiment.tuned_metrics ?? experiment.baseline_metrics} /></> : null}
     {experiment.evaluation_samples?.baseline?.length && experiment.evaluation_samples?.tuned?.length ? <BlindReview baseline={experiment.evaluation_samples.baseline} tuned={experiment.evaluation_samples.tuned} /> : null}
+    {experiment.status === "completed" ? <ModelChat experiment={experiment} jobs={chatJobs} runner={runner} busy={busy} perform={perform} /> : null}
     <details className="logPanel"><summary>{english ? "View run log" : "查看运行记录"}</summary><div>{logs.length ? logs.map((event) => <p key={event.id}><span>{jobLabel(event.job as Job["kind"], locale)}</span>{event.message}</p>) : <p>{english ? "Waiting for the first log entry…" : "正在等待第一条运行记录…"}</p>}</div></details>
     {experiment.status === "completed" ? <div className="formActions"><button className="primaryButton" type="button" onClick={() => moveTo("model")}>{english ? "Confirm results and get model" : "确认效果，取得模型"}</button></div> : null}</>;
+}
+
+function ModelChat({ experiment, jobs, runner, busy, perform }: { experiment: Experiment; jobs: Job[]; runner: Runner | null; busy: boolean; perform: Perform }) {
+  const { locale } = useLanguage(); const english = locale === "en";
+  const pending = jobs.some((job) => ["queued", "leased", "running"].includes(job.status));
+  const messages = [...jobs].reverse().map((job) => ({
+    id: job.id,
+    prompt: job.prompt ?? "",
+    response: String(job.events.findLast((event) => event.type === "completed")?.payload.response ?? ""),
+    error: job.status === "failed" ? job.error : null,
+  }));
+  return <section className="modelChat"><div className="cardHeading"><div><span>{english ? "Try the trained model" : "直接试用训练后的模型"}</span><h2>{experiment.training.method === "starter" ? (english ? "Give it a beginning and see how it continues" : "给出一段开头，看看模型怎样续写") : (english ? "Chat with this model" : "和这份模型对话")}</h2></div><strong className={runner?.status === "online" ? "evidenceBadge" : "evidenceBadge warning"}>{runner?.status === "online" ? (english ? "Computer online" : "电脑在线") : (english ? "Computer offline" : "电脑离线")}</strong></div>
+    <div className="chatTranscript" aria-live="polite">{messages.length ? messages.map((message) => <div className="chatTurn" key={message.id}><p className="userBubble"><span>{english ? "You" : "你"}</span>{message.prompt}</p><p className="modelBubble"><span>{english ? "Model" : "模型"}</span>{message.error ?? message.response ?? (english ? "Generating on your computer…" : "正在你的电脑上生成…")}</p></div>) : <p className="chatEmpty">{english ? "Ask the same kind of question this model was trained to answer. The request runs on your training computer." : "输入一条与训练目标相符的问题。消息会发给你的训练电脑，由训练后的模型真实生成回答。"}</p>}</div>
+    <form className="chatComposer" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); const prompt = String(form.get("prompt") ?? "").trim(); if (!prompt) return; void perform(() => api(`experiments/${experiment.id}/chat`, { method: "POST", body: JSON.stringify({ prompt }) }), english ? "Message sent to your training computer." : "消息已发送到训练电脑。", false).then((sent) => { if (sent) event.currentTarget.reset(); }); }}><label><span className="srOnly">{english ? "Message" : "测试内容"}</span><textarea name="prompt" required maxLength={4000} rows={3} placeholder={experiment.training.method === "starter" ? (english ? "For example: ROMEO:" : "例如：ROMEO:") : (english ? "Type a question for the model…" : "输入想让模型回答的问题…")} /></label><button className="primaryButton" disabled={busy || pending || runner?.status !== "online"} type="submit">{pending ? (english ? "Generating…" : "正在生成…") : (english ? "Send" : "发送")}</button></form>
+    {runner?.status !== "online" ? <small className="chatHint">{english ? "Bring the computer used for this training online to test the local model." : "请先让执行本次训练的电脑上线，才能测试保存在本地的模型。"}</small> : null}
+  </section>;
 }
 
 function Comparison({ baseline, tuned }: { baseline: Metrics | null; tuned: Metrics | null }) {
@@ -694,8 +744,8 @@ function Prerequisite({ title, text, action, onClick }: { title: string; text: s
 function runnerStatus(runner: Runner | null, locale: Locale) { const en = locale === "en"; if (!runner) return en ? "Waiting to connect" : "等待连接"; if (runner.status === "busy") return en ? "Running a task" : "正在执行任务"; if (runner.status === "online") return en ? "Online" : "在线可用"; return en ? "Offline" : "当前离线"; }
 function jobStatus(status: Job["status"], locale: Locale) { return locale === "en" ? ({ blocked: "Waiting for version selection", queued: "Waiting for compute", leased: "Starting", running: "In progress", paused: "Paused", completed: "Completed", failed: "Failed", cancelled: "Cancelled" } as const)[status] : ({ blocked: "等待选择版本", queued: "等待算力开始", leased: "正在开始", running: "进行中", paused: "已暂停", completed: "已完成", failed: "未完成", cancelled: "已取消" } as const)[status]; }
 function artifactLabel(format: string, locale: Locale) { return (locale === "en" ? ({ adapter: "LoRA adapter", huggingface: "Full Hugging Face model", gguf: "GGUF model", model: "Reusable trained model" } as Record<string, string>) : ({ adapter: "LoRA Adapter", huggingface: "Hugging Face 完整模型", gguf: "GGUF 模型", model: "可继续使用的训练模型" } as Record<string, string>))[format] ?? format; }
-function jobLabel(kind: Job["kind"], locale: Locale) { return locale === "en" ? ({ inspect: "Check data", baseline: "Pre-training evaluation", train: "Fine-tune model", evaluate: "Post-training evaluation", export: "Generate model" } as const)[kind] : jobLabels[kind]; }
+function jobLabel(kind: Job["kind"], locale: Locale) { return locale === "en" ? ({ inspect: "Check data", baseline: "Pre-training evaluation", train: "Fine-tune model", evaluate: "Post-training evaluation", export: "Generate model", chat: "Model chat" } as const)[kind] : jobLabels[kind]; }
 function stageLabel(stage: string, locale: Locale) { return (locale === "en" ? ({ baseline: "Establish pre-training baseline", train: "Fine-tune model", evaluate: "Retest fine-tuned model", export: "Generate model artifacts", select: "Select model version", completed: "All complete" } as Record<string, string>) : stageLabels)[stage] ?? (locale === "en" ? "Preparing" : "正在准备"); }
-function starterJobLabel(kind: Job["kind"], locale: Locale) { return locale === "en" ? ({ inspect: "Prepare practice text", baseline: "Record pre-training score", train: "Learn from text", evaluate: "Run post-training test", export: "Save trained model" } as const)[kind] : ({ inspect: "准备练习文本", baseline: "记录训练前成绩", train: "让模型学习文本", evaluate: "进行训练后考试", export: "保存训练模型" } as const)[kind]; }
+function starterJobLabel(kind: Job["kind"], locale: Locale) { return locale === "en" ? ({ inspect: "Prepare practice text", baseline: "Record pre-training score", train: "Learn from text", evaluate: "Run post-training test", export: "Save trained model", chat: "Try trained model" } as const)[kind] : ({ inspect: "准备练习文本", baseline: "记录训练前成绩", train: "让模型学习文本", evaluate: "进行训练后考试", export: "保存训练模型", chat: "试用训练模型" } as const)[kind]; }
 function starterStageLabel(stage: string, locale: Locale) { return (locale === "en" ? ({ baseline: "Record the pre-training score", train: "The model is learning from text", evaluate: "Running the post-training test", export: "Saving the trained model", select: "Select the best result", completed: "First training run complete" } as Record<string, string>) : ({ baseline: "先记录训练前成绩", train: "模型正在学习文本", evaluate: "正在进行训练后考试", export: "正在保存训练模型", select: "选择效果最好的结果", completed: "第一次训练全部完成" } as Record<string, string>))[stage] ?? (locale === "en" ? "Preparing" : "正在准备"); }
 function trainingEstimate(model: string, profile: string, rows: number, locale: Locale) { const billions = model.includes("0.5B") ? 0.5 : model.includes("1.5B") ? 1.5 : 3; const epochs = profile === "fast" ? 1 : profile === "thorough" ? 5 : 3; const minutes = Math.max(4, Math.ceil(rows * epochs * billions / 90)); const en = locale === "en"; return { memory: `${Math.ceil(4 + billions * 1.7)}–${Math.ceil(6 + billions * 2.2)} GB`, time: minutes < 60 ? `${minutes}–${Math.ceil(minutes * 1.8)} ${en ? "minutes" : "分钟"}` : `${(minutes / 60).toFixed(1)}–${(minutes * 1.8 / 60).toFixed(1)} ${en ? "hours" : "小时"}`, disk: `${Math.ceil(billions * 2.2 + 1)}–${Math.ceil(billions * 4.5 + 2)} GB` }; }

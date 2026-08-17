@@ -53,7 +53,7 @@ func (executor *Executor) Run(ctx context.Context, lease controlplane.Lease, emi
 			emit("progress", "数据版本已准备完成", map[string]any{"percent": 100})
 		}
 		return result, err
-	case "baseline", "train", "evaluate", "export":
+	case "baseline", "train", "evaluate", "export", "chat":
 		return executor.runRuntime(ctx, lease, emit)
 	default:
 		return nil, fmt.Errorf("不支持的任务类型 %q", lease.Kind)
