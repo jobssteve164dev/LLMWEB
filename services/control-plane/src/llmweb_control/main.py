@@ -1015,6 +1015,8 @@ def create_chat(experiment_id: str, body: ChatCreate, db: Db, identity: WebAuth)
         raise HTTPException(status_code=409, detail="请先让训练这份模型的电脑上线")
     if runner.current_job_id or runner_state["status"] == "busy":
         raise HTTPException(status_code=409, detail="训练电脑正在执行其他任务，请稍候再试")
+    if "chat" not in (runner.capabilities.get("supported_tasks") or []):
+        raise HTTPException(status_code=409, detail="请先升级这台训练电脑的运行环境，再测试模型对话")
     active_chat = db.scalar(select(Job).where(
         Job.experiment_id == experiment.id,
         Job.kind == "chat",

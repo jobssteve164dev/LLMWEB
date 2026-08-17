@@ -85,7 +85,7 @@ def test_complete_local_training_workflow() -> None:
             json={
                 "code": pairing["code"],
                 "name": "测试算力",
-                "capabilities": {"ready": True, "gpus": [{"name": "Test GPU", "memory_total_mb": 24576}]},
+                "capabilities": {"ready": True, "supported_tasks": ["inspect", "baseline", "train", "evaluate", "export", "chat"], "gpus": [{"name": "Test GPU", "memory_total_mb": 24576}]},
             },
         )
         assert pair_response.status_code == 201

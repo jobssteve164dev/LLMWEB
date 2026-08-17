@@ -22,18 +22,19 @@ type GPU struct {
 }
 
 type Report struct {
-	OperatingSystem    string `json:"operating_system"`
-	Architecture       string `json:"architecture"`
-	Backend            string `json:"backend"`
-	CPUCores           int    `json:"cpu_cores"`
-	MemoryTotalMB      int    `json:"memory_total_mb"`
-	DiskTotalMB        int    `json:"disk_total_mb"`
-	DiskFreeMB         int    `json:"disk_free_mb"`
-	EnvironmentVersion string `json:"training_environment_version,omitempty"`
-	DockerAvailable    bool   `json:"docker_available"`
-	NvidiaAvailable    bool   `json:"nvidia_available"`
-	MPSAvailable       bool   `json:"mps_available"`
-	GPUs               []GPU  `json:"gpus"`
+	OperatingSystem    string   `json:"operating_system"`
+	Architecture       string   `json:"architecture"`
+	Backend            string   `json:"backend"`
+	CPUCores           int      `json:"cpu_cores"`
+	MemoryTotalMB      int      `json:"memory_total_mb"`
+	DiskTotalMB        int      `json:"disk_total_mb"`
+	DiskFreeMB         int      `json:"disk_free_mb"`
+	EnvironmentVersion string   `json:"training_environment_version,omitempty"`
+	DockerAvailable    bool     `json:"docker_available"`
+	NvidiaAvailable    bool     `json:"nvidia_available"`
+	MPSAvailable       bool     `json:"mps_available"`
+	GPUs               []GPU    `json:"gpus"`
+	SupportedTasks     []string `json:"supported_tasks"`
 }
 
 type commandLookup func(string) (string, error)
@@ -159,6 +160,7 @@ func probeFor(operatingSystem, architecture string, lookup commandLookup) Report
 		Backend:         backend,
 		DockerAvailable: dockerErr == nil,
 		NvidiaAvailable: nvidiaErr == nil,
+		SupportedTasks:  []string{"inspect", "baseline", "train", "evaluate", "export", "chat"},
 	}
 }
 
