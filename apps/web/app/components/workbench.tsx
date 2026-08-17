@@ -250,13 +250,13 @@ export function Workbench() {
     setLocked(true);
   };
 
-  const perform = async (action: () => Promise<unknown>, success: string): Promise<boolean> => {
+  const perform = async (action: () => Promise<unknown>, success: string, autoAdvance = true): Promise<boolean> => {
     setBusy(true);
     setNotice(null);
     try {
       await action();
       await refresh(true);
-      setManualStep(false);
+      if (autoAdvance) setManualStep(false);
       setNotice({ kind: "success", text: success });
       window.setTimeout(() => setNotice((current) => current?.text === success ? null : current), 4500);
       return true;
@@ -271,6 +271,7 @@ export function Workbench() {
   const renameProject = (projectId: string, name: string) => perform(
     () => api(`projects/${projectId}`, { method: "PATCH", body: JSON.stringify({ name }) }),
     english ? "Project name updated." : "项目名称已更新。",
+    false,
   );
 
   const deleteProject = async (target: Project) => {
@@ -318,6 +319,7 @@ export function Workbench() {
             <div className="headerUtilities">
               <LanguageSwitcher />
               <div className="mobileAccountActions">
+                {state.account.plan === "free" ? <Link href="/#pricing">{english ? "Plans" : "产品计划"}</Link> : null}
                 {state.account.plan === "paid" ? <button type="button" onClick={() => moveTo("settings")}>{english ? "Settings" : "设置"}</button> : null}
                 <button type="button" onClick={() => void signOut()}>{english ? "Sign out" : "退出"}</button>
               </div>
@@ -358,9 +360,10 @@ export function Workbench() {
             <div className="railAccount">
               <div className="railAccountIdentity">
                 <span aria-hidden="true">{(state.account.name || state.account.email).trim().charAt(0).toUpperCase()}</span>
-                <div><strong>{state.account.name || (english ? "My account" : "我的账户")}</strong><small>{state.account.email}</small></div>
+                <div><div className="railAccountName"><strong>{state.account.name || (english ? "My account" : "我的账户")}</strong><span className={`accountPlanTag ${state.account.plan}`}>{state.account.plan === "paid" ? "Pro" : "Free"}</span></div><small>{state.account.email}</small></div>
               </div>
               <div className="railAccountActions">
+                {state.account.plan === "free" ? <Link href="/#pricing">{english ? "View plans" : "查看产品计划"}</Link> : null}
                 {state.account.plan === "paid" ? <button className={activeStep === "settings" ? "active" : ""} type="button" onClick={() => moveTo("settings")} aria-current={activeStep === "settings" ? "page" : undefined}>{english ? "Settings" : "设置"}</button> : null}
                 <button type="button" onClick={() => void signOut()}>{english ? "Sign out" : "退出账户"}</button>
               </div>
@@ -368,15 +371,17 @@ export function Workbench() {
           </div>
         </aside>
 
-        <section className="workArea">
-          {notice ? <div className={`notice ${notice.kind}`} role="status">{notice.text}<button type="button" onClick={() => setNotice(null)} aria-label={english ? "Dismiss" : "关闭提示"}>×</button></div> : null}
-          {activeStep === "project" ? <ProjectStep project={project} quota={state.project_quota} forceCreate={creatingProject} busy={busy} perform={perform} moveTo={moveTo} onCreated={selectProject} onStartCreate={() => setCreatingProject(true)} onCancel={() => setCreatingProject(false)} /> : null}
-          {activeStep === "compute" ? <ComputeStep runner={runner} busy={busy} perform={perform} /> : null}
-          {activeStep === "data" ? <DataStep project={project} runner={runner} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} /> : null}
-          {activeStep === "train" ? <TrainStep project={project} runner={runner} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} /> : null}
-          {activeStep === "monitor" ? <MonitorStep experiment={experiment} jobs={state.jobs} runner={runner} busy={busy} perform={perform} moveTo={moveTo} /> : null}
-          {activeStep === "model" ? <ModelStep experiment={experiment} moveTo={moveTo} /> : null}
-          {activeStep === "settings" ? state.account.plan === "paid" ? <SettingsStep account={state.account} /> : <Prerequisite title={english ? "API connections are a Pro feature" : "API 连接仅对 Pro 用户开放"} text={english ? "Upgrade to connect the workbench to automation services and manage multiple projects." : "升级后即可连接自动化服务，并同时管理多个训练项目。"} action={english ? "Upgrade to Pro" : "升级 Pro"} onClick={() => { window.location.href = "/api/billing/checkout"; }} /> : null}
+        <section className="workAreaScroll">
+          <div className="workArea">
+            {notice ? <div className={`notice ${notice.kind}`} role="status">{notice.text}<button type="button" onClick={() => setNotice(null)} aria-label={english ? "Dismiss" : "关闭提示"}>×</button></div> : null}
+            {activeStep === "project" ? <ProjectStep project={project} quota={state.project_quota} forceCreate={creatingProject} busy={busy} perform={perform} moveTo={moveTo} onCreated={selectProject} onStartCreate={() => setCreatingProject(true)} onCancel={() => setCreatingProject(false)} /> : null}
+            {activeStep === "compute" ? <ComputeStep runner={runner} busy={busy} perform={perform} /> : null}
+            {activeStep === "data" ? <DataStep project={project} runner={runner} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} /> : null}
+            {activeStep === "train" ? <TrainStep project={project} runner={runner} dataset={dataset} busy={busy} perform={perform} moveTo={moveTo} /> : null}
+            {activeStep === "monitor" ? <MonitorStep experiment={experiment} jobs={state.jobs} runner={runner} busy={busy} perform={perform} moveTo={moveTo} /> : null}
+            {activeStep === "model" ? <ModelStep experiment={experiment} moveTo={moveTo} /> : null}
+            {activeStep === "settings" ? state.account.plan === "paid" ? <SettingsStep account={state.account} /> : <Prerequisite title={english ? "API connections are a Pro feature" : "API 连接仅对 Pro 用户开放"} text={english ? "Upgrade to connect the workbench to automation services and manage multiple projects." : "升级后即可连接自动化服务，并同时管理多个训练项目。"} action={english ? "Upgrade to Pro" : "升级 Pro"} onClick={() => { window.location.href = "/api/billing/checkout"; }} /> : null}
+          </div>
         </section>
       </div>
     </main>
@@ -461,7 +466,7 @@ function SettingsStep({ account }: { account: WorkspaceState["account"] }) {
   </>;
 }
 
-type Perform = (action: () => Promise<unknown>, success: string) => Promise<boolean>;
+type Perform = (action: () => Promise<unknown>, success: string, autoAdvance?: boolean) => Promise<boolean>;
 
 function SectionIntro({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
   return <header className="sectionIntro"><p>{eyebrow}</p><h1>{title}</h1><span>{description}</span></header>;
@@ -469,10 +474,24 @@ function SectionIntro({ eyebrow, title, description }: { eyebrow: string; title:
 
 function ProjectStep({ project, quota, forceCreate, busy, perform, moveTo, onCreated, onStartCreate, onCancel }: { project: Project | null; quota: WorkspaceState["project_quota"]; forceCreate: boolean; busy: boolean; perform: Perform; moveTo: (step: Step) => void; onCreated: (projectId: string) => void; onStartCreate: () => void; onCancel: () => void }) {
   const { locale } = useLanguage(); const english = locale === "en";
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   if (project && !forceCreate) {
-    return <><SectionIntro eyebrow={english ? "Project goal" : "项目目标"} title={project.name} description={english ? "These two decisions guide data preparation, training, and evaluation." : "这两个判断会贯穿数据准备、训练与效果比较。"} />
-      <div className="summaryGrid"><article><span>{english ? "What the model should do" : "模型要完成什么"}</span><p>{project.goal}</p></article><article><span>{english ? "What success looks like" : "怎样算成功"}</span><p>{project.success_criteria}</p></article></div>
-      <div className="formActions">{quota.remaining > 0 ? <button className="secondaryButton" type="button" onClick={onStartCreate}>{english ? "New project" : "新建项目"}</button> : null}<button className="primaryButton" type="button" onClick={() => moveTo("compute")}>{english ? "Continue to compute" : "继续连接算力"}</button></div></>;
+    const editing = editingProjectId === project.id;
+    return <><div className="sectionIntroWithAction"><SectionIntro eyebrow={english ? "Project goal" : "项目目标"} title={project.name} description={english ? "These two decisions guide data preparation, training, and evaluation." : "这两个判断会贯穿数据准备、训练与效果比较。"} /><button className="sectionEditButton" type="button" onClick={() => setEditingProjectId(project.id)} aria-expanded={editing}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>{english ? "Edit" : "编辑"}</button></div>
+      {editing ? <form className="formCard projectEditForm" onSubmit={(event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        void (async () => {
+          const saved = await perform(() => api(`projects/${project.id}`, { method: "PATCH", body: JSON.stringify({ name: form.get("name"), goal: form.get("goal"), success_criteria: form.get("success") }) }), english ? "Project goal updated." : "项目目标已更新。", false);
+          if (saved) setEditingProjectId(null);
+        })();
+      }}>
+        <label><span>{english ? "Project name" : "项目名称"}</span><input name="name" required maxLength={120} defaultValue={project.name} /></label>
+        <label><span>{english ? "What should the model do?" : "模型要完成什么"}</span><textarea name="goal" required maxLength={2000} rows={4} defaultValue={project.goal} /></label>
+        <label><span>{english ? "What does success look like?" : "怎样算成功"}</span><textarea name="success" required maxLength={2000} rows={3} defaultValue={project.success_criteria} /></label>
+        <div className="formActions"><button className="secondaryButton" type="button" onClick={() => setEditingProjectId(null)}>{english ? "Cancel" : "取消"}</button><button className="primaryButton" disabled={busy} type="submit">{busy ? (english ? "Saving…" : "正在保存…") : (english ? "Save changes" : "保存修改")}</button></div>
+      </form> : <div className="summaryGrid"><article><span>{english ? "What the model should do" : "模型要完成什么"}</span><p>{project.goal}</p></article><article><span>{english ? "What success looks like" : "怎样算成功"}</span><p>{project.success_criteria}</p></article></div>}
+      {editing ? null : <div className="formActions">{quota.remaining > 0 ? <button className="secondaryButton" type="button" onClick={onStartCreate}>{english ? "New project" : "新建项目"}</button> : null}<button className="primaryButton" type="button" onClick={() => moveTo("compute")}>{english ? "Continue to compute" : "继续连接算力"}</button></div>}</>;
   }
   if (quota.remaining <= 0) return <Prerequisite title={english ? "Project limit reached" : "项目名额已用完"} text={english ? `Your current plan allows ${quota.limit} active projects. Existing projects and results are unaffected.` : `当前方案最多同时保留 ${quota.limit} 个项目；已有项目和训练结果不会受影响。`} action={english ? "Upgrade plan" : "升级方案"} onClick={() => { window.location.href = "/api/billing/checkout"; }} />;
   return <><SectionIntro eyebrow={project ? (english ? "New project" : "新项目") : (english ? "Step one" : "第一步")} title={english ? "Define what the model should become." : "先说清模型要变成什么样。"} description={english ? quota.remaining === 1 ? "You can create one more project. Its data, training, and results stay separate." : `You can create ${quota.remaining} more projects. Each project keeps its data, training, and results separate.` : `还可以建立 ${quota.remaining} 个项目。每个项目的数据、训练和模型结果独立保存。`} />

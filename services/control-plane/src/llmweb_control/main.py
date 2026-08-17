@@ -471,9 +471,15 @@ def owned_project(db: Session, project_id: str, identity: WebIdentity) -> Projec
 @app.patch("/v1/projects/{project_id}", tags=["web"])
 def update_project(project_id: str, body: ProjectUpdate, db: Db, identity: WebAuth) -> dict[str, Any]:
     project = owned_project(db, project_id, identity)
-    project.name = body.name
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(project, field, value)
     db.commit()
-    return {"id": project.id, "name": project.name}
+    return {
+        "id": project.id,
+        "name": project.name,
+        "goal": project.goal,
+        "success_criteria": project.success_criteria,
+    }
 
 
 @app.delete("/v1/projects/{project_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["web"])

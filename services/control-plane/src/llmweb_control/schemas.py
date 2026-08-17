@@ -11,15 +11,25 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
-    name: str = Field(min_length=1, max_length=120)
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    goal: str | None = Field(default=None, min_length=1, max_length=2000)
+    success_criteria: str | None = Field(default=None, min_length=1, max_length=2000)
 
-    @field_validator("name")
+    @field_validator("name", "goal", "success_criteria")
     @classmethod
-    def normalize_name(cls, value: str) -> str:
+    def normalize_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         normalized = value.strip()
         if not normalized:
-            raise ValueError("项目名称不能为空")
+            raise ValueError("项目内容不能为空")
         return normalized
+
+    @model_validator(mode="after")
+    def require_change(self):
+        if not self.model_fields_set:
+            raise ValueError("请至少修改一项项目内容")
+        return self
 
 
 class PairRequest(BaseModel):

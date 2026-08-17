@@ -578,11 +578,30 @@ def test_project_can_be_renamed_and_deleted_without_cross_workspace_access() -> 
         }).json()["id"]
         renamed = client.patch(f"/v1/projects/{project_id}", headers=WEB_HEADERS, json={"name": "新名称"})
         assert renamed.status_code == 200
-        assert renamed.json() == {"id": project_id, "name": "新名称"}
+        assert renamed.json() == {
+            "id": project_id,
+            "name": "新名称",
+            "goal": "目标",
+            "success_criteria": "标准",
+        }
+        updated = client.patch(f"/v1/projects/{project_id}", headers=WEB_HEADERS, json={
+            "name": " 完整项目 ",
+            "goal": " 新目标 ",
+            "success_criteria": " 新标准 ",
+        })
+        assert updated.status_code == 200
+        assert updated.json() == {
+            "id": project_id,
+            "name": "完整项目",
+            "goal": "新目标",
+            "success_criteria": "新标准",
+        }
+        assert client.patch(f"/v1/projects/{project_id}", headers=WEB_HEADERS, json={}).status_code == 422
+        assert client.patch(f"/v1/projects/{project_id}", headers=WEB_HEADERS, json={"goal": "   "}).status_code == 422
         assert client.patch(
             f"/v1/projects/{project_id}",
             headers=web_headers("passport-user-2", "other@example.com"),
-            json={"name": "越权修改"},
+            json={"goal": "越权修改"},
         ).status_code == 404
         deleted = client.delete(f"/v1/projects/{project_id}", headers=WEB_HEADERS)
         assert deleted.status_code == 204

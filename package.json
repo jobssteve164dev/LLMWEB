@@ -9,7 +9,8 @@
     "typecheck:web": "pnpm --filter @llmweb/web typecheck",
     "check:passport-client": "node scripts/check-passport-client.mjs",
     "check:plan-single-track": "node scripts/check-plan-single-track.mjs",
+    "check:workbench-ui": "node scripts/check-workbench-ui-contract.mjs",
     "check:training-environment": "bash -n scripts/install-runner.sh scripts/install-runner-package.sh scripts/export-classic-docker-archive.sh scripts/build-training-environment-release.sh scripts/verify-training-environment-release.sh && node scripts/check-training-environment.mjs && node scripts/check-training-environment-release-verifier.mjs && node scripts/check-runner-package-installer.mjs",
-    "check": "pnpm check:plan-single-track && pnpm check:passport-client && pnpm check:training-environment && pnpm lint:web && pnpm typecheck:web && pnpm build:web"
+    "check": "pnpm check:plan-single-track && pnpm check:passport-client && pnpm check:workbench-ui && pnpm check:training-environment && pnpm lint:web && pnpm typecheck:web && pnpm build:web"
   }
 }
