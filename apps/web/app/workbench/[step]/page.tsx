@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Workbench } from "../../components/workbench";
 import { getRequestLocale } from "../../lib/i18n-server";
 
 const validSteps = new Set(["project", "compute", "data", "train", "evaluation", "models", "settings"]);
@@ -13,5 +12,5 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function WorkbenchStepPage({ params }: { params: Promise<{ step: string }> }) {
   const { step } = await params;
   if (!validSteps.has(step)) notFound();
-  return <Workbench />;
+  return null;
 }
