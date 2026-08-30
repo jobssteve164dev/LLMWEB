@@ -44,6 +44,40 @@ export type CheckAccessInput = {
   featureKey?: string
 }
 
+export type PassportAccessReason =
+  | 'product_access_allowed'
+  | 'feature_granted'
+  | 'product_access_not_allowed'
+  | 'feature_not_granted'
+
+export type PassportAccessGrant = Record<string, unknown> & {
+  sourceStrategy?: string
+}
+
+/** SDK-unwrapped data from POST /api/v1/entitlements/access-check. */
+export type PassportAccessDecision = {
+  allowed: boolean
+  reason: PassportAccessReason
+  email: string
+  userId: string
+  product: Product
+  featureKey: string | null
+  mappingStrategy: string
+  productAccess: PassportAccessGrant | null
+  featureGrant: PassportAccessGrant | null
+}
+
+export type PassportConsumptionAccessResult = {
+  allowed: boolean
+  reason: PassportAccessReason | 'unauthorized' | null
+  loginRequired: boolean
+  loginUrl: string | null
+  currentUser: PassportSessionUser | null
+  product: Product
+  featureKey: string | null
+  access: PassportAccessDecision | null
+}
+
 export type GetBillingInput = {
   email?: string
   userId?: string
@@ -174,7 +208,7 @@ export function buildPassportHostedAuthUrl(options?: BuildPassportHostedAuthUrlO
 export function createPassportConsumptionLayer(options: PassportConsumptionLayerOptions): {
   getCurrentPassportUser(): Promise<PassportSessionUser | null>
   requirePassportUser(input?: RequirePassportUserInput): Promise<PassportSessionUser>
-  checkPassportAccess(input?: CheckPassportAccessWithSessionInput): Promise<Record<string, unknown>>
+  checkPassportAccess(input?: CheckPassportAccessWithSessionInput): Promise<PassportConsumptionAccessResult>
   getPassportBillingSnapshot(input?: GetPassportBillingSnapshotWithSessionInput): Promise<Record<string, unknown>>
 }
 
@@ -187,7 +221,7 @@ export function createPassportClient(options: PassportClientOptions): {
   createHandoff(input: CreateHandoffInput): Promise<Record<string, unknown>>
   redeemHandoff(input: RedeemHandoffInput): Promise<Record<string, unknown>>
   getEntitlements(input: GetEntitlementsInput): Promise<Record<string, unknown>>
-  checkAccess(input: CheckAccessInput): Promise<Record<string, unknown>>
+  checkAccess(input: CheckAccessInput): Promise<PassportAccessDecision>
   getBilling(input: GetBillingInput): Promise<Record<string, unknown>>
   getBillingCatalog(input?: GetBillingCatalogInput): Promise<Record<string, unknown>>
   createCheckoutLink(input: CreateCheckoutLinkInput): Promise<Record<string, unknown>>

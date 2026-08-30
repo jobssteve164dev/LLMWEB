@@ -148,9 +148,8 @@ export async function planAccessForUser(user: SessionUser): Promise<{ limit: num
     email: user.email,
     product: passportProduct,
     featureKey: paidProjectFeature,
-  }) as { allowed?: boolean; entitlements?: unknown };
-  const exactEntitlement = Array.isArray(access.entitlements) && access.entitlements.includes(paidProjectFeature);
-  const paid = access.allowed === true && exactEntitlement;
+  });
+  const paid = access.allowed === true;
   const limit = paid ? plan.metadata.quotas.projects.paid : plan.metadata.quotas.projects.free;
   planAccessCache.set(user.id, { limit, paid, checkedAt: Date.now() });
   return { limit, paid };
