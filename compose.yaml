@@ -6,6 +6,7 @@ x-gitops:
       path: /api/health
       expected_json:
         service: llmweb-web
+        status: healthy
   services:
     control-plane:
       exposure: internal
