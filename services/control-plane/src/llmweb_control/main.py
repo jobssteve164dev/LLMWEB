@@ -771,7 +771,7 @@ def _create_experiment(
     }
     runtime_training = dict(plan["resolved"])
     if is_starter:
-        runtime_training["iterations"] = 200 if body.epochs <= 1 else 500 if body.epochs <= 3 else 1000
+        runtime_training["iterations"] = plan["derived"]["iterations"]
     training = {
         **runtime_training,
         "plan_version": plan["plan_version"],

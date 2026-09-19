@@ -45,7 +45,7 @@
         "method": { "enum": ["lora", "qlora", "starter"] },
         "epochs": { "type": "number", "exclusiveMinimum": 0 },
         "learning_rate": { "type": "number", "exclusiveMinimum": 0 },
-        "max_length": { "type": "integer", "minimum": 128 },
+        "max_length": { "type": "integer", "minimum": 64 },
         "batch_size": { "type": "integer", "minimum": 1 },
         "gradient_accumulation": { "type": "integer", "minimum": 1 },
         "iterations": { "type": "integer", "minimum": 1 }

@@ -70,3 +70,35 @@ test("editing a recommended parameter produces a custom state and updates estima
   assert.notEqual(customEstimate.memory, balancedEstimate.memory);
   assert.notEqual(customEstimate.disk, balancedEstimate.disk);
 });
+
+test("CPU training keeps the parameter entry visible without presenting proxy values as editable parameters", () => {
+  const html = renderToStaticMarkup(createElement(TrainingParameterEditor, {
+    locale: "zh-CN",
+    runnerId: "cpu-runner",
+    modelId: "karpathy/nanoGPT",
+    method: "starter",
+    values: {
+      epochs: 3,
+      learning_rate: 0.001,
+      max_length: 64,
+      batch_size: 12,
+      gradient_accumulation: 1,
+    },
+    editableKeys: [],
+    onParametersChange: () => undefined,
+    previewPlan: async () => { throw new Error("not called during server rendering"); },
+  }));
+
+  assert.match(html, /<details class="trainingParameterEditor" open="">/);
+  assert.match(html, /<span>训练参数<\/span>/);
+  assert.match(html, /当前电脑使用已匹配的训练参数/);
+  assert.match(html, />文本窗口</);
+  assert.match(html, /每次使用的字符数/);
+  assert.doesNotMatch(html, /token 数/);
+  assert.match(html, /type="hidden" name="epochs" value="3"/);
+  assert.doesNotMatch(html, />训练轮次</);
+  assert.match(html, /readOnly=""[^>]*name="learning_rate"[^>]*value="0.001"/);
+  assert.match(html, /readOnly=""[^>]*name="max_length"[^>]*value="64"/);
+  assert.match(html, /readOnly=""[^>]*name="batch_size"[^>]*value="12"/);
+  assert.match(html, /readOnly=""[^>]*name="gradient_accumulation"[^>]*value="1"/);
+});

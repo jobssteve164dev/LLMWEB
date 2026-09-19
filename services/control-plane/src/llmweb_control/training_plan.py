@@ -6,7 +6,7 @@ PLAN_VERSION = "1.0"
 PARAMETER_CAPABILITIES = {
     "epochs": {"minimum": 0.1, "maximum": 100, "suggested_step": 0.1},
     "learning_rate": {"minimum": 1e-7, "maximum": 1.0, "suggested_step": 1e-5},
-    "max_length": {"minimum": 128, "maximum": 32768, "suggested_step": 128},
+    "max_length": {"minimum": 64, "maximum": 32768, "suggested_step": 64},
     "batch_size": {"minimum": 1, "maximum": 128, "suggested_step": 1},
     "gradient_accumulation": {"minimum": 1, "maximum": 1024, "suggested_step": 1},
 }
@@ -52,6 +52,8 @@ def resolve_training_plan(capabilities: dict[str, Any], configuration: Any) -> d
         raise TrainingPlanError("入门训练方案需要选择普通 CPU 算力")
     if backend == "native_mps" and method == "qlora":
         raise TrainingPlanError("Apple Silicon 当前使用 Metal/MPS LoRA；4 位 QLoRA 需要 CUDA 量化后端")
+    if backend == "docker_cpu" and configuration.epochs not in {1, 3, 5}:
+        raise TrainingPlanError("普通电脑请选择快速、推荐或充分训练档位")
 
     resolved = {
         "method": method,
@@ -62,8 +64,11 @@ def resolve_training_plan(capabilities: dict[str, Any], configuration: Any) -> d
         "gradient_accumulation": configuration.gradient_accumulation,
     }
     if backend == "docker_cpu":
-        resolved.update({"learning_rate": 0.001, "max_length": 128, "batch_size": 12, "gradient_accumulation": 1})
+        resolved.update({"learning_rate": 0.001, "max_length": 64, "batch_size": 12, "gradient_accumulation": 1})
     effective_batch_size = resolved["batch_size"] * resolved["gradient_accumulation"]
+    derived = {"effective_batch_size": effective_batch_size}
+    if backend == "docker_cpu":
+        derived["iterations"] = {1: 200, 3: 500, 5: 1000}[configuration.epochs]
     warnings = []
     if effective_batch_size > 128:
         warnings.append("large_effective_batch")
@@ -76,7 +81,7 @@ def resolve_training_plan(capabilities: dict[str, Any], configuration: Any) -> d
         "editable": backend != "docker_cpu",
         "parameters": {key: dict(value) for key, value in PARAMETER_CAPABILITIES.items()},
         "resolved": resolved,
-        "derived": {"effective_batch_size": effective_batch_size},
+        "derived": derived,
         "operators": {
             key: dict(value)
             for key, value in (CPU_STARTER_OPERATORS if backend == "docker_cpu" else ACCELERATED_OPERATORS).items()

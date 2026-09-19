@@ -964,17 +964,51 @@ def test_cpu_experiment_records_the_operators_its_engine_actually_uses() -> None
             "method": "starter",
             "epochs": 3,
             "learning_rate": 0.001,
-            "max_length": 128,
+            "max_length": 64,
             "batch_size": 12,
             "gradient_accumulation": 1,
             "license_confirmed": True,
         }
 
     with TestClient(app) as client:
+        preview_response = client.post(
+            "/v1/training-plans/preview",
+            headers=WEB_HEADERS,
+            json={key: value for key, value in request.items() if key not in {"project_id", "dataset_id", "name", "license_confirmed"}},
+        )
+        assert preview_response.status_code == 200, preview_response.text
+        preview = preview_response.json()
+        assert preview["editable"] is False
+        assert preview["resolved"]["max_length"] == 64
+        assert preview["derived"] == {"effective_batch_size": 12, "iterations": 500}
+        invalid_preview = client.post(
+            "/v1/training-plans/preview",
+            headers=WEB_HEADERS,
+            json={**{key: value for key, value in request.items() if key not in {"project_id", "dataset_id", "name", "license_confirmed"}}, "epochs": 1.1},
+        )
+        assert invalid_preview.status_code == 400
+        assert invalid_preview.json()["detail"] == "普通电脑请选择快速、推荐或充分训练档位"
+
         response = client.post("/v1/experiments", headers=WEB_HEADERS, json=request)
         assert response.status_code == 201, response.text
+        lease_response = client.post("/v1/runners/jobs/lease", headers={"Authorization": "Bearer cpu-runner"})
+        assert lease_response.status_code == 200, lease_response.text
+        lease = lease_response.json()
+        schema = json.loads((Path(__file__).parents[3] / "contracts" / "training-job.schema.json").read_text())
+        Draft202012Validator(schema).validate(lease["payload"])
+        assert lease["payload"]["training"] == {
+            "method": "starter",
+            "epochs": 3,
+            "learning_rate": 0.001,
+            "max_length": 64,
+            "batch_size": 12,
+            "gradient_accumulation": 1,
+            "iterations": 500,
+        }
         state = client.get("/v1/state", headers=WEB_HEADERS).json()
         experiment = next(item for item in state["experiments"] if item["id"] == response.json()["id"])
+        assert experiment["training"]["max_length"] == 64
+        assert experiment["training"]["iterations"] == 500
         assert experiment["training"]["operators"] == {
             "lr_scheduler": {"value": "cosine", "editable": False},
             "evaluation": {"value": "every_100_steps", "editable": False},

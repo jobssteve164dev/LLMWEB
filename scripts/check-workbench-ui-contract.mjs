@@ -5,6 +5,8 @@ const styles = await readFile(new URL("../apps/web/app/globals.css", import.meta
 const controlPlane = await readFile(new URL("../services/control-plane/src/llmweb_control/main.py", import.meta.url), "utf8");
 const datasetInspector = await readFile(new URL("../runner/internal/executor/inspect.go", import.meta.url), "utf8");
 const projectDeleteFlow = workbench.match(/const deleteProject[\s\S]*?const disconnectRunner/)?.[0] ?? "";
+const trainStep = workbench.match(/function TrainStep[\s\S]*?function MonitorStep/)?.[0] ?? "";
+const cpuTrainingFlow = trainStep.match(/if \(isCPU\)[\s\S]*?const activeProfile/)?.[0] ?? "";
 
 const contracts = [
   [workbench.includes('state.account.plan === "free" ? <Link href="/#pricing">'), "Free account plan entry is missing"],
@@ -31,6 +33,9 @@ const contracts = [
   [!controlPlane.includes('dataset.source_type != "starter"'), "CPU training still rejects user-created data versions"],
   [datasetInspector.includes('writeTextRecords(filepath.Join(datasetDirectory, name+".txt")'), "checked data is not prepared for CPU training"],
   [workbench.includes('function ModelChat') && workbench.includes('experiments/${experiment.id}/chat'), "trained-model chat flow is missing"],
+  [cpuTrainingFlow.includes('<TrainingParameterEditor locale={locale} runnerId={runner.id} modelId="karpathy/nanoGPT" method="starter"') && cpuTrainingFlow.includes('editableKeys={[]}'), "CPU Start Training path does not expose its truthful parameter panel"],
+  [cpuTrainingFlow.includes('max_length: 64') && cpuTrainingFlow.includes('epochs: value === "fast" ? 1 : value === "thorough" ? 5 : 3'), "CPU training profiles do not synchronize the engine-backed plan"],
+  [cpuTrainingFlow.includes('await previewPlan(planInput); return api("experiments"') && cpuTrainingFlow.includes('...planInput'), "CPU training does not preflight and create from the same plan"],
   [/\.dialogScrim\s*\{[^}]*position:\s*fixed;/s.test(styles), "confirmation dialog styling is missing"],
 ];
 

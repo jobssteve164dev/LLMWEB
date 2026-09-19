@@ -85,7 +85,7 @@ class TrainingConfiguration(BaseModel):
     method: Literal["lora", "qlora", "starter"] = "qlora"
     epochs: float = Field(default=3, ge=0.1, le=100)
     learning_rate: float = Field(default=0.0002, ge=1e-7, le=1)
-    max_length: int = Field(default=2048, ge=128, le=32768)
+    max_length: int = Field(default=2048, ge=64, le=32768)
     batch_size: int = Field(default=1, ge=1, le=128)
     gradient_accumulation: int = Field(default=8, ge=1, le=1024)
 

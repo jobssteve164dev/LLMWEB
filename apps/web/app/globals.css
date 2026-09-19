@@ -524,6 +524,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .trainingParameterGrid label > span { font-size: 12px; font-weight: 700; }
 .trainingParameterGrid label > small { color: var(--muted); font-size: 9px; line-height: 1.45; }
 .trainingParameterGrid input { min-height: 44px; width: 100%; }
+.trainingParameterGrid input[readonly] { background: #eef1ed; color: var(--muted); cursor: not-allowed; }
 .trainingPlanPreview { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; margin: 0 16px 16px; padding: 14px 16px; }
 .trainingPlanPreview strong { display: block; font-size: 12px; margin-bottom: 4px; }
 .trainingPlanPreview p { color: var(--muted); font-size: 10px; line-height: 1.55; margin: 0; }
