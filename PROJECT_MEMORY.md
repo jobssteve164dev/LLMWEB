@@ -39,6 +39,7 @@ This file stores stable project facts future agents should reuse. Do not paste r
 - Runner 接受任务后持有本地执行状态；浏览器或控制面断开不能终止训练。
 - 模型、checkpoint 和原始数据默认留在用户本地目录或用户自己的 S3 兼容存储。
 - 控制面已实现任务租约、幂等事件、断线补传、暂停/继续/取消和 checkpoint 选择；训练容器由 Runner 在用户主机启动。
+- GPU 与 Apple Silicon 训练使用控制面统一训练计划预检：网页在同一训练步骤中保留推荐档位并可调整 epochs、learning rate、max length、batch size 和 gradient accumulation；参数变化后明确进入自定义状态并按实际值重算估计。预检与实验创建复用 Runner 完整能力校验和同一解析器，实验保存计划版本、有效批次及与实际引擎一致的算子快照，Runner 任务仍只接收既有 1.0 协议字段。CPU 入门训练继续由系统自动匹配，不暴露无效参数。
 
 ## Verification
 

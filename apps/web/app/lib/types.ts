@@ -99,7 +99,18 @@ export type Experiment = {
   dataset_id: string;
   name: string;
   model: { id: string; revision: string };
-  training: { method: "lora" | "qlora" | "starter"; epochs: number; learning_rate: number; max_length: number; iterations?: number };
+  training: {
+    method: "lora" | "qlora" | "starter";
+    epochs: number;
+    learning_rate: number;
+    max_length: number;
+    batch_size: number;
+    gradient_accumulation: number;
+    iterations?: number;
+    plan_version?: string;
+    derived?: { effective_batch_size: number };
+    operators?: Record<string, { value: string | number; editable: boolean }>;
+  };
   export_formats: string[];
   output_destination: "local" | "user_s3";
   output_s3_uri: string | null;

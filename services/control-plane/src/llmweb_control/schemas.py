@@ -81,19 +81,27 @@ class DatasetCreate(BaseModel):
         return self
 
 
-class ExperimentCreate(BaseModel):
+class TrainingConfiguration(BaseModel):
+    method: Literal["lora", "qlora", "starter"] = "qlora"
+    epochs: float = Field(default=3, ge=0.1, le=100)
+    learning_rate: float = Field(default=0.0002, ge=1e-7, le=1)
+    max_length: int = Field(default=2048, ge=128, le=32768)
+    batch_size: int = Field(default=1, ge=1, le=128)
+    gradient_accumulation: int = Field(default=8, ge=1, le=1024)
+
+
+class TrainingPlanPreview(TrainingConfiguration):
+    runner_id: str
+    model_id: str = Field(min_length=1, max_length=300)
+
+
+class ExperimentCreate(TrainingConfiguration):
     project_id: str
     runner_id: str
     dataset_id: str
     name: str = Field(min_length=1, max_length=120)
     model_id: str = Field(min_length=1, max_length=300)
     model_revision: str = Field(default="main", min_length=1, max_length=120)
-    method: Literal["lora", "qlora", "starter"] = "qlora"
-    epochs: float = Field(default=3, gt=0, le=100)
-    learning_rate: float = Field(default=0.0002, gt=0, le=1)
-    max_length: int = Field(default=2048, ge=128, le=32768)
-    batch_size: int = Field(default=1, ge=1, le=128)
-    gradient_accumulation: int = Field(default=8, ge=1, le=1024)
     export_formats: list[Literal["adapter", "huggingface", "gguf", "model"]] = ["adapter"]
     evaluation_preview_allowed: bool = False
     output_destination: Literal["local", "user_s3"] = "local"

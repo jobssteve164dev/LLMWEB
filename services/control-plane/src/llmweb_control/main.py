@@ -13,9 +13,10 @@ from sqlalchemy.orm import Session
 
 from .database import Base, engine, get_db
 from .models import ApiAuditEvent, ApiConnection, ApiRequestReceipt, Dataset, Experiment, Job, JobEvent, PairingCode, Project, Runner, Workspace, new_id, utc_now
-from .schemas import ApiAuditCreate, ApiConnectionCreate, ChatCreate, CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate, ProjectUpdate, RunnerUpgradeAuthorization
+from .schemas import ApiAuditCreate, ApiConnectionCreate, ChatCreate, CheckpointSelect, DatasetCreate, EventBatch, ExperimentCreate, HeartbeatRequest, JobControl, PairRequest, ProjectCreate, ProjectUpdate, RunnerUpgradeAuthorization, TrainingPlanPreview
 from .security import WebIdentity, digest_secret, require_internal_web, require_runner, require_web, resolve_api_connection
 from .settings import get_settings
+from .training_plan import TrainingPlanError, resolve_training_plan
 
 Db = Annotated[Session, Depends(get_db)]
 WebAuth = Annotated[WebIdentity, Depends(require_web)]
@@ -706,6 +707,19 @@ def infer_template(model_id: str) -> str:
     return "default"
 
 
+@app.post("/v1/training-plans/preview", tags=["web"])
+def preview_training_plan(body: TrainingPlanPreview, db: Db, identity: WebAuth) -> dict[str, Any]:
+    runner = db.get(Runner, body.runner_id)
+    if runner is None or runner.workspace_id != identity.workspace_id or runner.revoked:
+        raise HTTPException(status_code=404, detail="算力连接不存在")
+    if body.model_id not in APPROVED_MODELS:
+        raise HTTPException(status_code=400, detail="请选择工作台提供的训练方案")
+    try:
+        return resolve_training_plan(runner.capabilities, body)
+    except TrainingPlanError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
 def _create_experiment(
     body: ExperimentCreate,
     db: Session,
@@ -718,7 +732,7 @@ def _create_experiment(
     dataset = db.get(Dataset, body.dataset_id)
     if project is None or runner is None or dataset is None:
         raise HTTPException(status_code=404, detail="项目、数据或算力连接不存在")
-    if any(item.workspace_id != identity.workspace_id for item in (project, runner, dataset)):
+    if any(item.workspace_id != identity.workspace_id for item in (project, runner, dataset)) or runner.revoked:
         raise HTTPException(status_code=404, detail="项目、数据或算力连接不存在")
     if dataset.status != "ready":
         raise HTTPException(status_code=409, detail="请等待数据检查完成后再开始训练")
@@ -728,19 +742,18 @@ def _create_experiment(
     if revision is None:
         raise HTTPException(status_code=400, detail="请选择工作台提供的训练方案")
     backend = runner.capabilities.get("backend")
+    try:
+        plan = resolve_training_plan(runner.capabilities, body)
+    except TrainingPlanError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     if backend == "docker_cpu":
-        if body.method != "starter" or body.model_id != "karpathy/nanoGPT":
+        if body.model_id != "karpathy/nanoGPT":
             raise HTTPException(status_code=400, detail="这台普通电脑使用入门训练方案；模型和训练设置会由系统自动匹配")
         disk_free_mb = runner.capabilities.get("disk_free_mb")
         if isinstance(disk_free_mb, (int, float)) and disk_free_mb < 20 * 1024:
             raise HTTPException(status_code=409, detail="这台电脑的可用空间不足 20GB，请先扩充或腾出空间再开始训练")
         if body.output_destination != "local":
             raise HTTPException(status_code=400, detail="入门训练结果会先保存在这台电脑，完成后可从模型页查看")
-    elif body.method == "starter":
-        raise HTTPException(status_code=400, detail="入门训练方案需要选择普通 CPU 算力")
-    if runner.capabilities.get("backend") == "native_mps" and body.method == "qlora":
-        raise HTTPException(status_code=400, detail="Apple Silicon 当前使用 Metal/MPS LoRA；4 位 QLoRA 需要 CUDA 量化后端")
-
     is_starter = body.method == "starter"
     installed_environment_version = runner.capabilities.get("training_environment_version")
     if not isinstance(installed_environment_version, str) or not installed_environment_version:
@@ -749,23 +762,22 @@ def _create_experiment(
         "docker_cpu": "linux-amd64-cpu",
         "docker_cuda": "linux-amd64-cuda",
         "native_mps": "darwin-arm64-mps",
-    }.get(backend, backend or "unknown")
+    }[backend]
     model = {
         "source": "github" if is_starter else "huggingface",
         "id": body.model_id,
         "revision": revision,
         "template": "character" if is_starter else infer_template(body.model_id),
     }
-    training = {
-        "method": body.method,
-        "epochs": body.epochs,
-        "learning_rate": body.learning_rate,
-        "max_length": body.max_length,
-        "batch_size": body.batch_size,
-        "gradient_accumulation": body.gradient_accumulation,
-    }
+    runtime_training = dict(plan["resolved"])
     if is_starter:
-        training["iterations"] = 200 if body.epochs <= 1 else 500 if body.epochs <= 3 else 1000
+        runtime_training["iterations"] = 200 if body.epochs <= 1 else 500 if body.epochs <= 3 else 1000
+    training = {
+        **runtime_training,
+        "plan_version": plan["plan_version"],
+        "operators": plan["operators"],
+        "derived": plan["derived"],
+    }
     experiment = Experiment(
         workspace_id=identity.workspace_id,
         project_id=project.id,
@@ -790,7 +802,7 @@ def _create_experiment(
         "experiment_id": experiment.id,
         "dataset_id": dataset.id,
         "model": model,
-        "training": training,
+        "training": runtime_training,
         "runtime": {
             "engine": "nanogpt" if is_starter else "llamafactory",
             "image": (

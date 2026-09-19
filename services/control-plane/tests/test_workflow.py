@@ -1,13 +1,15 @@
 import base64
 import hashlib
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 from sqlalchemy.orm import Session
 
 from llmweb_control.database import Base, engine
 from llmweb_control.main import DEFAULT_WORKSPACE_ID, app
-from llmweb_control.models import ApiRequestReceipt, Dataset, Experiment, Job, Runner, Workspace
+from llmweb_control.models import ApiRequestReceipt, Dataset, Experiment, Job, Project, Runner, Workspace
 from llmweb_control.security import digest_secret
 from llmweb_control.settings import get_settings
 
@@ -38,6 +40,7 @@ def ready_capabilities() -> dict[str, object]:
         "memory_total_mb": 8192,
         "disk_free_mb": 30 * 1024,
         "training_environment_version": "0.2.3",
+        "supported_tasks": ["inspect", "baseline", "train", "evaluate", "export", "chat"],
     }
 
 
@@ -85,7 +88,7 @@ def test_complete_local_training_workflow() -> None:
             json={
                 "code": pairing["code"],
                 "name": "测试算力",
-                "capabilities": {"ready": True, "supported_tasks": ["inspect", "baseline", "train", "evaluate", "export", "chat"], "gpus": [{"name": "Test GPU", "memory_total_mb": 24576}]},
+                "capabilities": {"ready": True, "backend": "docker_cuda", "training_environment_version": "0.2.6", "supported_tasks": ["inspect", "baseline", "train", "evaluate", "export", "chat"], "gpus": [{"name": "Test GPU", "memory_total_mb": 24576}]},
             },
         )
         assert pair_response.status_code == 201
@@ -154,6 +157,11 @@ def test_complete_local_training_workflow() -> None:
                 "dataset_id": dataset_id,
                 "name": "第一次训练",
                 "model_id": "Qwen/Qwen2.5-0.5B-Instruct",
+                "epochs": 2.5,
+                "learning_rate": 0.0001,
+                "max_length": 1024,
+                "batch_size": 2,
+                "gradient_accumulation": 4,
                 "license_confirmed": True,
                 "export_formats": ["adapter", "huggingface", "gguf"],
             },
@@ -166,6 +174,16 @@ def test_complete_local_training_workflow() -> None:
             assert lease_response.status_code == 200, lease_response.text
             lease = lease_response.json()
             assert lease["kind"] == expected_kind
+            schema = json.loads((Path(__file__).parents[3] / "contracts" / "training-job.schema.json").read_text())
+            Draft202012Validator(schema).validate(lease["payload"])
+            assert lease["payload"]["training"] == {
+                "method": "qlora",
+                "epochs": 2.5,
+                "learning_rate": 0.0001,
+                "max_length": 1024,
+                "batch_size": 2,
+                "gradient_accumulation": 4,
+            }
             if expected_kind in {"evaluate", "export"}:
                 assert lease["payload"]["selected_checkpoint"] == "adapter/checkpoint-100"
             result = {}
@@ -204,6 +222,9 @@ def test_complete_local_training_workflow() -> None:
         assert experiment["tuned_metrics"]["exact_match"] == 0.64
         assert experiment["artifacts"][0]["format"] == "adapter"
         assert experiment["selected_checkpoint"] == "adapter/checkpoint-100"
+        assert experiment["training"]["plan_version"] == "1.0"
+        assert experiment["training"]["derived"]["effective_batch_size"] == 8
+        assert experiment["training"]["operators"]["lr_scheduler"] == {"value": "cosine", "editable": False}
         dataset = next(item for item in state["datasets"] if item["id"] == dataset_id)
         assert dataset["status"] == "ready"
         assert dataset["statistics"]["valid_rows"] == 118
@@ -305,7 +326,7 @@ def test_apple_silicon_uses_lora_instead_of_cuda_qlora() -> None:
                 workspace_id=workspace_id(),
                 name="MacBook Pro M1 Max",
                 token_hash=digest_secret("mps-runner-token"),
-                capabilities={"ready": True, "backend": "native_mps", "mps_available": True},
+                capabilities={"ready": True, "backend": "native_mps", "mps_available": True, "supported_tasks": ["baseline", "train", "evaluate", "export"]},
             )
             db.add(runner)
             db.flush()
@@ -353,6 +374,7 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
                     "ready": True, "backend": "docker_cpu", "cpu_cores": 4,
                     "memory_total_mb": 8192, "disk_free_mb": 10 * 1024,
                     "training_environment_version": "0.2.1",
+                    "supported_tasks": ["inspect", "baseline", "train", "evaluate", "export", "chat"],
                 },
             },
         )
@@ -385,6 +407,7 @@ def test_cpu_runner_uses_the_fixed_starter_training_flow() -> None:
             json={"capabilities": {
                 "ready": True, "backend": "docker_cpu", "disk_free_mb": 80 * 1024,
                 "training_environment_version": "0.2.1",
+                "supported_tasks": ["inspect", "baseline", "train", "evaluate", "export", "chat"],
             }},
         )
         experiment_response = client.post(
@@ -416,6 +439,7 @@ def test_cpu_runner_accepts_a_checked_user_dataset_version() -> None:
                 "capabilities": {
                     "ready": True, "backend": "docker_cpu", "disk_free_mb": 80 * 1024,
                     "training_environment_version": "0.2.1",
+                    "supported_tasks": ["inspect", "baseline", "train", "evaluate", "export", "chat"],
                 },
             },
         ).json()
@@ -756,3 +780,205 @@ def test_state_only_returns_selected_project_resources() -> None:
         assert len(first_state["jobs"]) == 1
         assert len(second_state["jobs"]) == 1
         assert first_state["jobs"][0]["dataset_id"] != second_state["jobs"][0]["dataset_id"]
+
+
+def test_training_plan_preview_resolves_parameters_and_fixed_operator_snapshot() -> None:
+    reset_database()
+    with Session(engine) as db:
+        runner = Runner(
+            workspace_id=workspace_id(),
+            name="参数预检算力",
+            token_hash=digest_secret("training-plan-runner"),
+            capabilities={"ready": True, "backend": "docker_cuda", "training_environment_version": "0.2.6", "supported_tasks": ["baseline", "train", "evaluate", "export"]},
+        )
+        db.add(runner)
+        db.commit()
+        runner_id = runner.id
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/training-plans/preview",
+            headers=WEB_HEADERS,
+            json={
+                "runner_id": runner_id,
+                "model_id": "Qwen/Qwen2.5-1.5B-Instruct",
+                "method": "qlora",
+                "epochs": 2.5,
+                "learning_rate": 0.0001,
+                "max_length": 1024,
+                "batch_size": 2,
+                "gradient_accumulation": 4,
+            },
+        )
+
+        assert response.status_code == 200, response.text
+        preview = response.json()
+        assert preview["plan_version"] == "1.0"
+        assert preview["editable"] is True
+        assert preview["parameters"]["learning_rate"] == {"minimum": 1e-07, "maximum": 1.0, "suggested_step": 1e-05}
+        assert preview["resolved"] == {
+            "method": "qlora",
+            "epochs": 2.5,
+            "learning_rate": 0.0001,
+            "max_length": 1024,
+            "batch_size": 2,
+            "gradient_accumulation": 4,
+        }
+        assert preview["derived"]["effective_batch_size"] == 8
+        assert preview["operators"] == {
+            "lr_scheduler": {"value": "cosine", "editable": False},
+            "warmup_ratio": {"value": 0.1, "editable": False},
+            "evaluation": {"value": "epoch", "editable": False},
+            "checkpoint": {"value": "epoch", "editable": False},
+            "precision": {"value": "fp16", "editable": False},
+        }
+
+
+def test_training_plan_preview_rejects_an_operator_combination_the_runner_cannot_execute() -> None:
+    reset_database()
+    with Session(engine) as db:
+        runner = Runner(
+            workspace_id=workspace_id(),
+            name="Apple 参数预检算力",
+            token_hash=digest_secret("training-plan-mps-runner"),
+            capabilities={"ready": True, "backend": "native_mps", "training_environment_version": "0.2.6", "supported_tasks": ["baseline", "train", "evaluate", "export"]},
+        )
+        db.add(runner)
+        db.commit()
+        runner_id = runner.id
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/v1/training-plans/preview",
+            headers=WEB_HEADERS,
+            json={
+                "runner_id": runner_id,
+                "model_id": "Qwen/Qwen2.5-1.5B-Instruct",
+                "method": "qlora",
+                "epochs": 3,
+                "learning_rate": 0.0002,
+                "max_length": 2048,
+                "batch_size": 1,
+                "gradient_accumulation": 8,
+            },
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Apple Silicon 当前使用 Metal/MPS LoRA；4 位 QLoRA 需要 CUDA 量化后端"
+
+
+def test_preview_and_create_reject_unknown_or_revoked_training_runners() -> None:
+    reset_database()
+    with Session(engine) as db:
+        project = Project(workspace_id=workspace_id(), name="资格校验", goal="校验", success_criteria="可执行")
+        unknown_runner = Runner(
+            workspace_id=workspace_id(),
+            name="未知后端",
+            token_hash=digest_secret("unknown-runner"),
+            capabilities={"ready": True, "backend": "mystery", "supported_tasks": ["baseline", "train", "evaluate", "export"]},
+        )
+        revoked_runner = Runner(
+            workspace_id=workspace_id(),
+            name="已撤销算力",
+            token_hash=digest_secret("revoked-runner"),
+            revoked=True,
+            capabilities={"ready": True, "backend": "docker_cuda", "supported_tasks": ["baseline", "train", "evaluate", "export"]},
+        )
+        db.add_all([project, unknown_runner, revoked_runner])
+        db.flush()
+        datasets = []
+        for runner in (unknown_runner, revoked_runner):
+            dataset = Dataset(
+                workspace_id=workspace_id(),
+                project_id=project.id,
+                runner_id=runner.id,
+                name="训练数据",
+                source_type="local",
+                source_ref="data/train.jsonl",
+                format="jsonl",
+                mapping={"instruction": "instruction", "input": "input", "output": "output"},
+                split={"train": 80, "validation": 10, "test": 10},
+                status="ready",
+            )
+            db.add(dataset)
+            datasets.append(dataset)
+        db.commit()
+        project_id = project.id
+        runner_dataset_pairs = [(unknown_runner.id, datasets[0].id), (revoked_runner.id, datasets[1].id)]
+
+    plan = {
+        "model_id": "Qwen/Qwen2.5-1.5B-Instruct",
+        "method": "qlora",
+        "epochs": 3,
+        "learning_rate": 0.0002,
+        "max_length": 2048,
+        "batch_size": 1,
+        "gradient_accumulation": 8,
+    }
+    with TestClient(app) as client:
+        for runner_id, dataset_id in runner_dataset_pairs:
+            preview = client.post("/v1/training-plans/preview", headers=WEB_HEADERS, json={"runner_id": runner_id, **plan})
+            create = client.post(
+                "/v1/experiments",
+                headers=WEB_HEADERS,
+                json={
+                    "project_id": project_id,
+                    "runner_id": runner_id,
+                    "dataset_id": dataset_id,
+                    "name": "不可执行训练",
+                    "license_confirmed": True,
+                    **plan,
+                },
+            )
+            assert preview.status_code in {400, 404}
+            assert create.status_code in {400, 404}
+
+
+def test_cpu_experiment_records_the_operators_its_engine_actually_uses() -> None:
+    reset_database()
+    with Session(engine) as db:
+        project = Project(workspace_id=workspace_id(), name="CPU 训练", goal="入门", success_criteria="完成")
+        runner = Runner(workspace_id=workspace_id(), name="CPU", token_hash=digest_secret("cpu-runner"), capabilities=ready_capabilities())
+        db.add_all([project, runner])
+        db.flush()
+        dataset = Dataset(
+            workspace_id=workspace_id(),
+            project_id=project.id,
+            runner_id=runner.id,
+            name="练习数据",
+            source_type="starter",
+            source_ref="starter",
+            format="text",
+            mapping={"text": "text"},
+            split={"train": 80, "validation": 10, "test": 10},
+            status="ready",
+        )
+        db.add(dataset)
+        db.commit()
+        request = {
+            "project_id": project.id,
+            "runner_id": runner.id,
+            "dataset_id": dataset.id,
+            "name": "CPU 入门",
+            "model_id": "karpathy/nanoGPT",
+            "method": "starter",
+            "epochs": 3,
+            "learning_rate": 0.001,
+            "max_length": 128,
+            "batch_size": 12,
+            "gradient_accumulation": 1,
+            "license_confirmed": True,
+        }
+
+    with TestClient(app) as client:
+        response = client.post("/v1/experiments", headers=WEB_HEADERS, json=request)
+        assert response.status_code == 201, response.text
+        state = client.get("/v1/state", headers=WEB_HEADERS).json()
+        experiment = next(item for item in state["experiments"] if item["id"] == response.json()["id"])
+        assert experiment["training"]["operators"] == {
+            "lr_scheduler": {"value": "cosine", "editable": False},
+            "evaluation": {"value": "every_100_steps", "editable": False},
+            "checkpoint": {"value": "best_validation", "editable": False},
+            "precision": {"value": "fp32", "editable": False},
+            "gradient_clip": {"value": 1.0, "editable": False},
+        }
