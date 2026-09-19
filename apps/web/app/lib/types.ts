@@ -70,6 +70,9 @@ export type Job = {
   error: string | null;
   experiment_id: string | null;
   dataset_id: string | null;
+  created_at?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
   prompt?: string;
   events: JobEvent[];
 };

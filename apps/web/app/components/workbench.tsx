@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AuthScreen } from "./auth-screen";
 import { LanguageSwitcher, useLanguage } from "./language-provider";
+import { TrainingMonitorDashboard } from "./training-monitor-dashboard";
 import { localeTag, type Locale } from "../lib/i18n";
 import type { ApiActivity, ApiConnection, Dataset, EvaluationSample, Experiment, Job, Metrics, Project, Runner, WorkspaceState } from "../lib/types";
 
@@ -668,7 +669,8 @@ function MonitorStep({ experiment, jobs, runner, busy, perform, moveTo }: { expe
   const stageTitle = isStarter ? starterStageLabel(experiment.current_stage, locale) : stageLabel(experiment.current_stage, locale);
   return <><SectionIntro eyebrow={experiment.status === "completed" ? (english ? "Training complete" : "训练已完成") : (english ? "Training in progress" : "训练进行中")} title={stageTitle} description={experiment.status === "completed" ? (english ? "The before-and-after models have been compared on the same test text." : "训练前后的模型已经用同一份考试文本完成比较。") : (english ? `You can close the web app. ${runner?.name ?? "Your computer"} continues the task and progress catches up when you return.` : `网页可以关闭；任务由 ${runner?.name ?? "你的电脑"} 继续执行，回来后进度会自动追平。`)} />
     {experiment.status === "failed" ? <div className="failurePanel"><strong>{english ? "This training run did not complete" : "本次训练没有完成"}</strong><p>{experimentJobs.find((job) => job.status === "failed")?.error ?? (english ? "Expand the run log for details." : "请展开运行记录查看具体原因。")}</p></div> : null}
-    <ProgressPanel label={`${percent}% · ${stageTitle}`} progress={percent} />
+    <TrainingMonitorDashboard experimentName={experiment.name} status={experiment.status} stageTitle={stageTitle} locale={locale} jobs={experimentJobs} />
+    <ProgressPanel label={`${percent}% · ${english ? "Entire workflow" : "完整流程"}`} progress={percent} />
     {runner && experiment.status !== "completed" ? <MachineLive runner={runner} /> : null}
     <div className="stageGrid">{experimentJobs.map((job) => <article key={job.id} className={job.status}><span>{job.status === "completed" ? "✓" : job.status === "running" || job.status === "leased" ? "●" : job.status === "failed" ? "!" : "○"}</span><div><strong>{isStarter ? starterJobLabel(job.kind, locale) : jobLabel(job.kind, locale)}</strong><small>{jobStatus(job.status, locale)}</small></div></article>)}</div>
     {experiment.status === "awaiting_selection" && experiment.checkpoints?.length ? <CheckpointPicker experiment={experiment} busy={busy} perform={perform} /> : null}
