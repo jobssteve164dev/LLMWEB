@@ -14,6 +14,7 @@ x-gitops:
 services:
   control-plane:
     image: llmweb-control-plane:latest
+    restart: unless-stopped
     platform: linux/amd64
     build:
       context: .
@@ -39,6 +40,7 @@ services:
 
   web:
     image: llmweb-web:latest
+    restart: unless-stopped
     platform: linux/amd64
     build:
       context: .
