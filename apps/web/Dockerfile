@@ -10,6 +10,7 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /app/
+COPY patches /app/patches
 COPY apps/web/package.json /app/apps/web/package.json
 COPY packages/passport-client/package.json /app/packages/passport-client/package.json
 RUN pnpm install --frozen-lockfile --filter @llmweb/web... --network-concurrency=4 --child-concurrency=1

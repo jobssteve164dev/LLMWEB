@@ -5,9 +5,16 @@ packages:
 overrides:
   nanoid@<3.3.18: 3.3.18
   postcss: 8.5.25
-  sharp: 0.35.4
+  sharp: 0.35.5
   js-yaml: 4.3.2
+  source-map-js: 1.2.2
+  brace-expansion@<2: 1.1.21
+  brace-expansion@>=4: 5.0.12
+  braces: 3.0.3
 
 allowBuilds:
   sharp: true
   unrs-resolver: true
+
+patchedDependencies:
+  braces@3.0.3: patches/braces@3.0.3.patch

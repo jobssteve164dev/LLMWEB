@@ -1,0 +1,100 @@
+diff --git a/lib/constants.js b/lib/constants.js
+index 2bb3b8840382c56700869b3a9e1f958fcce01efd..2780ff662faae915c546ec244fbfd58a19adbb60 100644
+--- a/lib/constants.js
++++ b/lib/constants.js
+@@ -1,6 +1,7 @@
+ 'use strict';
+ 
+ module.exports = {
++  MAX_DEPTH: 256,
+   MAX_LENGTH: 10000,
+ 
+   // Digits
+diff --git a/lib/parse.js b/lib/parse.js
+index 3a6988e629f52aee6609dc5ec290a5e9ff47cecb..ed925f9cabdb90948b7aa1a77d750d91fa6f6c5b 100644
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -7,6 +7,7 @@ const stringify = require('./stringify');
+  */
+ 
+ const {
++  MAX_DEPTH,
+   MAX_LENGTH,
+   CHAR_BACKSLASH, /* \ */
+   CHAR_BACKTICK, /* ` */
+@@ -39,6 +40,7 @@ const parse = (input, options = {}) => {
+     throw new SyntaxError(`Input length (${input.length}), exceeds max characters (${max})`);
+   }
+ 
++  const maxDepth = Number.isFinite(opts.maxDepth) && opts.maxDepth >= 0 ? Math.min(MAX_DEPTH, opts.maxDepth) : MAX_DEPTH;
+   const ast = { type: 'root', input, nodes: [] };
+   const stack = [ast];
+   let block = ast;
+@@ -71,6 +73,20 @@ const parse = (input, options = {}) => {
+     return node;
+   };
+ 
++  /**
++   * Groups nested deeper than maxDepth are parsed as usual, then replaced with
++   * their source text once they close, so the recursive walkers (and the
++   * `stringify` call below) never see a tree deeper than maxDepth.
++   */
++
++  const collapse = node => {
++    const parent = stack[stack.length - 1];
++    parent.nodes.pop();
++    block = parent;
++    prev = parent.nodes[parent.nodes.length - 1];
++    push({ type: 'text', value: input.slice(node.literalStart, index) });
++  };
++
+   push({ type: 'bos' });
+ 
+   while (index < length) {
+@@ -144,6 +160,7 @@ const parse = (input, options = {}) => {
+ 
+     if (value === CHAR_LEFT_PARENTHESES) {
+       block = push({ type: 'paren', nodes: [] });
++      if (stack.length > maxDepth) block.literalStart = index - 1;
+       stack.push(block);
+       push({ type: 'text', value });
+       continue;
+@@ -156,6 +173,7 @@ const parse = (input, options = {}) => {
+       }
+       block = stack.pop();
+       push({ type: 'text', value });
++      if (block.literalStart !== undefined) collapse(block);
+       block = stack[stack.length - 1];
+       continue;
+     }
+@@ -210,6 +228,7 @@ const parse = (input, options = {}) => {
+       };
+ 
+       block = push(brace);
++      if (stack.length > maxDepth) block.literalStart = index - 1;
+       stack.push(block);
+       push({ type: 'open', value });
+       continue;
+@@ -231,6 +250,7 @@ const parse = (input, options = {}) => {
+ 
+       push({ type, value });
+       depth--;
++      if (block.literalStart !== undefined) collapse(block);
+ 
+       block = stack[stack.length - 1];
+       continue;
+@@ -302,6 +322,14 @@ const parse = (input, options = {}) => {
+     push({ type: 'text', value });
+   }
+ 
++  // An unclosed group past maxDepth keeps the rest of the input as text
++  const literalIndex = stack.findIndex(node => node.literalStart !== undefined);
++  if (literalIndex !== -1) {
++    const node = stack[literalIndex];
++    stack.length = literalIndex;
++    collapse(node);
++  }
++
+   // Mark imbalanced braces and brackets as invalid
+   do {
+     block = stack.pop();

@@ -27,7 +27,9 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
       - name: Dependency audit
-        run: pnpm audit --audit-level high
+        # braces has no upstream release; the audit exception requires its backport regression to pass.
+        # See docs/security/dependency-remediation.md. All other advisories remain blocking.
+        run: pnpm audit:dependencies
 
   python-audit:
     runs-on: ubuntu-latest
