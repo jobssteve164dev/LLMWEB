@@ -1,5 +1,15 @@
 # JavaScript 依赖安全整改
 
+## 2026-11-09 Next.js 与 Zod 高危告警
+
+GitHub 告警 #20–25 是同一个 `next@16.3.8` 依赖在 manifest 与 lockfile 上的重复登记，实际对应 Server Actions 拒绝服务、SVG 图片优化远程代码执行和 `use cache` typed array 远程代码执行三个漏洞；三者的首个修复版本均为 16.4.1。Web 运行时和配套 ESLint 配置同步升级到当前稳定修复版 16.4.5。
+
+告警 #26 来自 `eslint-config-next` → `eslint-plugin-react-hooks` → `zod@4.4.3` 的开发检查链。锁文件将唯一 Zod 解析提升到 4.6.7，高于该内存耗尽漏洞的首个修复版本 4.6.6。仓库业务代码不直接导入 Zod，但仍按真实依赖修复，不以当前不可达代替升级。
+
+告警 #19 对应的 `GHSA-vfj7-8cjw-p6xm` 已由上游撤回，GitHub 的仓库告警仍显示 open。现有 `braces@3.0.3` 深度上限回补及真实 Next ESLint 消费链回归继续保留；没有 dismiss 或 ignore 该告警，也没有因撤回而移除已验证的栈耗尽防护。
+
+本轮改动前 `pnpm audit:dependencies` 报告 2 个 critical、2 个 high 并阻断；升级后同一入口报告 critical=0、high=0，仅剩不属于本轮高危清单的 moderate。`pnpm why --recursive` 复核仓库只解析 `next@16.4.5`、`zod@4.6.7` 和带本地回补的 `braces@3.0.3`。
+
 ## 2026-10-20 风险与根因
 
 GitHub 告警 #12–19 在整改前均为 open。其中 Next.js 的两类漏洞分别同时登记在 manifest 和 lockfile，8 条告警对应 6 个漏洞。
@@ -22,7 +32,7 @@ GitHub 告警 #12–19 在整改前均为 open。其中 Next.js 的两类漏洞�
 
 `patches/braces@3.0.3.patch` 由 pnpm 按锁定摘要应用。所有 braces 解析统一固定到该版本；解析器把超过 256 层的结构作为原文处理，保留普通嵌套、引号、转义和范围展开。花括号、圆括号、混合结构及未闭合输入均纳入回归。Docker 依赖阶段也复制同一补丁，使用同一 frozen lockfile。
 
-`pnpm audit:dependencies` 先对真实 Next ESLint 依赖链运行补丁回归，再读取原始 `pnpm audit --json`。门禁保留并展示全部扫描结果，仅将 `GHSA-vfj7-8cjw-p6xm` 中版本精确为 braces 3.0.3 的 high 记录归类为受测回补；其他版本、其他告警及升级为 critical 的记录均不能继承例外。任何回归失败或扫描异常都会阻断检查，配置中没有持久 ignore，原始 `pnpm audit` 仍失败并显示这条高危，GitHub #19 可能持续 open，未对其执行 dismiss。待官方发布修复版后应替换回补并移除该单项分类。
+`pnpm audit:dependencies` 先对真实 Next ESLint 依赖链运行补丁回归，再读取原始 `pnpm audit --json`。门禁保留并展示全部扫描结果，仅将 `GHSA-vfj7-8cjw-p6xm` 中版本精确为 braces 3.0.3 的 high 记录归类为受测回补；其他版本、其他告警及升级为 critical 的记录均不能继承例外。任何回归失败或扫描异常都会阻断检查，配置中没有持久 ignore。2026-10-20 整改时原始 `pnpm audit` 仍失败并显示这条高危；2026-11-09 上游撤回后，原始审计已不再返回该记录，但 GitHub #19 仍显示 open，且未对其执行 dismiss。本地回补与 fail-closed 分类继续保留，待官方发布修复版后再替换回补并移除该单项分类。
 
 ## 验证入口与影响面
 
